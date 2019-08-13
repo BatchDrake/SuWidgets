@@ -1,0 +1,4 @@
+#ifndef CTKRANGRSLIDER_H
+#define CTKRANGRSLIDER_H
+
+#endif // CTKRANGRSLIDER_H

@@ -1,0 +1,2 @@
+HEADERS += LCD.h
+SOURCES += LCD.cpp
