@@ -47,13 +47,13 @@
 #define PEAK_H_TOLERANCE 2
 
 
-class CPlotter : public QFrame
+class Waterfall : public QFrame
 {
     Q_OBJECT
 
 public:
-    explicit CPlotter(QWidget *parent = 0);
-    ~CPlotter();
+    explicit Waterfall(QWidget *parent = 0);
+    ~Waterfall();
 
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
@@ -76,6 +76,16 @@ public:
     void setFreqUnits(qint32 unit) { m_FreqUnits = unit; }
 
     void setDemodCenterFreq(quint64 f) { m_DemodCenterFreq = f; }
+
+    void setPalette(const QColor *table)
+    {
+      unsigned int i;
+
+      for (i = 0; i < 256; ++i)
+        this->m_ColorTbl[i] = table[i];
+
+      this->update();
+    }
 
     /*! \brief Move the filter to freq_hz from center. */
     void setFilterOffset(qint64 freq_hz)
@@ -168,6 +178,9 @@ public slots:
 
     // other FFT slots
     void setFftPlotColor(const QColor color);
+    void setFftBgColor(const QColor color);
+    void setFftAxesColor(const QColor color);
+    void setFftTextColor(const QColor color);
     void setFftFill(bool enabled);
     void setPeakHold(bool enabled);
     void setFftRange(float min, float max);
@@ -238,7 +251,7 @@ private:
     QPixmap     m_2DPixmap;
     QPixmap     m_OverlayPixmap;
     QPixmap     m_WaterfallPixmap;
-    QColor      m_ColorTbl[256];
+    QColor              m_ColorTbl[256];
     QSize       m_Size;
     QString     m_Str;
     QString     m_HDivText[HORZ_DIVS_MAX+1];
@@ -294,6 +307,8 @@ private:
     quint32     m_LastSampleRate;
 
     QColor      m_FftColor, m_FftFillCol, m_PeakHoldColor;
+    QColor      m_FftBgColor, m_FftCenterAxisColor, m_FftAxesColor;
+    QColor      m_FftTextColor;
     bool        m_FftFill;
 
     float       m_PeakDetection;

@@ -19,7 +19,7 @@
 #ifndef LCDPLUGIN_H
 #define LCDPLUGIN_H
 
-#include <QDesignerCustomWidgetInterface>
+#include <QtUiPlugin/QDesignerCustomWidgetInterface>
 
 class LCDPlugin : public QObject, public QDesignerCustomWidgetInterface
 {

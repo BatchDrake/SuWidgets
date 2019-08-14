@@ -59,7 +59,7 @@ QString ConstellationPlugin::group() const
 
 QIcon ConstellationPlugin::icon() const
 {
-  return QIcon();
+  return QIcon(":/icons/open_icon.png");
 }
 
 QString ConstellationPlugin::toolTip() const
@@ -69,7 +69,7 @@ QString ConstellationPlugin::toolTip() const
 
 QString ConstellationPlugin::whatsThis() const
 {
-  return QLatin1String("");
+  return QLatin1String("Constellation widget for phase-modulated signals");
 }
 
 bool ConstellationPlugin::isContainer() const

@@ -16,19 +16,19 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#ifndef LCDPLUGIN_H
-#define LCDPLUGIN_H
+#ifndef WaterfallPLUGIN_H
+#define WaterfallPLUGIN_H
 
-#include <QDesignerCustomWidgetInterface>
+#include <QtUiPlugin/QDesignerCustomWidgetInterface>
 
-class LCDPlugin : public QObject, public QDesignerCustomWidgetInterface
+class WaterfallPlugin : public QObject, public QDesignerCustomWidgetInterface
 {
   Q_OBJECT
   Q_INTERFACES(QDesignerCustomWidgetInterface)
 
 
 public:
-  LCDPlugin(QObject *parent = 0);
+  WaterfallPlugin(QObject *parent = 0);
 
   bool isContainer() const;
   bool isInitialized() const;

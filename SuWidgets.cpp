@@ -22,6 +22,9 @@
 #include "LCDPlugin.h"
 #include "WaveformPlugin.h"
 #include "SymViewPlugin.h"
+#include "WaterfallPlugin.h"
+#include "ctkRangeSliderPlugin.h"
+#include "ColorChooserButtonPlugin.h"
 #include "SuWidgets.h"
 
 SuWidgets::SuWidgets(QObject *parent)
@@ -33,7 +36,9 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new LCDPlugin(this));
   m_widgets.append(new WaveformPlugin(this));
   m_widgets.append(new SymViewPlugin(this));
-
+  m_widgets.append(new WaterfallPlugin(this));
+  m_widgets.append(new ColorChooserButtonPlugin(this));
+  m_widgets.append(new ctkRangeSliderPlugin(this));
 }
 
 QList<QDesignerCustomWidgetInterface*> SuWidgets::customWidgets() const

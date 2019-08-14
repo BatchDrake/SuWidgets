@@ -19,7 +19,7 @@
 #ifndef WAVEFORMPLUGIN_H
 #define WAVEFORMPLUGIN_H
 
-#include <QDesignerCustomWidgetInterface>
+#include <QtUiPlugin/QDesignerCustomWidgetInterface>
 
 class WaveformPlugin : public QObject, public QDesignerCustomWidgetInterface
 {

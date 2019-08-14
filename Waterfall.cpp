@@ -63,7 +63,7 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 #include <QPainter>
 #include <QtGlobal>
 #include <QToolTip>
-#include <Gqrx/CPlotter.h>
+#include "Waterfall.h"
 
 // Comment out to enable plotter debug messages
 //#define PLOTTER_DEBUG
@@ -110,7 +110,7 @@ static inline quint64 time_ms(void)
     "Drag and scroll X and Y axes for pan and zoom. " \
     "Drag filter edges to adjust filter."
 
-CPlotter::CPlotter(QWidget *parent) : QFrame(parent)
+Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setFocusPolicy(Qt::StrongFocus);
@@ -198,6 +198,9 @@ CPlotter::CPlotter(QWidget *parent) : QFrame(parent)
     m_PeakHoldValid = false;
 
     setFftPlotColor(QColor(0xFF,0xFF,0xFF,0xFF));
+    setFftBgColor(QColor(PLOTTER_BGD_COLOR));
+    setFftAxesColor(QColor(PLOTTER_GRID_COLOR));
+
     setFftFill(false);
 
     // always update waterfall
@@ -208,21 +211,21 @@ CPlotter::CPlotter(QWidget *parent) : QFrame(parent)
     memset(m_wfbuf, 255, MAX_SCREENSIZE);
 }
 
-CPlotter::~CPlotter()
+Waterfall::~Waterfall()
 {
 }
 
-QSize CPlotter::minimumSizeHint() const
+QSize Waterfall::minimumSizeHint() const
 {
     return QSize(50, 50);
 }
 
-QSize CPlotter::sizeHint() const
+QSize Waterfall::sizeHint() const
 {
     return QSize(180, 180);
 }
 
-void CPlotter::mouseMoveEvent(QMouseEvent* event)
+void Waterfall::mouseMoveEvent(QMouseEvent* event)
 {
 
     QPoint pt = event->pos();
@@ -507,7 +510,7 @@ void CPlotter::mouseMoveEvent(QMouseEvent* event)
 }
 
 
-int CPlotter::getNearestPeak(QPoint pt)
+int Waterfall::getNearestPeak(QPoint pt)
 {
     QMap<int, int>::const_iterator i = m_Peaks.lowerBound(pt.x() - PEAK_CLICK_MAX_H_DISTANCE);
     QMap<int, int>::const_iterator upperBound = m_Peaks.upperBound(pt.x() + PEAK_CLICK_MAX_H_DISTANCE);
@@ -534,14 +537,14 @@ int CPlotter::getNearestPeak(QPoint pt)
 }
 
 /** Set waterfall span in milliseconds */
-void CPlotter::setWaterfallSpan(quint64 span_ms)
+void Waterfall::setWaterfallSpan(quint64 span_ms)
 {
     wf_span = span_ms;
     msec_per_wfline = wf_span / m_WaterfallPixmap.height();
     clearWaterfall();
 }
 
-void CPlotter::clearWaterfall()
+void Waterfall::clearWaterfall()
 {
     m_WaterfallPixmap.fill(Qt::black);
     memset(m_wfbuf, 255, MAX_SCREENSIZE);
@@ -554,7 +557,7 @@ void CPlotter::clearWaterfall()
  *
  * We assume that frequency strings are up to date
  */
-bool CPlotter::saveWaterfall(const QString & filename) const
+bool Waterfall::saveWaterfall(const QString & filename) const
 {
     QBrush          axis_brush(QColor(0x00, 0x00, 0x00, 0x70), Qt::SolidPattern);
     QPixmap         pixmap(m_WaterfallPixmap);
@@ -620,7 +623,7 @@ bool CPlotter::saveWaterfall(const QString & filename) const
 }
 
 /** Get waterfall time resolution in milleconds / line. */
-quint64 CPlotter::getWfTimeRes(void)
+quint64 Waterfall::getWfTimeRes(void)
 {
     if (msec_per_wfline)
         return msec_per_wfline;
@@ -628,14 +631,14 @@ quint64 CPlotter::getWfTimeRes(void)
         return 1000 * fft_rate / m_WaterfallPixmap.height(); // Auto mode
 }
 
-void CPlotter::setFftRate(int rate_hz)
+void Waterfall::setFftRate(int rate_hz)
 {
     fft_rate = rate_hz;
     clearWaterfall();
 }
 
 // Called when a mouse button is pressed
-void CPlotter::mousePressEvent(QMouseEvent * event)
+void Waterfall::mousePressEvent(QMouseEvent * event)
 {
     QPoint pt = event->pos();
 
@@ -732,7 +735,7 @@ void CPlotter::mousePressEvent(QMouseEvent * event)
     }
 }
 
-void CPlotter::mouseReleaseEvent(QMouseEvent * event)
+void Waterfall::mouseReleaseEvent(QMouseEvent * event)
 {
     QPoint pt = event->pos();
 
@@ -762,7 +765,7 @@ void CPlotter::mouseReleaseEvent(QMouseEvent * event)
 
 
 // Make a single zoom step on the X axis.
-void CPlotter::zoomStepX(float step, int x)
+void Waterfall::zoomStepX(float step, int x)
 {
     // calculate new range shown on FFT
     float new_range = qBound(10.0f,
@@ -788,7 +791,7 @@ void CPlotter::zoomStepX(float step, int x)
 }
 
 // Zoom on X axis (absolute level)
-void CPlotter::zoomOnXAxis(float level)
+void Waterfall::zoomOnXAxis(float level)
 {
     float current_level = (float)m_SampleFreq / (float)m_Span;
 
@@ -796,7 +799,7 @@ void CPlotter::zoomOnXAxis(float level)
 }
 
 // Called when a mouse wheel is turned
-void CPlotter::wheelEvent(QWheelEvent * event)
+void Waterfall::wheelEvent(QWheelEvent * event)
 {
     QPoint pt = event->pos();
     int numDegrees = event->delta() / 8;
@@ -861,7 +864,7 @@ void CPlotter::wheelEvent(QWheelEvent * event)
 }
 
 // Called when screen size changes so must recalculate bitmaps
-void CPlotter::resizeEvent(QResizeEvent* )
+void Waterfall::resizeEvent(QResizeEvent* )
 {
     if (!size().isValid())
         return;
@@ -902,7 +905,7 @@ void CPlotter::resizeEvent(QResizeEvent* )
 }
 
 // Called by QT when screen needs to be redrawn
-void CPlotter::paintEvent(QPaintEvent *)
+void Waterfall::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
 
@@ -912,7 +915,7 @@ void CPlotter::paintEvent(QPaintEvent *)
 }
 
 // Called to update spectrum data for displaying on the screen
-void CPlotter::draw()
+void Waterfall::draw()
 {
     int     i, n;
     int     w;
@@ -1127,7 +1130,7 @@ void CPlotter::draw()
  * When FFT data is set using this method, the same data will be used for both the
  * pandapter and the waterfall.
  */
-void CPlotter::setNewFftData(float *fftData, int size)
+void Waterfall::setNewFftData(float *fftData, int size)
 {
     /** FIXME **/
     if (!m_Running)
@@ -1150,7 +1153,7 @@ void CPlotter::setNewFftData(float *fftData, int size)
  * waterfall.
  */
 
-void CPlotter::setNewFftData(float *fftData, float *wfData, int size)
+void Waterfall::setNewFftData(float *fftData, float *wfData, int size)
 {
     /** FIXME **/
     if (!m_Running)
@@ -1163,7 +1166,7 @@ void CPlotter::setNewFftData(float *fftData, float *wfData, int size)
     draw();
 }
 
-void CPlotter::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
+void Waterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
                                        float maxdB, float mindB,
                                        qint64 startFreq, qint64 stopFreq,
                                        float *inBuf, qint32 *outBuf,
@@ -1266,13 +1269,13 @@ void CPlotter::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
     delete [] m_pTranslateTbl;
 }
 
-void CPlotter::setFftRange(float min, float max)
+void Waterfall::setFftRange(float min, float max)
 {
     setWaterfallRange(min, max);
     setPandapterRange(min, max);
 }
 
-void CPlotter::setPandapterRange(float min, float max)
+void Waterfall::setPandapterRange(float min, float max)
 {
     if (out_of_range(min, max))
         return;
@@ -1283,7 +1286,7 @@ void CPlotter::setPandapterRange(float min, float max)
     m_PeakHoldValid = false;
 }
 
-void CPlotter::setWaterfallRange(float min, float max)
+void Waterfall::setWaterfallRange(float min, float max)
 {
     if (out_of_range(min, max))
         return;
@@ -1295,7 +1298,7 @@ void CPlotter::setWaterfallRange(float min, float max)
 
 // Called to draw an overlay bitmap containing grid and text that
 // does not need to be recreated every fft data update.
-void CPlotter::drawOverlay()
+void Waterfall::drawOverlay()
 {
     if (m_OverlayPixmap.isNull())
         return;
@@ -1316,7 +1319,7 @@ void CPlotter::drawOverlay()
 
     // solid background
     painter.setBrush(Qt::SolidPattern);
-    painter.fillRect(0, 0, w, h, QColor(PLOTTER_BGD_COLOR));
+    painter.fillRect(0, 0, w, h, m_FftBgColor);
 
 #define HOR_MARGIN 5
 #define VER_MARGIN 5
@@ -1328,7 +1331,7 @@ void CPlotter::drawOverlay()
     int xAxisTop = h - xAxisHeight;
     int fLabelTop = xAxisTop + VER_MARGIN;
 
-#ifdef CPLOTTER_BOOKMARKS_SUPPORT
+#ifdef Waterfall_BOOKMARKS_SUPPORT
     if (m_BookmarksEnabled)
     {
         m_BookmarkTags.clear();
@@ -1382,13 +1385,13 @@ void CPlotter::drawOverlay()
                              bookmarks[i].name);
         }
     }
-#endif // CPLOTTER_BOOKMARKS_SUPPORT
+#endif // Waterfall_BOOKMARKS_SUPPORT
     if (m_CenterLineEnabled)
     {
         x = xFromFreq(m_CenterFreq);
         if (x > 0 && x < w)
         {
-            painter.setPen(QColor(PLOTTER_CENTER_LINE_COLOR));
+            painter.setPen(m_FftCenterAxisColor);
             painter.drawLine(x, 0, x, xAxisTop);
         }
     }
@@ -1403,7 +1406,7 @@ void CPlotter::drawOverlay()
     pixperdiv = (float)w * (float) m_FreqPerDiv / (float) m_Span;
     adjoffset = pixperdiv * float (m_StartFreqAdj - StartFreq) / (float) m_FreqPerDiv;
 
-    painter.setPen(QPen(QColor(PLOTTER_GRID_COLOR), 1, Qt::DotLine));
+    painter.setPen(QPen(m_FftAxesColor, 1, Qt::DotLine));
     for (int i = 0; i <= m_HorDivs; i++)
     {
         x = (int)((float)i * pixperdiv + adjoffset);
@@ -1413,7 +1416,7 @@ void CPlotter::drawOverlay()
 
     // draw frequency values (x axis)
     makeFrequencyStrs();
-    painter.setPen(QColor(PLOTTER_TEXT_COLOR));
+    painter.setPen(m_FftTextColor);
     for (int i = 0; i <= m_HorDivs; i++)
     {
         int tw = metrics.width(m_HDivText[i]);
@@ -1445,7 +1448,7 @@ void CPlotter::drawOverlay()
              << "pixperdiv =" << pixperdiv << "adjoffset =" << adjoffset;
 #endif
 
-    painter.setPen(QPen(QColor(PLOTTER_GRID_COLOR), 1, Qt::DotLine));
+    painter.setPen(QPen(m_FftAxesColor, 1, Qt::DotLine));
     for (int i = 0; i <= m_VerDivs; i++)
     {
         y = h - (int)((float) i * pixperdiv + adjoffset);
@@ -1456,7 +1459,7 @@ void CPlotter::drawOverlay()
     // draw amplitude values (y axis)
     int dB = m_PandMaxdB;
     m_YAxisWidth = metrics.width("-120 ");
-    painter.setPen(QColor(PLOTTER_TEXT_COLOR));
+    painter.setPen(m_FftTextColor);
     for (int i = 0; i < m_VerDivs; i++)
     {
         y = h - (int)((float) i * pixperdiv + adjoffset);
@@ -1500,11 +1503,32 @@ void CPlotter::drawOverlay()
     painter.end();
 }
 
+static QString
+formatFreqUnits(int units)
+{
+  switch (units) {
+    case 1:
+      return QString("");
+
+    case 1000:
+      return QString("K");
+
+    case 1000000:
+      return QString("M");
+
+    case 1000000000:
+      return QString("G");
+  }
+
+  return QString("");
+}
+
+
 // Create frequency division strings based on start frequency, span frequency,
 // and frequency units.
 // Places in QString array m_HDivText
 // Keeps all strings the same fractional length
-void CPlotter::makeFrequencyStrs()
+void Waterfall::makeFrequencyStrs()
 {
     qint64  StartFreq = m_StartFreqAdj;
     float   freq;
@@ -1550,12 +1574,13 @@ void CPlotter::makeFrequencyStrs()
     {
         freq = (float)StartFreq/(float)m_FreqUnits;
         m_HDivText[i].setNum(freq,'f', max);
+        m_HDivText[i] += formatFreqUnits(m_FreqUnits);
         StartFreq += m_FreqPerDiv;
     }
 }
 
 // Convert from screen coordinate to frequency
-int CPlotter::xFromFreq(qint64 freq)
+int Waterfall::xFromFreq(qint64 freq)
 {
     int w = m_OverlayPixmap.width();
     qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span/2;
@@ -1568,7 +1593,7 @@ int CPlotter::xFromFreq(qint64 freq)
 }
 
 // Convert from frequency to screen coordinate
-qint64 CPlotter::freqFromX(int x)
+qint64 Waterfall::freqFromX(int x)
 {
     int w = m_OverlayPixmap.width();
     qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
@@ -1577,7 +1602,7 @@ qint64 CPlotter::freqFromX(int x)
 }
 
 /** Calculate time offset of a given line on the waterfall */
-quint64 CPlotter::msecFromY(int y)
+quint64 Waterfall::msecFromY(int y)
 {
     // ensure we are in the waterfall region
     if (y < m_OverlayPixmap.height())
@@ -1592,7 +1617,7 @@ quint64 CPlotter::msecFromY(int y)
 }
 
 // Round frequency to click resolution value
-qint64 CPlotter::roundFreq(qint64 freq, int resolution)
+qint64 Waterfall::roundFreq(qint64 freq, int resolution)
 {
     qint64 delta = resolution;
     qint64 delta_2 = delta / 2;
@@ -1603,7 +1628,7 @@ qint64 CPlotter::roundFreq(qint64 freq, int resolution)
 }
 
 // Clamp demod freqeuency limits of m_DemodCenterFreq
-void CPlotter::clampDemodParameters()
+void Waterfall::clampDemodParameters()
 {
     if(m_DemodLowCutFreq < m_FLowCmin)
         m_DemodLowCutFreq = m_FLowCmin;
@@ -1616,7 +1641,7 @@ void CPlotter::clampDemodParameters()
         m_DemodHiCutFreq = m_FHiCmax;
 }
 
-void CPlotter::setDemodRanges(int FLowCmin, int FLowCmax,
+void Waterfall::setDemodRanges(int FLowCmin, int FLowCmax,
                               int FHiCmin, int FHiCmax,
                               bool symetric)
 {
@@ -1629,7 +1654,7 @@ void CPlotter::setDemodRanges(int FLowCmin, int FLowCmax,
     updateOverlay();
 }
 
-void CPlotter::setCenterFreq(quint64 f)
+void Waterfall::setCenterFreq(quint64 f)
 {
     if((quint64)m_CenterFreq == f)
         return;
@@ -1645,7 +1670,7 @@ void CPlotter::setCenterFreq(quint64 f)
 }
 
 // Ensure overlay is updated by either scheduling or forcing a redraw
-void CPlotter::updateOverlay()
+void Waterfall::updateOverlay()
 {
     if (m_Running)
         m_DrawOverlay = true;
@@ -1654,14 +1679,15 @@ void CPlotter::updateOverlay()
 }
 
 /** Reset horizontal zoom to 100% and centered around 0. */
-void CPlotter::resetHorizontalZoom(void)
+void Waterfall::resetHorizontalZoom(void)
 {
     setFftCenterFreq(0);
     setSpanFreq((qint32)m_SampleFreq);
+    emit newZoomLevel(1);
 }
 
 /** Center FFT plot around 0 (corresponds to center freq). */
-void CPlotter::moveToCenterFreq(void)
+void Waterfall::moveToCenterFreq(void)
 {
     setFftCenterFreq(0);
     updateOverlay();
@@ -1669,7 +1695,7 @@ void CPlotter::moveToCenterFreq(void)
 }
 
 /** Center FFT plot around the demodulator frequency. */
-void CPlotter::moveToDemodFreq(void)
+void Waterfall::moveToDemodFreq(void)
 {
     setFftCenterFreq(m_DemodCenterFreq-m_CenterFreq);
     updateOverlay();
@@ -1678,7 +1704,7 @@ void CPlotter::moveToDemodFreq(void)
 }
 
 /** Set FFT plot color. */
-void CPlotter::setFftPlotColor(const QColor color)
+void Waterfall::setFftPlotColor(const QColor color)
 {
     m_FftColor = color;
     m_FftFillCol = color;
@@ -1687,14 +1713,34 @@ void CPlotter::setFftPlotColor(const QColor color)
     m_PeakHoldColor.setAlpha(60);
 }
 
+/** Set FFT bg color. */
+void Waterfall::setFftBgColor(const QColor color)
+{
+    m_FftBgColor = color;
+}
+
+/** Set FFT axes color. */
+void Waterfall::setFftAxesColor(const QColor color)
+{
+    m_FftCenterAxisColor = color;
+    m_FftAxesColor = color;
+    m_FftAxesColor.setAlpha(60);
+}
+
+/** Set FFT text color. */
+void Waterfall::setFftTextColor(const QColor color)
+{
+    m_FftTextColor = color;
+}
+
 /** Enable/disable filling the area below the FFT plot. */
-void CPlotter::setFftFill(bool enabled)
+void Waterfall::setFftFill(bool enabled)
 {
     m_FftFill = enabled;
 }
 
 /** Set peak hold on or off. */
-void CPlotter::setPeakHold(bool enabled)
+void Waterfall::setPeakHold(bool enabled)
 {
     m_PeakHoldActive = enabled;
     m_PeakHoldValid = false;
@@ -1705,7 +1751,7 @@ void CPlotter::setPeakHold(bool enabled)
  * @param enabled The new state of peak detection.
  * @param c Minimum distance of peaks from mean, in multiples of standard deviation.
  */
-void CPlotter::setPeakDetection(bool enabled, float c)
+void Waterfall::setPeakDetection(bool enabled, float c)
 {
     if(!enabled || c <= 0)
         m_PeakDetection = -1;
@@ -1713,7 +1759,7 @@ void CPlotter::setPeakDetection(bool enabled, float c)
         m_PeakDetection = c;
 }
 
-void CPlotter::calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &adjlow, qint64 &step, int& divs)
+void Waterfall::calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &adjlow, qint64 &step, int& divs)
 {
 #ifdef PLOTTER_DEBUG
     qDebug() << "low: " << low;

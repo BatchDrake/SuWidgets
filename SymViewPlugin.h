@@ -19,7 +19,7 @@
 #ifndef SYMVIEWPLUGIN_H
 #define SYMVIEWPLUGIN_H
 
-#include <QDesignerCustomWidgetInterface>
+#include <QtUiPlugin/QDesignerCustomWidgetInterface>
 
 class SymViewPlugin : public QObject, public QDesignerCustomWidgetInterface
 {

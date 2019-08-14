@@ -16,18 +16,18 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#include "LCD.h"
-#include "LCDPlugin.h"
+#include "Waterfall.h"
+#include "WaterfallPlugin.h"
 
 #include <QtPlugin>
 
-LCDPlugin::LCDPlugin(QObject *parent)
+WaterfallPlugin::WaterfallPlugin(QObject *parent)
   : QObject(parent)
 {
   m_initialized = false;
 }
 
-void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
+void WaterfallPlugin::initialize(QDesignerFormEditorInterface * /* core */)
 {
   if (m_initialized)
     return;
@@ -37,53 +37,53 @@ void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
   m_initialized = true;
 }
 
-bool LCDPlugin::isInitialized() const
+bool WaterfallPlugin::isInitialized() const
 {
   return m_initialized;
 }
 
-QWidget *LCDPlugin::createWidget(QWidget *parent)
+QWidget *WaterfallPlugin::createWidget(QWidget *parent)
 {
-  return new LCD(parent);
+  return new Waterfall(parent);
 }
 
-QString LCDPlugin::name() const
+QString WaterfallPlugin::name() const
 {
-  return QLatin1String("LCD");
+  return QLatin1String("Waterfall");
 }
 
-QString LCDPlugin::group() const
+QString WaterfallPlugin::group() const
 {
   return QLatin1String("");
 }
 
-QIcon LCDPlugin::icon() const
+QIcon WaterfallPlugin::icon() const
 {
   return QIcon();
 }
 
-QString LCDPlugin::toolTip() const
+QString WaterfallPlugin::toolTip() const
 {
   return QLatin1String("");
 }
 
-QString LCDPlugin::whatsThis() const
+QString WaterfallPlugin::whatsThis() const
 {
   return QLatin1String("");
 }
 
-bool LCDPlugin::isContainer() const
+bool WaterfallPlugin::isContainer() const
 {
   return false;
 }
 
-QString LCDPlugin::domXml() const
+QString WaterfallPlugin::domXml() const
 {
-  return QLatin1String("<widget class=\"LCD\" name=\"lCD\">\n</widget>\n");
+  return QLatin1String("<widget class=\"Waterfall\" name=\"Waterfall\">\n</widget>\n");
 }
 
-QString LCDPlugin::includeFile() const
+QString WaterfallPlugin::includeFile() const
 {
-  return QLatin1String("LCD.h");
+  return QLatin1String("Waterfall.h");
 }
 

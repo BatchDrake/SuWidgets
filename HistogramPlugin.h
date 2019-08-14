@@ -19,7 +19,7 @@
 #ifndef HISTOGRAMPLUGIN_H
 #define HISTOGRAMPLUGIN_H
 
-#include <QDesignerCustomWidgetInterface>
+#include <QtUiPlugin/QDesignerCustomWidgetInterface>
 
 class HistogramPlugin : public QObject, public QDesignerCustomWidgetInterface
 {

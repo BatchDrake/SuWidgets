@@ -16,17 +16,156 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
+
 #ifndef SYMVIEW_H
 #define SYMVIEW_H
 
 #include <QFrame>
+#include "Decider.h"
+#include <QResizeEvent>
+#include "ThrottleableWidget.h"
 
-class SymView : public QFrame
+class SymView : public ThrottleableWidget
 {
   Q_OBJECT
 
+    // Symbol buffer
+    std::vector<Symbol> buffer; // TODO: Allow loans
+    // Behavior
+    bool autoScroll = true;
+    bool autoStride = true;
+    bool pad[6];
+
+    // Representation properties
+    unsigned int bps = 1;     // Bits per symbol.
+    unsigned int offset = 0;  // Offset (wrt buffer)
+    int stride = 1;           // Image stride
+    unsigned int pad2;
+    QImage viewPort;          // Current view. Matches geometry
+
+    // Private methods
+    void assertImage(void);
+
 public:
-  SymView(QWidget *parent = 0);
+  enum FileFormat {
+    FILE_FORMAT_TEXT,
+    FILE_FORMAT_RAW,
+    FILE_FORMAT_C_ARRAY
+  };
+
+  void clear(void);
+  void save(QString const &dest, FileFormat format);
+
+  unsigned long
+  getLength(void) const
+  {
+    return this->buffer.size();
+  }
+
+  void
+  setAutoScroll(bool val)
+  {
+    this->autoScroll = val;
+
+    if (val)
+      this->scrollToBottom();
+  }
+
+  void
+  setAutoStride(bool val)
+  {
+    this->autoStride = val;
+
+    if (val)
+      this->setStride(static_cast<unsigned int>(this->width()));
+  }
+
+  bool
+  getAutoScroll(void) const
+  {
+    return this->autoStride;
+  }
+
+  bool
+  getAutoStride(void) const
+  {
+    return this->autoStride;
+  }
+
+  int
+  getLines(void) const
+  {
+    return (static_cast<int>(this->buffer.size()) + this->stride - 1)
+        / this->stride;
+  }
+
+  void
+  setStride(unsigned int stride)
+  {
+    if (this->stride != static_cast<int>(stride)) {
+      this->stride = static_cast<int>(stride);
+      emit strideChanged(stride);
+      this->invalidate();
+    }
+  }
+
+  unsigned int
+  getStride(void) const
+  {
+    return static_cast<unsigned int>(this->stride);
+  }
+
+  unsigned int
+  getOffset(void) const
+  {
+    return this->offset;
+  }
+
+  void
+  setBitsPerSymbol(unsigned int bps)
+  {
+    if (this->bps != bps) {
+      this->bps = bps;
+      this->invalidate();
+    }
+  }
+
+  unsigned int
+  getBitsPerSymbol(void) const
+  {
+    return this->bps;
+  }
+
+  void
+  setOffset(unsigned int offset)
+  {
+    if (offset >= buffer.size())
+      offset = static_cast<unsigned int>(buffer.size());
+
+    if (offset != this->offset) {
+      this->offset = offset;
+      this->invalidate();
+      emit offsetChanged(offset);
+    }
+  }
+
+  SymView(QWidget *parent = nullptr);
+
+  void scrollToBottom(void);
+  void feed(std::vector<Symbol> const &x);
+  void feed(const Symbol *data, unsigned int length);
+
+  // Virtual overrides
+  void draw(void);
+  void paint(void);
+  void mousePressEvent(QMouseEvent *event);
+  void keyPressEvent(QKeyEvent *event);
+  void wheelEvent(QWheelEvent *event);
+
+  signals:
+  void offsetChanged(unsigned int);
+  void strideChanged(unsigned int);
+
 };
 
 #endif

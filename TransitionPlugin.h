@@ -19,7 +19,7 @@
 #ifndef TRANSITIONPLUGIN_H
 #define TRANSITIONPLUGIN_H
 
-#include <QDesignerCustomWidgetInterface>
+#include <QtUiPlugin/QDesignerCustomWidgetInterface>
 
 class TransitionPlugin : public QObject, public QDesignerCustomWidgetInterface
 {

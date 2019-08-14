@@ -19,7 +19,7 @@
 #ifndef CONSTELLATIONPLUGIN_H
 #define CONSTELLATIONPLUGIN_H
 
-#include <QDesignerCustomWidgetInterface>
+#include <QtUiPlugin/QDesignerCustomWidgetInterface>
 
 class ConstellationPlugin : public QObject, public QDesignerCustomWidgetInterface
 {
