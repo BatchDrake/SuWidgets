@@ -1,3 +1,4 @@
+
 //
 //    filename: description
 //    Copyright (C) 2018 Gonzalo José Carracedo Carballal
@@ -20,6 +21,7 @@
 #include "Constellation.h"
 
 #include <QPainter>
+#include <assert.h>
 
 #define CROSS_MARK_REL_DIM .1f
 

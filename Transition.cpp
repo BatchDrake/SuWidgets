@@ -20,6 +20,7 @@
 #include "Transition.h"
 
 #include <QPainter>
+#include <assert.h>
 
 #define CROSS_MARK_REL_DIM .1f
 
