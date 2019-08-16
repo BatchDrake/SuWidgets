@@ -13,3 +13,5 @@ HEADERS += ThrottleableWidget.h
 SOURCES += ThrottleableWidget.cpp
 
 WIDGET_HEADERS += ThrottleableWidget.h
+
+FORMS += ColorChooserButton.ui
