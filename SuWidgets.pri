@@ -1,3 +1,10 @@
+
+equals(QT_MAJOR_VERSION, 5):lessThan(QT_MINOR_VERSION, 9) {
+  QMAKE_CXXFLAGS += -std=gnu++11
+} else {
+  CONFIG += c++14
+}
+
 include(ctk.pri)
 include(lcd.pri)
 include(histogram.pri)
