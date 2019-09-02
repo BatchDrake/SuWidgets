@@ -14,6 +14,7 @@ include(transition.pri)
 include(waveform.pri)
 include(waterfall.pri)
 include(colorchooserbutton.pri)
+include(LayerEditor.pri)
 
 HEADERS += ThrottleableWidget.h
 
@@ -21,4 +22,5 @@ SOURCES += ThrottleableWidget.cpp
 
 WIDGET_HEADERS += ThrottleableWidget.h
 
-FORMS += ColorChooserButton.ui
+FORMS += ColorChooserButton.ui LayerEditor.ui
+
