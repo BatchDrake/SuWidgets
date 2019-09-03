@@ -1,7 +1,10 @@
+
 #include "LayerEditor.h"
 #include "LayerEditorModel.h"
-
+#include "LayerItemDelegate.h"
 #include "ui_LayerEditor.h"
+
+#include <QMessageBox>
 
 void
 LayerEditor::connectAll(void)
@@ -35,11 +38,20 @@ LayerEditor::connectAll(void)
 LayerEditor::LayerEditor(QWidget *parent) :
   QWidget(parent),
   model(new LayerEditorModel(this)),
+  delegate(new LayerItemDelegate()),
   ui(new Ui::LayerEditor)
 {
-  ui->setupUi(this);
+  this->ui->setupUi(this);
 
-  ui->layerView->setModel(this->model);
+  this->delegate->setContentsMargins(8, 8, 8, 8);
+  this->delegate->setIconSize(32, 32);
+  this->delegate->setHorizontalSpacing(8);
+  this->delegate->setVerticalSpacing(4);
+
+  this->ui->layerView->setModel(this->model);
+  this->ui->layerView->setItemDelegate(this->delegate);
+
+  this->connectAll();
 }
 
 void
@@ -91,8 +103,15 @@ LayerEditor::onRemove(void)
   int index = this->ui->layerView->currentIndex().row();
 
   if (index != -1) {
-    emit removeEntry(index);
-    this->model->remove(index);
+    auto reply = QMessageBox::question(
+          this,
+          "Remove element",
+          "You are about to remove <b>" + this->get(index).name() + "</b> from the list. Are you sure?",
+          QMessageBox::Yes|QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+      emit removeEntry(index);
+      this->model->remove(index);
+    }
   }
 }
 
@@ -115,7 +134,7 @@ LayerEditor::onMoveDown(void)
 
   if (index != -1 && index < this->model->rowCount() - 1) {
     int dest = index + 1;
-    this->model->swap(index, dest);
-    emit reorderEntry(index, dest);
+    this->model->swap(dest, index);
+    emit reorderEntry(dest, index);
   }
 }

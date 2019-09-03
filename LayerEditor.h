@@ -8,6 +8,7 @@ namespace Ui {
 }
 
 class LayerEditorModel;
+class LayerItemDelegate;
 class LayerItem;
 
 class LayerEditor : public QWidget
@@ -15,6 +16,7 @@ class LayerEditor : public QWidget
   Q_OBJECT
 
   LayerEditorModel *model = nullptr;
+  LayerItemDelegate *delegate = nullptr;
   void connectAll(void);
 
 public:

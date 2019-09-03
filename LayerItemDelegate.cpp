@@ -30,7 +30,7 @@ LayerItemDelegate::nameBox(
     const QModelIndex &index) const
 {
   return QFontMetrics(this->nameFont(option)).boundingRect(
-        index.data(Qt::UserRole).value<LayerItem>().name()).adjusted(0, 0, 1, 1);
+        index.data(Qt::DisplayRole).value<LayerItem>().name()).adjusted(0, 0, 1, 1);
 }
 
 
@@ -40,7 +40,23 @@ LayerItemDelegate::descriptionBox(
     const QModelIndex &index) const
 {
   return QFontMetrics(this->descriptionFont(option)).boundingRect(
-        index.data(Qt::UserRole).value<LayerItem>().description()).adjusted(0, 0, 1, 1);
+        index.data(Qt::DisplayRole).value<LayerItem>().description()).adjusted(0, 0, 1, 1);
+}
+
+QSize
+LayerItemDelegate::sizeHint(
+    const QStyleOptionViewItem &option,
+    const QModelIndex &index) const
+{
+  QStyleOptionViewItem opt(option);
+  initStyleOption(&opt, index);
+
+  int textHeight = this->nameBox(option, index).height()
+                  + this->spacingVertical + this->descriptionBox(option, index).height();
+  int iconHeight = this->myIconSize.height();
+  int h = textHeight > iconHeight ? textHeight : iconHeight;
+
+  return QSize(opt.rect.width(), this->margins.top() + h + this->margins.bottom());
 }
 
 void
@@ -61,7 +77,6 @@ LayerItemDelegate::paint(
           -this->margins.right(),
           -this->margins.bottom()));
   const bool lastIndex = (index.model()->rowCount() - 1) == index.row();
-  const bool hasIcon = !opt.icon.isNull();
   const int bottomEdge = rect.bottom();
 
   painter->save();
@@ -91,11 +106,11 @@ LayerItemDelegate::paint(
         bottomEdge);
 
   // Draw message icon
-  if (hasIcon)
+  if (!index.data(Qt::DisplayRole).value<LayerItem>().icon().isNull())
     painter->drawPixmap(
           contentRect.left(),
           contentRect.top(),
-          index.data(Qt::UserRole).value<LayerItem>().icon().pixmap(this->myIconSize));
+          index.data(Qt::DisplayRole).value<LayerItem>().icon().pixmap(this->myIconSize));
 
   // Draw name
   QRect nameRect(this->nameBox(opt, index));
@@ -107,11 +122,11 @@ LayerItemDelegate::paint(
         contentRect.top());
 
   painter->setFont(this->nameFont(opt));
-  painter->setPen(palette.windowText().color());
+  painter->setPen(opt.state & QStyle::State_Selected ? palette.highlightedText().color() : palette.text().color());
   painter->drawText(
         nameRect,
         Qt::TextSingleLine,
-        index.data(Qt::UserRole).value<LayerItem>().name());
+        index.data(Qt::DisplayRole).value<LayerItem>().name());
 
   // Draw description
   QRect descriptionRect(this->descriptionBox(opt, index));
@@ -121,11 +136,11 @@ LayerItemDelegate::paint(
         nameRect.bottom() + this->spacingVertical);
 
   painter->setFont(this->descriptionFont(opt));
-  painter->setPen(palette.text().color());
+  painter->setPen(opt.state & QStyle::State_Selected ? palette.highlightedText().color() : palette.text().color());
   painter->drawText(
         descriptionRect,
         Qt::TextSingleLine,
-        index.data(Qt::UserRole).value<LayerItem>().description());
+        index.data(Qt::DisplayRole).value<LayerItem>().description());
 
   painter->restore();
 }

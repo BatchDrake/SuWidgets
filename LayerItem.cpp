@@ -2,7 +2,7 @@
 
 LayerItem::LayerItem(void)
 {
-
+  this->layerIcon = QIcon(":/decoder.png");
 }
 
 LayerItem::LayerItem(LayerItem const &prev)

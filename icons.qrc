@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/">
         <file>constellation.png</file>
+        <file>decoder.png</file>
     </qresource>
 </RCC>
