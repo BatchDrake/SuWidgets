@@ -26,6 +26,8 @@
 #include "ctkRangeSliderPlugin.h"
 #include "ColorChooserButtonPlugin.h"
 #include "LayerEditorPlugin.h"
+#include "EgaViewPlugin.h"
+#include "EgaConsolePlugin.h"
 
 #include "SuWidgets.h"
 
@@ -42,6 +44,8 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new ColorChooserButtonPlugin(this));
   m_widgets.append(new ctkRangeSliderPlugin(this));
   m_widgets.append(new LayerEditorPlugin(this));
+  m_widgets.append(new EgaViewPlugin(this));
+  m_widgets.append(new EgaConsolePlugin(this));
 }
 
 QList<QDesignerCustomWidgetInterface*> SuWidgets::customWidgets() const

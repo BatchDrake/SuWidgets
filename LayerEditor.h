@@ -25,7 +25,7 @@ public:
 
   void add(LayerItem const &);
   int size(void) const;
-  LayerItem const &get(int index) const;
+  LayerItem &get(int index) const;
   void remove(int index);
 
 public slots:

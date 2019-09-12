@@ -12,6 +12,7 @@ class LayerItem
   QString layerName;
   QString layerDescription;
   QVariant layerData;
+  bool failed = false;
 
 public:
   LayerItem();
@@ -22,11 +23,13 @@ public:
   QString name(void) const;
   QString description(void) const;
   QVariant data(void) const;
+  bool isFailed(void) const;
 
   void setIcon(QIcon const &);
   void setName(QString const &);
   void setDescription(QString const &);
   void setData(QVariant const &);
+  void setFailed(bool failed);
 };
 
 Q_DECLARE_METATYPE(LayerItem);

@@ -15,6 +15,8 @@ include(waveform.pri)
 include(waterfall.pri)
 include(colorchooserbutton.pri)
 include(LayerEditor.pri)
+include(EgaView.pri)
+include(EgaConsole.pri)
 
 HEADERS += ThrottleableWidget.h
 

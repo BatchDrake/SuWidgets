@@ -35,8 +35,8 @@ LayerEditorModel::data(const QModelIndex &index, int role) const
   }
 }
 
-LayerItem const &
-LayerEditorModel::get(int index) const
+LayerItem &
+LayerEditorModel::get(int index)
 {
   return this->items[index];
 }

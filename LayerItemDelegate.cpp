@@ -78,11 +78,19 @@ LayerItemDelegate::paint(
           -this->margins.bottom()));
   const bool lastIndex = (index.model()->rowCount() - 1) == index.row();
   const int bottomEdge = rect.bottom();
+  const LayerItem item = index.data(Qt::DisplayRole).value<LayerItem>();
+  QColor text = palette.text().color();
+  QColor hlText = palette.highlightedText().color();
 
   painter->save();
   painter->setClipping(true);
   painter->setClipRect(rect);
   painter->setFont(opt.font);
+
+  if (item.isFailed()) {
+    text = QColor(255, 0, 0);
+    hlText = QColor(255, 0, 0);
+  }
 
   // Draw background
   painter->fillRect(
@@ -106,11 +114,11 @@ LayerItemDelegate::paint(
         bottomEdge);
 
   // Draw message icon
-  if (!index.data(Qt::DisplayRole).value<LayerItem>().icon().isNull())
+  if (!item.icon().isNull())
     painter->drawPixmap(
           contentRect.left(),
           contentRect.top(),
-          index.data(Qt::DisplayRole).value<LayerItem>().icon().pixmap(this->myIconSize));
+          item.icon().pixmap(this->myIconSize));
 
   // Draw name
   QRect nameRect(this->nameBox(opt, index));
@@ -122,11 +130,11 @@ LayerItemDelegate::paint(
         contentRect.top());
 
   painter->setFont(this->nameFont(opt));
-  painter->setPen(opt.state & QStyle::State_Selected ? palette.highlightedText().color() : palette.text().color());
+  painter->setPen(opt.state & QStyle::State_Selected ? hlText : text);
   painter->drawText(
         nameRect,
         Qt::TextSingleLine,
-        index.data(Qt::DisplayRole).value<LayerItem>().name());
+        item.name());
 
   // Draw description
   QRect descriptionRect(this->descriptionBox(opt, index));
@@ -136,11 +144,12 @@ LayerItemDelegate::paint(
         nameRect.bottom() + this->spacingVertical);
 
   painter->setFont(this->descriptionFont(opt));
-  painter->setPen(opt.state & QStyle::State_Selected ? palette.highlightedText().color() : palette.text().color());
+  painter->setPen(opt.state & QStyle::State_Selected ? hlText : text);
+
   painter->drawText(
         descriptionRect,
         Qt::TextSingleLine,
-        index.data(Qt::DisplayRole).value<LayerItem>().description());
+        item.description());
 
   painter->restore();
 }

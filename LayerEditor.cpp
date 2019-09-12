@@ -77,7 +77,7 @@ LayerEditor::size(void) const
   return this->model->rowCount();
 }
 
-LayerItem const &
+LayerItem &
 LayerEditor::get(int index) const
 {
   return this->model->get(index);

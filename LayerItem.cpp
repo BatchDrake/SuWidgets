@@ -42,6 +42,12 @@ LayerItem::data(void) const
   return this->layerData;
 }
 
+bool
+LayerItem::isFailed(void) const
+{
+  return this->failed;
+}
+
 void
 LayerItem::setIcon(QIcon const &icon)
 {
@@ -64,4 +70,10 @@ void
 LayerItem::setData(QVariant const &data)
 {
   this->layerData = data;
+}
+
+void
+LayerItem::setFailed(bool failed)
+{
+  this->failed = failed;
 }
