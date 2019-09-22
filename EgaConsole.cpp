@@ -43,9 +43,9 @@ EgaConsole::gotoxy(int x, int y)
   this->x = x;
   this->y = y;
 
-  if (this->y >= this->rows) {
+  if (this->y >= this->mRows) {
     this->setRowOffset(
-        static_cast<int>(this->scanLines.size()) - this->rows);
+        static_cast<int>(this->scanLines.size()) - this->mRows);
   }
 }
 
@@ -55,9 +55,9 @@ EgaConsole::newLine(void)
   this->x = 0;
   ++this->y;
 
-  if (this->y - this->rowoff >= this->rows)
+  if (this->y - this->rowoff >= this->mRows)
     this->setRowOffset(
-        static_cast<int>(this->scanLines.size()) - this->rows);
+        static_cast<int>(this->scanLines.size()) - this->mRows);
 }
 void
 EgaConsole::setBackground(QColor const &bg)
@@ -90,8 +90,8 @@ EgaConsole::put(const char *bytes, size_t size)
   size_t chunk;
   while (size > 0) {
     chunk = size;
-    if (this->x + static_cast<int>(chunk) > this->cols)
-      chunk = static_cast<size_t>(this->cols - this->x);
+    if (this->x + static_cast<int>(chunk) > this->mCols)
+      chunk = static_cast<size_t>(this->mCols - this->x);
 
     this->write(
           this->x,
@@ -103,7 +103,7 @@ EgaConsole::put(const char *bytes, size_t size)
     bytes += chunk;
     this->x += chunk;
 
-    if (this->x >= this->cols)
+    if (this->x >= this->mCols)
       this->newLine();
   }
 }

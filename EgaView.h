@@ -56,8 +56,8 @@ class EgaView : public ThrottleableWidget
 protected:
   // You C++ nerds finally fixed it, huh?
   std::vector<std::vector<EgaChar>> scanLines;
-  int rows;
-  int cols;
+  int mRows;
+  int mCols;
   int rowoff = 0;
 
   QColor foregroundColor;
@@ -100,6 +100,9 @@ public:
 
   void draw(void) override;
   void paint(void) override;
+
+  int rows(void) const;
+  int cols(void) const;
 
   void clearBuffer(void);
   void setRowOffset(int offset);

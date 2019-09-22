@@ -61,7 +61,7 @@ EgaView::draw(void)
 
   this->viewPort.fill(this->backgroundColor);
 
-  for (auto i = 0; i < this->rows; ++i) {
+  for (auto i = 0; i < this->mRows; ++i) {
     index = i + this->rowoff;
 
     if (index >= 0 && index < static_cast<int>(this->scanLines.size())) {
@@ -128,20 +128,31 @@ EgaView::assertDimensions(void)
           this->height(),
           QImage::Format_ARGB32);
 
-    this->rows = (this->height() + EGA_FONT_HEIGHT - 1)  / EGA_FONT_HEIGHT;
-    this->cols = (this->width() + EGA_FONT_WIDTH - 1) / EGA_FONT_WIDTH;
+    this->mRows = (this->height() + EGA_FONT_HEIGHT - 1)  / EGA_FONT_HEIGHT;
+    this->mCols = (this->width() + EGA_FONT_WIDTH - 1) / EGA_FONT_WIDTH;
 
-    if (this->rows < 1)
-      this->rows = 1;
+    if (this->mRows < 1)
+      this->mRows = 1;
 
-    if (this->cols < 1)
-      this->cols = 1;
+    if (this->mCols < 1)
+      this->mCols = 1;
 
-    if (this->rows > static_cast<int>(this->scanLines.size()))
-      this->scanLines.resize(static_cast<size_t>(this->rows));
+    if (this->mRows > static_cast<int>(this->scanLines.size()))
+      this->scanLines.resize(static_cast<size_t>(this->mRows));
   }
 }
 
+int
+EgaView::rows(void) const
+{
+  return this->mRows;
+}
+
+int
+EgaView::cols(void) const
+{
+  return this->mCols;
+}
 
 void
 EgaView::write(
@@ -154,7 +165,7 @@ EgaView::write(
 {
   this->assertDimensions();
 
-  if (y >= 0 && x > -static_cast<int>(size) && x < this->cols) {
+  if (y >= 0 && x > -static_cast<int>(size) && x < this->mCols) {
     if (y >= static_cast<int>(this->scanLines.size()))
       this->scanLines.resize(static_cast<unsigned>(y + 1));
 
@@ -163,8 +174,8 @@ EgaView::write(
       size -= static_cast<size_t>(-x);
     }
 
-    if (x + static_cast<int>(size) > this->cols)
-      size = static_cast<size_t>(this->cols - x);
+    if (x + static_cast<int>(size) > this->mCols)
+      size = static_cast<size_t>(this->mCols - x);
 
     std::vector<EgaChar> &line = this->scanLines[static_cast<size_t>(y)];
 
