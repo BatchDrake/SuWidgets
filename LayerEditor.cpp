@@ -32,6 +32,12 @@ LayerEditor::connectAll(void)
         SIGNAL(clicked(bool)),
         this,
         SLOT(onMoveDown(void)));
+
+  connect(
+        this->ui->layerView,
+        SIGNAL(clicked(const QModelIndex &)),
+        this,
+        SLOT(onChangeSelection(const QModelIndex &)));
 }
 
 
@@ -95,6 +101,7 @@ void
 LayerEditor::onAdd(void)
 {
   emit addEntry();
+  emit selectionChanged(this->ui->layerView->currentIndex().row());
 }
 
 void
@@ -111,6 +118,7 @@ LayerEditor::onRemove(void)
     if (reply == QMessageBox::Yes) {
       emit removeEntry(index);
       this->model->remove(index);
+      emit selectionChanged(this->ui->layerView->currentIndex().row());
     }
   }
 }
@@ -137,4 +145,10 @@ LayerEditor::onMoveDown(void)
     this->model->swap(dest, index);
     emit reorderEntry(dest, index);
   }
+}
+
+void
+LayerEditor::onChangeSelection(const QModelIndex &index)
+{
+  emit selectionChanged(index.row());
 }

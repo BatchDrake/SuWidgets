@@ -33,11 +33,13 @@ public slots:
   void onRemove(void);
   void onMoveUp(void);
   void onMoveDown(void);
+  void onChangeSelection(const QModelIndex &);
 
 signals:
   void addEntry(void);
   void removeEntry(int);
   void reorderEntry(int, int);
+  void selectionChanged(int);
 
 private:
   Ui::LayerEditor *ui;
