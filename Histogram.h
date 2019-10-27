@@ -179,7 +179,7 @@ public:
     m_bits = this->bits;
   }
 
-  void feed(const float _Complex *samples, unsigned int length);
+  void feed(const SUCOMPLEX *samples, unsigned int length);
   void setSNRModel(std::vector<float> const &model);
   void setDecider(Decider *decider);
   void resetDecider(void);

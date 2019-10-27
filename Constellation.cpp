@@ -97,12 +97,12 @@ Constellation::drawAxes(void)
   if (this->bits != 0) {
     auto states = 1 << this->bits;
 
-    float _Complex angle = 2 * M_PI / states;
-    float _Complex delta = cexpf(I * angle);
-    float _Complex curr = cexpf(I * .5f * angle);
+    SUCOMPLEX angle = 2 * M_PI / states;
+    SUCOMPLEX delta = SU_C_EXP(I * angle);
+    SUCOMPLEX curr = SU_C_EXP(I * .5f * angle);
 
     for (int i = 0; i < states; ++i) {
-      this->drawMarkerAt(painter, crealf(curr), cimagf(curr));
+      this->drawMarkerAt(painter, SU_C_REAL(curr), SU_C_IMAG(curr));
       curr *= delta;
     }
 
@@ -116,7 +116,7 @@ Constellation::drawConstellation(void)
 {
   QPainter painter(&this->contentPixmap);
   QColor fg = this->foreground;
-  float _Complex c;
+  SUCOMPLEX c;
   float alphaK;
   unsigned int p = 0;
   unsigned int q;
@@ -139,7 +139,7 @@ Constellation::drawConstellation(void)
       fg.setAlpha(static_cast<int>(alphaK * (p + skip)));
 
       painter.setPen(fg);
-      painter.drawPoint(this->floatToScreenPoint(crealf(c), cimagf(c)));
+      painter.drawPoint(this->floatToScreenPoint(SU_C_REAL(c), SU_C_IMAG(c)));
 
       if (++q == size)
         q = 0;
@@ -195,7 +195,7 @@ Constellation::setHistorySize(unsigned int length)
 }
 
 void
-Constellation::feed(const float _Complex *samples, unsigned int length)
+Constellation::feed(const SUCOMPLEX *samples, unsigned int length)
 {
   unsigned int p = 0;
   unsigned int size = static_cast<unsigned int>(this->history.size());
@@ -214,7 +214,7 @@ Constellation::feed(const float _Complex *samples, unsigned int length)
     memcpy(
           &this->history[this->ptr],
         &samples[p],
-        chunk * sizeof(float _Complex));
+        chunk * sizeof(SUCOMPLEX));
 
     p         += chunk;
     length    -= chunk;

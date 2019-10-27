@@ -23,18 +23,18 @@
 
 #include <QObject>
 #include <cmath>
-#include <complex.h>
+#include <sigutils/types.h>
 #include <cstdint>
 #include <vector>
 
 typedef uint8_t Symbol;
 
 #define SUWIDGETS_DETECT_ARGUMENT(dest, orig) \
-  if ((dest = cargf(orig)) < 0.f) \
+  if ((dest = SU_C_ARG(orig)) < 0.f) \
     dest += 2 * M_PI
 
 #define SUWIDGETS_DETECT_MODULUS(dest, orig) \
-  dest = cabsf(orig)
+  dest = SU_C_ABS(orig)
 
 class Decider
 {
@@ -134,7 +134,7 @@ class Decider
       return this->buffer;
     }
 
-    void feed(const float _Complex *data, size_t len);
+    void feed(const SUCOMPLEX *data, size_t len);
 
     Decider();
 };
