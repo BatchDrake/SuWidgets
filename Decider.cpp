@@ -25,7 +25,7 @@ Decider::Decider()
 }
 
 void
-Decider::feed(const float _Complex *data, size_t len)
+Decider::feed(const SUCOMPLEX *data, size_t len)
 {
   this->buffer.resize(len);
   float arg;

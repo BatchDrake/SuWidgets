@@ -24,3 +24,6 @@ SOURCES += ThrottleableWidget.cpp \
 WIDGET_HEADERS += ThrottleableWidget.h
 
 FORMS += ColorChooserButton.ui
+
+unix: CONFIG += link_pkgconfig
+unix: PKGCONFIG += sigutils fftw3

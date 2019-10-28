@@ -244,7 +244,7 @@ Histogram::setDecider(Decider *decider)
 }
 
 void
-Histogram::feed(const float _Complex *samples, unsigned int length)
+Histogram::feed(const SUCOMPLEX *samples, unsigned int length)
 {
   if (this->decider != nullptr && length > 0) {
     int bin;

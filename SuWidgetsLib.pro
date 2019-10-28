@@ -14,7 +14,7 @@ INSTALLS    += target
 
 include(SuWidgets.pri)
 
-headers.path    = /usr/include/SuWidgets
+headers.path    = /usr/local/include/SuWidgets
 headers.files   += $$WIDGET_HEADERS
 
 INSTALLS       += headers
