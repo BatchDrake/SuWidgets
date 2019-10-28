@@ -15,9 +15,11 @@ include(waveform.pri)
 include(waterfall.pri)
 include(colorchooserbutton.pri)
 
-HEADERS += ThrottleableWidget.h
+HEADERS += ThrottleableWidget.h \
+    $$PWD/TimeView.h
 
-SOURCES += ThrottleableWidget.cpp
+SOURCES += ThrottleableWidget.cpp \
+    $$PWD/TimeView.cpp
 
 WIDGET_HEADERS += ThrottleableWidget.h
 
