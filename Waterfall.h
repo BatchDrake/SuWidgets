@@ -118,6 +118,12 @@ public:
 
     void setDemodRanges(int FLowCmin, int FLowCmax, int FHiCmin, int FHiCmax, bool symetric);
 
+    qint64
+    getCenterFreq(void) const
+    {
+      return m_CenterFreq;
+    }
+
     /* Shown bandwidth around SetCenterFreq() */
     void setSpanFreq(quint32 s)
     {
@@ -126,6 +132,18 @@ public:
             setFftCenterFreq(m_FftCenter);
         }
         drawOverlay();
+    }
+
+    quint64
+    getSpanFreq(void) const
+    {
+      return static_cast<quint64>(this->m_Span);
+    }
+
+    qint64
+    getFftCenterFreq(void) const
+    {
+      return this->m_FftCenter;
     }
 
     void setHdivDelta(int delta) { m_HdivDelta = delta; }
