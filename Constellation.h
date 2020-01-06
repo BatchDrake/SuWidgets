@@ -25,6 +25,7 @@
 #include <complex.h>
 #include <vector>
 #include <tgmath.h>
+#include <sigutils/types.h>
 #include "ThrottleableWidget.h"
 
 #define CONSTELLATION_DEFAULT_BACKGROUND_COLOR QColor(0,     0,   0)
@@ -71,7 +72,7 @@ class Constellation : public ThrottleableWidget
 
 
   // Data
-  std::vector<float _Complex> history;
+  std::vector<SUCOMPLEX> history;
   unsigned int amount = 0;
   unsigned int ptr = 0;
 
@@ -169,7 +170,7 @@ public:
   }
 
   void setHistorySize(unsigned int length);
-  void feed(const float _Complex *samples, unsigned int length);
+  void feed(const SUCOMPLEX *samples, unsigned int length);
 
   void draw(void);
   void paint(void);

@@ -22,7 +22,7 @@
 #include <QFrame>
 
 #include <cmath>
-#include <complex.h>
+#include <sigutils/types.h>
 #include <vector>
 #include <tgmath.h>
 #include "ThrottleableWidget.h"

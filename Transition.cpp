@@ -96,12 +96,12 @@ Transition::drawAxes(void)
   if (this->bits != 0) {
     auto states = 1 << this->bits;
 
-    float _Complex angle = 2 * M_PI / states;
-    float _Complex delta = cexpf(I * angle);
-    float _Complex curr = cexpf(I * .5f * angle);
+    SUCOMPLEX angle = 2 * M_PI / states;
+    SUCOMPLEX delta = SU_C_EXP(I * angle);
+    SUCOMPLEX curr = SU_C_EXP(I * .5f * angle);
 
     for (int i = 0; i < states; ++i) {
-      this->drawMarkerAt(painter, crealf(curr), cimagf(curr));
+      this->drawMarkerAt(painter, SU_C_REAL(curr), SU_C_IMAG(curr));
       curr *= delta;
     }
 
@@ -124,12 +124,12 @@ Transition::drawTransition(void)
     unsigned int max = 0;
     unsigned long size = this->history.size();
     unsigned int times;
-    float _Complex c1, c2, step, omega;
+    SUCOMPLEX c1, c2, step, omega;
     float alphaK;
 
     // Yay more Cobol
-    step = I * static_cast<float _Complex>(M_PI) / states;
-    omega = 2 * step;
+    step = I * static_cast<SUCOMPLEX>(M_PI) / static_cast<SUFLOAT>(states);
+    omega = 2.f * step;
 
     if (transMtxLen != this->transMtx.size())
       this->transMtx.resize(transMtxLen);
@@ -160,17 +160,17 @@ Transition::drawTransition(void)
     // Draw transitions
     painter.setPen(Qt::RoundCap);
     for (unsigned int j = 0; j < states; ++j) {
-      c2 = cexpf(j * omega + step);
+      c2 = SU_C_EXP(static_cast<SUFLOAT>(j) * omega + step);
       for (unsigned int i = 0; i < states; ++i) {
         times = this->transMtx[i + j * states];
         alphaK = 255.f * times / static_cast<float>(max);
-        c1 = cexpf(i * omega + step);
+        c1 = SU_C_EXP(static_cast<SUFLOAT>(i) * omega + step);
 
         fg.setAlpha(static_cast<int>(alphaK));
         painter.setPen(fg);
         painter.drawLine(
-              this->floatToScreenPoint(crealf(c1), cimagf(c1)),
-              this->floatToScreenPoint(crealf(c2), cimagf(c2)));
+              this->floatToScreenPoint(SU_C_REAL(c1), SU_C_IMAG(c1)),
+              this->floatToScreenPoint(SU_C_REAL(c2), SU_C_IMAG(c2)));
       }
     }
 
