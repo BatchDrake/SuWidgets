@@ -46,6 +46,44 @@
 #define PEAK_CLICK_MAX_V_DISTANCE 20 //Maximum vertical distance of clicked point from peak
 #define PEAK_H_TOLERANCE 2
 
+struct FrequencyBand {
+  qint64 min;
+  qint64 max;
+  std::string primary;
+  std::string secondary;
+  std::string footnotes;
+  QColor color;
+};
+
+typedef std::map<qint64, FrequencyBand>::const_iterator FrequencyBandIterator;
+
+class FrequencyAllocationTable {
+  std::string name;
+  std::map<qint64, FrequencyBand> allocation;
+
+public:
+  FrequencyAllocationTable();
+  FrequencyAllocationTable(std::string const &name);
+
+  void
+  setName(std::string const &name)
+  {
+    this->name = name;
+  }
+  std::string const &
+  getName(void) const
+  {
+    return this->name;
+  }
+
+  void pushBand(FrequencyBand const &);
+  void pushBand(qint64, qint64, std::string const &);
+
+  FrequencyBandIterator cbegin(void) const;
+  FrequencyBandIterator cend(void) const;
+
+  FrequencyBandIterator find(qint64 freq) const;
+};
 
 class Waterfall : public QFrame
 {
@@ -68,6 +106,10 @@ public:
     void setCenterLineEnabled(bool enabled) { m_CenterLineEnabled = enabled; }
     void setTooltipsEnabled(bool enabled) { m_TooltipsEnabled = enabled; }
     void setBookmarksEnabled(bool enabled) { m_BookmarksEnabled = enabled; }
+
+    bool removeFAT(std::string const &);
+    void pushFAT(const FrequencyAllocationTable *);
+    void setFATsVisible(bool);
 
     void setNewFftData(float *fftData, int size);
     void setNewFftData(float *fftData, float *wfData, int size);
@@ -339,6 +381,10 @@ private:
     quint64     msec_per_wfline;    // milliseconds between waterfall updates
     quint64     wf_span;            // waterfall span in milliseconds (0 = auto)
     int         fft_rate;           // expected FFT rate (needed when WF span is auto)
+
+    // Frequency allocations
+    bool m_ShowFATs = false;
+    std::map<std::string, const FrequencyAllocationTable *> m_FATs;
 };
 
 #endif // PLOTTER_H

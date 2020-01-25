@@ -110,6 +110,72 @@ static inline quint64 time_ms(void)
     "Drag and scroll X and Y axes for pan and zoom. " \
     "Drag filter edges to adjust filter."
 
+
+/////////////////////////// FrequencyBand //////////////////////////////////////
+FrequencyAllocationTable::FrequencyAllocationTable()
+{
+
+}
+
+FrequencyAllocationTable::FrequencyAllocationTable(std::string const &name)
+{
+  this->name = name;
+}
+
+void
+FrequencyAllocationTable::pushBand(FrequencyBand const &band)
+{
+  this->allocation[band.min] = band;
+}
+
+void
+FrequencyAllocationTable::pushBand(qint64 min, qint64 max, std::string const &desc)
+{
+  FrequencyBand band;
+
+  band.min = min;
+  band.max = max;
+  band.primary = desc;
+  band.color = QColor::fromRgb(255, 0, 0);
+
+  this->pushBand(band);
+}
+
+FrequencyBandIterator
+FrequencyAllocationTable::cbegin(void) const
+{
+  return this->allocation.cbegin();
+}
+
+FrequencyBandIterator
+FrequencyAllocationTable::cend(void) const
+{
+  return this->allocation.cend();
+}
+
+FrequencyBandIterator
+FrequencyAllocationTable::find(qint64 freq) const
+{
+  if (this->allocation.size() == 0)
+    return this->allocation.cend();
+
+  auto lower = this->allocation.lower_bound(freq);
+
+  if (lower == this->cend()) // If none found, return the last one.
+      return std::prev(lower);
+
+  if (lower == this->cbegin())
+      return lower;
+
+  // Check which one is closest.
+  auto previous = std::prev(lower);
+  if ((freq - previous->first) < (lower->first - freq))
+      return previous;
+
+  return lower;
+}
+
+///////////////////////////// Waterfall ////////////////////////////////////////
 Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -1398,9 +1464,10 @@ void Waterfall::drawOverlay()
 
     // Frequency grid
     qint64  StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
+    qint64  EndFreq = StartFreq + m_Span;
     QString label;
-    label.setNum(float((StartFreq + m_Span) / m_FreqUnits), 'f', m_FreqDigits);
-    calcDivSize(StartFreq, StartFreq + m_Span,
+    label.setNum(float(EndFreq / m_FreqUnits), 'f', m_FreqDigits);
+    calcDivSize(StartFreq, EndFreq,
                 qMin(w/(metrics.width(label) + metrics.width("O")), HORZ_DIVS_MAX),
                 m_StartFreqAdj, m_FreqPerDiv, m_HorDivs);
     pixperdiv = (float)w * (float) m_FreqPerDiv / (float) m_Span;
@@ -1425,6 +1492,76 @@ void Waterfall::drawOverlay()
         {
             rect.setRect(x - tw/2, fLabelTop, tw, metrics.height());
             painter.drawText(rect, Qt::AlignHCenter|Qt::AlignBottom, m_HDivText[i]);
+        }
+    }
+
+    // Draw frequency allocation tables
+    if (this->m_ShowFATs) {
+      int count = 0;
+      for (auto fat : this->m_FATs)
+        if (fat.second != nullptr) {
+          FrequencyBandIterator p = fat.second->find(StartFreq);
+
+          while (p != fat.second->cbegin() && p->second.max > StartFreq)
+            --p;
+
+          for (; p != fat.second->cend() && p->second.min < EndFreq; ++p) {
+            int x0 = xFromFreq(p->second.min);
+            int x1 = xFromFreq(p->second.max);
+            int tw, boxw;
+
+
+            if (x0 < m_YAxisWidth)
+              x0 = m_YAxisWidth;
+
+            if (x1 >= w)
+              x1 = w - 1;
+
+            if (x1 < m_YAxisWidth)
+              continue;
+
+            boxw = x1 - x0;
+
+            painter.setBrush(QBrush(p->second.color));
+            painter.setPen(p->second.color);
+
+            painter.drawRect(
+                  x0,
+                  count * metrics.height(),
+                  x1 - x0 + 1,
+                  metrics.height());
+
+            painter.drawLine(
+                  x0,
+                  count * metrics.height(),
+                  x0,
+                  h);
+
+            painter.drawLine(
+                  x1,
+                  count * metrics.height(),
+                  x1,
+                  h);
+
+            label = metrics.elidedText(
+                  QString::fromStdString(p->second.primary),
+                  Qt::ElideRight,
+                  boxw);
+
+            tw = metrics.width(label);
+
+            if (tw < boxw) {
+              painter.setPen(m_FftTextColor);
+              rect.setRect(
+                    x0 + (x1 - x0) / 2 - tw / 2,
+                    count * metrics.height(),
+                    tw,
+                    metrics.height());
+              painter.drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, label);
+            }
+          }
+
+          ++count;
         }
     }
 
@@ -1798,4 +1935,33 @@ void Waterfall::calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &ad
     qDebug() << "step: " << step;
     qDebug() << "divs: " << divs;
 #endif
+}
+
+void Waterfall::pushFAT(const FrequencyAllocationTable *fat)
+{
+  this->m_FATs[fat->getName()] = fat;
+
+  if (this->m_ShowFATs)
+    this->drawOverlay();
+}
+
+bool Waterfall::removeFAT(std::string const &name)
+{
+  auto p = this->m_FATs.find(name);
+
+  if (p == this->m_FATs.end())
+    return false;
+
+  this->m_FATs.erase(p);
+
+  if (this->m_ShowFATs)
+    this->drawOverlay();
+
+  return true;
+}
+
+void Waterfall::setFATsVisible(bool visible)
+{
+  this->m_ShowFATs = visible;
+  this->drawOverlay();
 }
