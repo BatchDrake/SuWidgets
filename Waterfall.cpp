@@ -1508,14 +1508,20 @@ void Waterfall::drawOverlay()
           for (; p != fat.second->cend() && p->second.min < EndFreq; ++p) {
             int x0 = xFromFreq(p->second.min);
             int x1 = xFromFreq(p->second.max);
+            bool leftborder = true;
+            bool rightborder = true;
             int tw, boxw;
 
 
-            if (x0 < m_YAxisWidth)
+            if (x0 < m_YAxisWidth) {
+              leftborder = false;
               x0 = m_YAxisWidth;
+            }
 
-            if (x1 >= w)
+            if (x1 >= w) {
+              rightborder = false;
               x1 = w - 1;
+            }
 
             if (x1 < m_YAxisWidth)
               continue;
@@ -1531,17 +1537,19 @@ void Waterfall::drawOverlay()
                   x1 - x0 + 1,
                   metrics.height());
 
-            painter.drawLine(
-                  x0,
-                  count * metrics.height(),
-                  x0,
-                  h);
+            if (leftborder)
+              painter.drawLine(
+                    x0,
+                    count * metrics.height(),
+                    x0,
+                    h);
 
-            painter.drawLine(
-                  x1,
-                  count * metrics.height(),
-                  x1,
-                  h);
+            if (rightborder)
+              painter.drawLine(
+                    x1,
+                    count * metrics.height(),
+                    x1,
+                    h);
 
             label = metrics.elidedText(
                   QString::fromStdString(p->second.primary),
@@ -1955,7 +1963,7 @@ bool Waterfall::removeFAT(std::string const &name)
   this->m_FATs.erase(p);
 
   if (this->m_ShowFATs)
-    this->drawOverlay();
+    this->updateOverlay();
 
   return true;
 }
@@ -1963,5 +1971,5 @@ bool Waterfall::removeFAT(std::string const &name)
 void Waterfall::setFATsVisible(bool visible)
 {
   this->m_ShowFATs = visible;
-  this->drawOverlay();
+  this->updateOverlay();
 }
