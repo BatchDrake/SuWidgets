@@ -5,16 +5,26 @@ TEMPLATE    = lib
 greaterThan(QT_MAJOR_VERSION, 4) {
     QT += widgets
 }
-    
+
+
+isEmpty(SUWIDGETS_PREFIX) {
+  SUWIDGETS_INSTALL_LIBS=$$[QT_INSTALL_LIBS]
+  SUWIDGETS_INSTALL_HEADERS=$$[QT_INSTALL_HEADERS]/SuWidgets
+} else {
+  SUWIDGETS_INSTALL_LIBS=$$SUWIDGETS_PREFIX/lib
+  SUWIDGETS_INSTALL_HEADERS=$$SUWIDGETS_PREFIX/include/SuWidgets
+}
+
+
 RESOURCES   = icons.qrc
 LIBS        += -L.
 
-target.path = $$[QT_INSTALL_LIBS]
+target.path = $$SUWIDGETS_INSTALL_LIBS
 INSTALLS    += target
 
 include(SuWidgets.pri)
 
-headers.path    = /usr/local/include/SuWidgets
+headers.path    = $$SUWIDGETS_INSTALL_HEADERS
 headers.files   += $$WIDGET_HEADERS
 
 INSTALLS       += headers
