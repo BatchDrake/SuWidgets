@@ -126,16 +126,12 @@ Waveform::recalculateDisplayData(void)
 void
 Waveform::zoomHorizontalReset(void)
 {
-  this->start = 0;
-
   if (this->haveGeometry) {
     if (this->data.length() <= static_cast<unsigned>(this->geometry.width()))
-      this->end = this->geometry.width() - 1;
+      this->zoomHorizontal(0, static_cast<qint64>(this->geometry.width() - 1));
     else
-      this->end = static_cast<int>(this->data.length()) - 1;
+      this->zoomHorizontal(0, static_cast<qint64>(this->data.length()) - 1);
   }
-
-  this->recalculateDisplayData();
 }
 
 void
@@ -153,21 +149,29 @@ Waveform::zoomHorizontal(qint64 x, qreal amount)
   fixedSamp = std::ceil(this->px2samp(x));
   newRange = std::ceil(amount * (this->end - this->start));
 
-  this->start = static_cast<qint64>(fixedSamp - relPoint * newRange);
-  this->end   = static_cast<qint64>(fixedSamp + (1.0 - relPoint) * newRange);
-  this->axesDrawn = false;
-
-  this->recalculateDisplayData();
+  this->zoomHorizontal(
+        static_cast<qint64>(fixedSamp - relPoint * newRange),
+        static_cast<qint64>(fixedSamp + (1.0 - relPoint) * newRange));
 }
 
 void
 Waveform::zoomHorizontal(qreal tStart, qreal tEnd)
 {
-  this->start = static_cast<qint64>(this->t2samp(tStart));
-  this->end   = static_cast<qint64>(this->t2samp(tEnd));
-  this->axesDrawn = false;
+  this->zoomHorizontal(
+        static_cast<qint64>(this->t2samp(tStart)),
+        static_cast<qint64>(this->t2samp(tEnd)));
+}
 
-  this->recalculateDisplayData();
+void
+Waveform::zoomHorizontal(qint64 start, qint64 end)
+{
+  if (start != this->start || end != this->end) {
+    this->start = start;
+    this->end = end;
+    this->axesDrawn = false;
+    this->recalculateDisplayData();
+    emit horizontalRangeChanged(start, end);
+  }
 }
 
 void
@@ -186,15 +190,13 @@ Waveform::scrollHorizontal(qint64 orig, qint64 to)
 void
 Waveform::scrollHorizontal(qint64 delta)
 {
-  this->start = this->savedStart - static_cast<qint64>(delta * this->sampPerPx);
-  this->end   = this->savedEnd   - static_cast<qint64>(delta * this->sampPerPx);
-  this->axesDrawn = false;
-
-  this->recalculateDisplayData();
+  this->zoomHorizontal(
+        this->savedStart - static_cast<qint64>(delta * this->sampPerPx),
+        this->savedEnd   - static_cast<qint64>(delta * this->sampPerPx));
 }
 
 void
-Waveform::selectHorizontal(qint64 orig, qint64 to)
+Waveform::selectHorizontal(qreal orig, qreal to)
 {
   this->hSelection = true;
 
@@ -209,6 +211,8 @@ Waveform::selectHorizontal(qint64 orig, qint64 to)
   }
 
   this->selectionDrawn = false;
+
+  emit horizontalSelectionChanged(this->hSelStart, this->hSelEnd);
 }
 
 bool
@@ -233,16 +237,13 @@ void
 Waveform::setAutoScroll(bool value)
 {
   this->autoScroll = value;
+  this->refreshData();
 }
 
 void
 Waveform::zoomVerticalReset(void)
 {
-  this->min = -1;
-  this->max =  1;
-  this->axesDrawn = false;
-
-  this->recalculateDisplayData();
+  this->zoomVertical(-1., 1.);
 }
 
 void
@@ -250,11 +251,9 @@ Waveform::zoomVertical(qint64 y, qreal amount)
 {
   qreal val = this->px2value(y);
 
-  this->min = (this->min - val) * amount + val;
-  this->max = (this->max - val) * amount + val;
-  this->axesDrawn = false;
-
-  this->recalculateDisplayData();
+  this->zoomVertical(
+        (this->min - val) * amount + val,
+        (this->max - val) * amount + val);
 }
 
 void
@@ -265,6 +264,7 @@ Waveform::zoomVertical(qreal start, qreal end)
   this->axesDrawn = false;
 
   this->recalculateDisplayData();
+  emit verticalRangeChanged(start, end);
 }
 
 void
@@ -283,11 +283,9 @@ Waveform::scrollVertical(qint64 orig, qint64 to)
 void
 Waveform::scrollVertical(qint64 delta)
 {
-  this->min = this->savedMin + delta * this->unitsPerPx;
-  this->max = this->savedMax + delta * this->unitsPerPx;
-  this->axesDrawn = false;
-
-  this->recalculateDisplayData();
+  this->zoomVertical(
+        this->savedMin + delta * this->unitsPerPx,
+        this->max = this->savedMax + delta * this->unitsPerPx);
 }
 
 void
@@ -306,6 +304,8 @@ Waveform::selectVertical(qint64 orig, qint64 to)
   }
 
   this->selectionDrawn = false;
+
+  emit verticalSelectionChanged(this->vSelStart, this->vSelEnd);
 }
 
 bool
@@ -383,26 +383,32 @@ Waveform::mouseMoveEvent(QMouseEvent *event)
           static_cast<qint64>(this->px2samp(this->clickX)),
           static_cast<qint64>(this->px2samp(event->x())));
 
+  emit hoverTime(this->px2t(this->currMouseX));
   this->invalidateHard();
 }
 
 void
 Waveform::mousePressEvent(QMouseEvent *event)
 {
-  // Save selection
-  this->saveHorizontal();
-  this->saveVertical();
+  if (event->button() == Qt::RightButton) {
+    this->zoomHorizontalReset();
+    this->invalidateHard();
+  } else {
+    // Save selection
+    this->saveHorizontal();
+    this->saveVertical();
 
-  this->clickX = event->x();
-  this->clickY = event->y();
+    this->clickX = event->x();
+    this->clickY = event->y();
 
-  if (event->button() == Qt::MidButton
-      || this->clickY >= this->geometry.height() - this->frequencyTextHeight)
-    this->frequencyDragging = true;
-  else if (this->clickX < this->valueTextWidth)
-    this->valueDragging = true;
-  else
-    this->hSelDragging = true;
+    if (event->button() == Qt::MidButton
+        || this->clickY >= this->geometry.height() - this->frequencyTextHeight)
+      this->frequencyDragging = true;
+    else if (this->clickX < this->valueTextWidth)
+      this->valueDragging = true;
+    else
+      this->hSelDragging = true;
+  }
 }
 
 void
@@ -433,6 +439,7 @@ void
 Waveform::leaveEvent(QEvent *)
 {
   this->haveCursor = false;
+  this->invalidate();
 }
 
 //////////////////////////////// Drawing methods ///////////////////////////////////
@@ -449,11 +456,11 @@ Waveform::drawSelection(void)
         this->background);
 
   if (this->hSelection) {
+    qreal selLen = this->hSelEnd - this->hSelStart;
     QRect rect(
           static_cast<int>(this->samp2px(this->hSelStart)),
           0,
-          static_cast<int>(
-            this->samp2px(this->hSelEnd) - this->samp2px(this->hSelStart)),
+          static_cast<int>(selLen / this->sampPerPx),
           this->geometry.height());
 
     if (rect.x() < this->valueTextWidth)
@@ -463,7 +470,48 @@ Waveform::drawSelection(void)
       rect.setRight(this->geometry.width() - 1);
 
 
-    p.fillRect(rect, QColor(0x08, 0x08, 0x08));
+    p.fillRect(rect, this->selection);
+
+    if (this->periodicSelection) {
+      // The sample buffer is divided in pieces of selLen samples,
+      // starting from selLen.
+      qint64 firstDiv = static_cast<int>((this->start - this->hSelStart) / selLen);
+      qint64 lastDiv  = static_cast<int>((this->end - this->hSelStart) / selLen);
+      qreal deltaDiv = selLen / static_cast<qreal>(this->divsPerSelection);
+
+      if (this->divsPerSelection == 1)
+        p.setPen(this->selection);
+
+      for (qint64 i = firstDiv - 1; i <= lastDiv; ++i) {
+        qreal sample = i * selLen + this->hSelStart;
+
+        if (this->divsPerSelection > 1) {
+          for (int j = 0; j <= this->divsPerSelection; ++j) {
+            qreal divSample = sample + j * deltaDiv;
+            int px = static_cast<int>(this->samp2px(divSample));
+
+            p.setPen(divSample >= this->hSelStart && divSample <= this->hSelEnd
+                     ? this->subSelection
+                     : this->selection);
+
+            if (px > 0 && px < this->geometry.width())
+              p.drawLine(
+                    px,
+                    0,
+                    px,
+                    this->geometry.height());
+          }
+        } else {
+          int px = static_cast<int>(this->samp2px(sample));
+          if (px > 0 && px < this->geometry.width())
+            p.drawLine(
+                  px,
+                  0,
+                  px,
+                  this->geometry.height());
+        }
+      }
+    }
   }
 
   p.end();
@@ -485,17 +533,24 @@ Waveform::drawWave(void)
   if (this->sampPerPx > 1) {
     std::vector<int> history(static_cast<size_t>(this->geometry.height()));
     int iters = static_cast<int>(std::floor(this->sampPerPx));
+    int skip = 1;
+    int count = 0;
     int samp = 0;
     int y = 0;
     int prev_y;
     bool havePrev = false;
 
+    if (iters > WAVEFORM_MAX_ITERS)
+      skip = iters / WAVEFORM_MAX_ITERS;
+
     for (int i = this->valueTextWidth; i < this->geometry.width(); ++i) {
       std::fill(history.begin(), history.end(), 0);
       samp = static_cast<int>(std::floor(this->px2samp(i)));
 
+      count = 0;
       if (samp >= 0 && samp < length - iters) {
-        for (int j = 0; j < iters; ++j) {
+        for (int j = 0; j < iters; j += skip) {
+          ++count;
           y = static_cast<int>(this->value2px(this->cast(data[samp + j])));
           if (havePrev)
             for (int k = std::min(y, prev_y); k <= std::max(y, prev_y); ++k)
@@ -503,11 +558,17 @@ Waveform::drawWave(void)
               ++history[static_cast<unsigned>(k)];
           havePrev = true;
           prev_y = y;
+
+          if (j + skip > iters && j != iters - 1) {
+            j = iters - skip - 1;
+            --count;
+          }
         }
 
         for (int j = 0; j < this->geometry.height(); ++j) {
           if (history[static_cast<unsigned>(j)] > 0) {
-            p.setOpacity(history[static_cast<unsigned>(j)] / static_cast<qreal>(iters));
+            p.setOpacity(
+                  .25 + .75 * history[static_cast<unsigned>(j)] / static_cast<qreal>(count));
             p.drawPoint(i, j);
           }
         }
@@ -802,6 +863,38 @@ Waveform::setData(const std::vector<SUCOMPLEX> *data)
     this->data = WaveBuffer(data);
   else
     this->data = WaveBuffer();
+
+  this->resetSelection();
+  this->zoomVerticalReset();
+  this->zoomHorizontalReset();
+  this->invalidate();
+}
+
+void
+Waveform::setRealComponent(bool real)
+{
+  this->realComponent = real;
+  this->waveDrawn = false;
+  this->invalidate();
+}
+
+void
+Waveform::refreshData(void)
+{
+  qint64 currSpan = this->end - this->start;
+  qint64 nextSpan = static_cast<qint64>(this->data.length());
+
+  if (this->autoScroll && nextSpan > currSpan) {
+    this->end = nextSpan - 1;
+    this->start = nextSpan - currSpan - 1;
+  } else {
+    this->waveDrawn = false;
+  }
+
+  this->recalculateDisplayData();
+
+  if (this->autoFitToEnvelope)
+    this->fitToEnvelope();
 }
 
 Waveform::Waveform(QWidget *parent) :
@@ -813,14 +906,15 @@ Waveform::Waveform(QWidget *parent) :
   this->deltaT = 1 / this->sampleRate;
 
   for (i = 0; i < 8192; ++i)
-    this->data.feed(.75 * sin((M_PI * i) / 64));
+    this->data.feed(.75 * SU_C_EXP(I * (M_PI * i) / 64));
 
-  this->background = WAVEFORM_DEFAULT_BACKGROUND_COLOR;
-  this->foreground = WAVEFORM_DEFAULT_FOREGROUND_COLOR;
-  this->axes       = WAVEFORM_DEFAULT_AXES_COLOR;
-  this->text       = WAVEFORM_DEFAULT_TEXT_COLOR;
+  this->background   = WAVEFORM_DEFAULT_BACKGROUND_COLOR;
+  this->foreground   = WAVEFORM_DEFAULT_FOREGROUND_COLOR;
+  this->axes         = WAVEFORM_DEFAULT_AXES_COLOR;
+  this->text         = WAVEFORM_DEFAULT_TEXT_COLOR;
+  this->selection    = WAVEFORM_DEFAULT_SELECTION_COLOR;
+  this->subSelection = WAVEFORM_DEFAULT_SUBSEL_COLOR;
 
   this->setMouseTracking(true);
-
   this->invalidate();
 }

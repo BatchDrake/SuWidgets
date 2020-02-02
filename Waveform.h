@@ -29,6 +29,9 @@
 #define WAVEFORM_DEFAULT_FOREGROUND_COLOR QColor(0xff, 0xff, 0x00)
 #define WAVEFORM_DEFAULT_AXES_COLOR       QColor(0x34, 0x34, 0x34)
 #define WAVEFORM_DEFAULT_TEXT_COLOR       QColor(0xff, 0xff, 0xff)
+#define WAVEFORM_DEFAULT_SELECTION_COLOR  QColor(0x08, 0x08, 0x08)
+#define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0x7f, 0x08, 0x08)
+#define WAVEFORM_MAX_ITERS                20
 
 class WaveBuffer {
   bool loan = false;
@@ -69,12 +72,23 @@ class Waveform : public ThrottleableWidget
       WRITE setAxesColor
       NOTIFY axesColorChanged)
 
-
   Q_PROPERTY(
       QColor textColor
       READ getTextColor
       WRITE setTextColor
       NOTIFY textColorChanged)
+
+  Q_PROPERTY(
+      QColor selectionColor
+      READ getSelectionColor
+      WRITE setSelectionColor
+      NOTIFY selectionColorChanged)
+
+  Q_PROPERTY(
+      QColor subSelectionColor
+      READ getSubSelectionColor
+      WRITE setSubSelectionColor
+      NOTIFY subSelectionColorChanged)
 
   Q_PROPERTY(
       qreal sampleRate
@@ -85,12 +99,17 @@ class Waveform : public ThrottleableWidget
   // Properties
   QColor background;
   QColor foreground;
+  QColor selection;
+  QColor subSelection;
   QColor axes;
   QColor text;
   qreal sampleRate = 1;
   qreal deltaT = 1;
 
+  bool periodicSelection = false;
   bool realComponent = true;
+
+  int divsPerSelection = 1;
 
   // State
   QSize geometry;
@@ -124,6 +143,7 @@ class Waveform : public ThrottleableWidget
   bool haveCursor = false;
   int  currMouseX = 0;
 
+
   // Limits
   WaveBuffer data;
   qreal t0 = 0; // Time where the buffer begins
@@ -154,9 +174,9 @@ class Waveform : public ThrottleableWidget
   qreal unitsPerPx  = 1; // (max - min) / width
 
   // Horizontal selection (in samples)
-  bool   hSelection = false;
-  qint64 hSelStart = 0;
-  qint64 hSelEnd   = 0;
+  bool  hSelection = false;
+  qreal hSelStart = 0;
+  qreal hSelEnd   = 0;
 
   // Vertical selection (int floating point units)
   bool  vSelection = false;
@@ -166,61 +186,6 @@ class Waveform : public ThrottleableWidget
   // Behavioral properties
   bool autoScroll = false;
   bool autoFitToEnvelope = false;
-  bool periodicSelection = true;
-
-  inline qreal
-  samp2t(qreal samp) const
-  {
-    return (samp + this->start) * this->deltaT + this->t0;
-  }
-
-  inline qreal
-  t2samp(qreal t) const
-  {
-    return (t - this->t0) * this->sampleRate - this->start;
-  }
-
-  inline qreal
-  px2samp(qreal px) const
-  {
-    return px * this->sampPerPx + this->start;
-  }
-
-  inline qreal
-  samp2px(qreal samp) const
-  {
-    return (samp - this->start) / this->sampPerPx;
-  }
-
-  inline qreal
-  px2t(qreal px) const
-  {
-    return this->samp2t(this->px2samp(px));
-  }
-
-  inline qreal
-  t2px(qreal t) const
-  {
-    return this->samp2px(this->t2samp(t));
-  }
-
-  inline qreal
-  px2value(qreal px) const
-  {
-    return (this->height() - 1 - px) * this->unitsPerPx + this->min;
-  }
-
-  inline qreal
-  value2px(qreal val) const
-  {
-    return this->height() - 1 - (val - this->min) / this->unitsPerPx;
-  }
-
-  inline qreal
-  cast(SUCOMPLEX z) const
-  {
-    return this->realComponent ? SU_C_REAL(z) : SU_C_IMAG(z);
-  }
 
   void drawHorizontalAxes(void);
   void drawVerticalAxes(void);
@@ -240,6 +205,84 @@ protected:
     void leaveEvent(QEvent *event) override;
 
 public:
+
+    static inline QString
+    formatLabel(qreal value, QString units)
+    {
+      int digits = 0;
+
+      if (std::fabs(value) > 0)
+        digits = static_cast<int>(std::floor(std::log10(std::fabs(value))));
+
+      return formatLabel(value, digits, units);
+    }
+
+    inline qreal
+    samp2t(qreal samp) const
+    {
+      return (samp + this->start) * this->deltaT + this->t0;
+    }
+
+    inline qreal
+    t2samp(qreal t) const
+    {
+      return (t - this->t0) * this->sampleRate - this->start;
+    }
+
+    inline qreal
+    px2samp(qreal px) const
+    {
+      return px * this->sampPerPx + this->start;
+    }
+
+    inline qreal
+    samp2px(qreal samp) const
+    {
+      return (samp - this->start) / this->sampPerPx;
+    }
+
+    inline qreal
+    px2t(qreal px) const
+    {
+      return this->samp2t(this->px2samp(px));
+    }
+
+    inline qreal
+    t2px(qreal t) const
+    {
+      return this->samp2px(this->t2samp(t));
+    }
+
+    inline qreal
+    px2value(qreal px) const
+    {
+      return (this->height() - 1 - px) * this->unitsPerPx + this->min;
+    }
+
+    inline qreal
+    value2px(qreal val) const
+    {
+      return this->height() - 1 - (val - this->min) / this->unitsPerPx;
+    }
+
+    inline qreal
+    cast(SUCOMPLEX z) const
+    {
+      return this->realComponent ? SU_C_REAL(z) : SU_C_IMAG(z);
+    }
+
+  const inline SUCOMPLEX *
+  getData(void) const
+  {
+    return this->data.data();
+  }
+
+  size_t
+  getDataLength(void) const
+  {
+    return this->data.length();
+  }
+
   void
   setBackgroundColor(const QColor &c)
   {
@@ -285,6 +328,35 @@ public:
     return this->text;
   }
 
+  void
+  setSelectionColor(const QColor &c)
+  {
+    this->selection = c;
+    this->selectionDrawn = false;
+    this->invalidate();
+    emit textColorChanged();
+  }
+
+  const QColor &
+  getSelectionColor(void) const
+  {
+    return this->selection;
+  }
+
+  void
+  setSubSelectionColor(const QColor &c)
+  {
+    this->selection = c;
+    this->selectionDrawn = false;
+    this->invalidate();
+    emit textColorChanged();
+  }
+
+  const QColor &
+  getSubSelectionColor(void) const
+  {
+    return this->selection;
+  }
 
   void
   setForegroundColor(const QColor &c)
@@ -320,6 +392,46 @@ public:
     emit sampleRateChanged();
   }
 
+  void
+  setDivsPerSelection(int divs)
+  {
+    if (divs < 1)
+      divs = 1;
+    this->divsPerSelection = divs;
+    this->invalidate();
+  }
+
+
+  inline qint64
+  getSampleStart(void) const
+  {
+    return this->start;
+  }
+
+  inline qint64
+  getSampleEnd(void) const
+  {
+    return this->end;
+  }
+
+  inline qreal
+  getMax(void) const
+  {
+    return this->max;
+  }
+
+  inline qreal
+  getMin(void) const
+  {
+    return this->min;
+  }
+
+  inline qreal
+  getCursorTime(void) const
+  {
+    return this->px2t(this->currMouseX);
+  }
+
   Waveform(QWidget *parent = nullptr);
 
   void setData(const std::vector<SUCOMPLEX> *);
@@ -328,10 +440,11 @@ public:
   void zoomHorizontalReset(void); // To show full wave or to sampPerPix = 1
   void zoomHorizontal(qint64 x, qreal amount); // Zoom at point x.
   void zoomHorizontal(qreal tStart, qreal tEnd);
+  void zoomHorizontal(qint64, qint64);
   void saveHorizontal(void);
   void scrollHorizontal(qint64 orig, qint64 to);
   void scrollHorizontal(qint64 delta);
-  void selectHorizontal(qint64 orig, qint64 to);
+  void selectHorizontal(qreal orig, qreal to);
   bool getHorizontalSelectionPresent(void) const;
   qreal getHorizontalSelectionStart(void) const;
   qreal getHorizontalSelectionEnd(void) const;
@@ -353,14 +466,25 @@ public:
   void resetSelection(void);
   void setPeriodicSelection(bool);
 
+  void setRealComponent(bool real);
+  void refreshData(void);
+
 signals:
   void backgroundColorChanged();
   void foregroundColorChanged();
   void axesColorChanged();
   void textColorChanged();
+  void selectionColorChanged();
+  void subSelectionColorChanged();
   void sampleRateChanged();
   void axesUpdated();
   void selectionUpdated();
+
+  void horizontalRangeChanged(qint64 start, qint64 end);
+  void verticalRangeChanged(qreal min, qreal max);
+  void horizontalSelectionChanged(qreal start, qreal end);
+  void verticalSelectionChanged(qreal min, qreal max);
+  void hoverTime(qreal);
 };
 
 #endif
