@@ -546,13 +546,22 @@ Waveform::drawWave(void)
 
       count = 0;
       if (samp >= 0 && samp < length - iters) {
+        int hMin = this->geometry.height();
+        int hMax = 0;
+
+        // Compose history
         for (int j = 0; j < iters; j += skip) {
           ++count;
           y = static_cast<int>(this->value2px(this->cast(data[samp + j])));
           if (havePrev)
             for (int k = std::min(y, prev_y); k <= std::max(y, prev_y); ++k)
-              if (k >= 0 && k < this->geometry.height())
-              ++history[static_cast<unsigned>(k)];
+              if (k >= 0 && k < this->geometry.height()) {
+                ++history[static_cast<unsigned>(k)];
+                if (k > hMax)
+                  hMax = k;
+                if (k < hMin)
+                  hMin = k;
+              }
           havePrev = true;
           prev_y = y;
 
@@ -562,12 +571,11 @@ Waveform::drawWave(void)
           }
         }
 
-        for (int j = 0; j < this->geometry.height(); ++j) {
-          if (history[static_cast<unsigned>(j)] > 0) {
-            p.setOpacity(
-                  .25 + .75 * history[static_cast<unsigned>(j)] / static_cast<qreal>(count));
-            p.drawPoint(i, j);
-          }
+        // Draw it
+        for (int j = hMin; j <= hMax; ++j) {
+          p.setOpacity(
+                .25 + .75 * history[static_cast<unsigned>(j)] / static_cast<qreal>(count));
+          p.drawPoint(i, j);
         }
       }
     }
