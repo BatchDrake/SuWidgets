@@ -522,7 +522,7 @@ Waveform::drawWave(void)
   QPainter p(&this->contentPixmap);
 
   if (this->sampPerPx > 1) {
-    QImage image(this->geometry, QImage::Format_ARGB32_Premultiplied);
+    QImage image(this->geometry, QImage::Format_ARGB32);
     std::vector<int> history(static_cast<size_t>(this->geometry.height()));
     int iters = static_cast<int>(std::floor(this->sampPerPx));
     int skip = 1;
@@ -551,7 +551,7 @@ Waveform::drawWave(void)
           ++count;
           y = static_cast<int>(this->value2px(this->cast(data[samp + j])));
           if (havePrev)
-            for (int k = std::min(y, prev_y); k <= std::max(y, prev_y); ++k)
+            for (int k = std::min(y, prev_y); k < std::max(y, prev_y); ++k)
               if (k >= 0 && k < this->geometry.height()) {
                 ++history[static_cast<unsigned>(k)];
                 if (k > hMax)
@@ -562,24 +562,21 @@ Waveform::drawWave(void)
           havePrev = true;
           prev_y = y;
 
-          if (j + skip > iters && j != iters - 1) {
+          if (j + skip > iters && j != iters - 1)
             j = iters - skip - 1;
-            --count;
-          }
         }
 
         // Draw it
-        for (int j = hMin; j <= hMax; ++j)
-          image.setPixelColor(
+        unsigned int color = 0xffff00;
+        unsigned int alpha;
+
+        for (int j = hMin; j <= hMax; ++j) {
+          alpha = 63 + (192 * history[static_cast<unsigned>(j)]) / count;
+          image.setPixel(
                 i,
                 j,
-                QColor(
-                  255,
-                  255,
-                  0,
-                  63 + 192. * history[static_cast<unsigned>(j)] / static_cast<qreal>(count)));
-
-
+                (alpha << 24) | color);
+        }
       }
     }
 
