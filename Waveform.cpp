@@ -520,14 +520,9 @@ Waveform::drawWave(void)
   const SUCOMPLEX *data = this->data.data();
   int length = static_cast<int>(this->data.length());
   QPainter p(&this->contentPixmap);
-  QPen pen(this->foreground);
-  // Two cases: if sampPerPx > 1: create small history of samples. Otherwise,
-  // just interpolate
-
-  pen.setStyle(Qt::SolidLine);
-  p.setPen(pen);
 
   if (this->sampPerPx > 1) {
+    QImage image(this->geometry, QImage::Format_ARGB32_Premultiplied);
     std::vector<int> history(static_cast<size_t>(this->geometry.height()));
     int iters = static_cast<int>(std::floor(this->sampPerPx));
     int skip = 1;
@@ -536,6 +531,8 @@ Waveform::drawWave(void)
     int y = 0;
     int prev_y;
     bool havePrev = false;
+
+    image.fill(Qt::transparent);
 
     if (iters > WAVEFORM_MAX_ITERS)
       skip = iters / WAVEFORM_MAX_ITERS;
@@ -572,17 +569,32 @@ Waveform::drawWave(void)
         }
 
         // Draw it
-        for (int j = hMin; j <= hMax; ++j) {
-          p.setOpacity(
-                .25 + .75 * history[static_cast<unsigned>(j)] / static_cast<qreal>(count));
-          p.drawPoint(i, j);
-        }
+        for (int j = hMin; j <= hMax; ++j)
+          image.setPixelColor(
+                i,
+                j,
+                QColor(
+                  255,
+                  255,
+                  0,
+                  63 + 192. * history[static_cast<unsigned>(j)] / static_cast<qreal>(count)));
+
+
       }
     }
 
+    p.drawImage(
+          QRect(0, 0, this->geometry.width(), this->geometry.height()),
+          image);
   } else {
     qreal firstSamp, lastSamp;
     int firstIntegerSamp, lastIntegerSamp;
+    QPen pen(this->foreground);
+    // Two cases: if sampPerPx > 1: create small history of samples. Otherwise,
+    // just interpolate
+
+    pen.setStyle(Qt::SolidLine);
+    p.setPen(pen);
 
     firstSamp = this->px2samp(this->valueTextWidth);
     lastSamp  = this->px2samp(this->geometry.width() - 1);
