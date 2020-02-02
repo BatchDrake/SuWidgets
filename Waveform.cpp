@@ -384,7 +384,7 @@ Waveform::mouseMoveEvent(QMouseEvent *event)
           static_cast<qint64>(this->px2samp(event->x())));
 
   emit hoverTime(this->px2t(this->currMouseX));
-  this->invalidateHard();
+  this->invalidate();
 }
 
 void
@@ -432,7 +432,7 @@ Waveform::wheelEvent(QWheelEvent *event)
     this->zoomHorizontal(
         static_cast<qint64>(event->x()),
         event->delta() < 0 ? 1.1 : 0.9);
-  this->invalidateHard();
+  this->invalidate();
 }
 
 void
