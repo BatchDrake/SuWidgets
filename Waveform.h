@@ -1,6 +1,6 @@
 //
-//    filename: description
-//    Copyright (C) 2018 Gonzalo José Carracedo Carballal
+//    Waveform.h: Time view widget
+//    Copyright (C) 2020 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as
@@ -118,6 +118,7 @@ class Waveform : public ThrottleableWidget
   bool waveDrawn = false;
   bool selectionDrawn = false;
 
+  QImage  waveform;
   QPixmap contentPixmap; // Data and vertical axes
   QPixmap axesPixmap;    // Only horizontal axes
   QPixmap selectionPixmap;
@@ -195,6 +196,12 @@ class Waveform : public ThrottleableWidget
   void recalculateDisplayData(void);
 
   static QString formatLabel(qreal value, int digits, QString units = "s");
+
+  inline bool
+  somethingDirty(void) const
+  {
+    return !this->waveDrawn || !this->axesDrawn || !this->selectionDrawn;
+  }
 
 protected:
     //re-implemented widget event handlers
@@ -398,6 +405,8 @@ public:
     if (divs < 1)
       divs = 1;
     this->divsPerSelection = divs;
+    if (this->hSelection)
+      this->selectionDrawn = false;
     this->invalidate();
   }
 

@@ -1,6 +1,6 @@
 //
-//    filename: description
-//    Copyright (C) 2018 Gonzalo José Carracedo Carballal
+//    Waveform.h: Time view widget
+//    Copyright (C) 2020 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as
@@ -18,6 +18,7 @@
 //
 #include "Waveform.h"
 #include <QPainter>
+#include <QColormap>
 
 ////////////////////////// WaveBuffer methods //////////////////////////////////
 WaveBuffer::WaveBuffer()
@@ -168,6 +169,8 @@ Waveform::zoomHorizontal(qint64 start, qint64 end)
   if (start != this->start || end != this->end) {
     this->start = start;
     this->end = end;
+    if (this->hSelection)
+      this->selectionDrawn = false;
     this->axesDrawn = false;
     this->recalculateDisplayData();
     emit horizontalRangeChanged(start, end);
@@ -474,23 +477,47 @@ Waveform::drawSelection(void)
       // starting from selLen.
       qint64 firstDiv = static_cast<int>((this->start - this->hSelStart) / selLen);
       qint64 lastDiv  = static_cast<int>((this->end - this->hSelStart) / selLen);
+
       qreal deltaDiv = selLen / static_cast<qreal>(this->divsPerSelection);
 
       if (this->divsPerSelection == 1)
         p.setPen(this->selection);
 
-      for (qint64 i = firstDiv - 1; i <= lastDiv; ++i) {
-        qreal sample = i * selLen + this->hSelStart;
+      if (this->divsPerSelection * (lastDiv - firstDiv)
+          >= this->geometry.width()) {
+        for (qint64 i = 0; i < this->geometry.width(); ++i) {
+          qreal divSample = this->px2samp(i);
+          p.setPen(divSample >= this->hSelStart && divSample <= this->hSelEnd
+                   ? this->subSelection
+                   : this->selection);
+          p.drawLine(
+                i,
+                0,
+                i,
+                this->geometry.height());
+        }
+      } else {
+        for (qint64 i = firstDiv - 1; i <= lastDiv; ++i) {
+          qreal sample = i * selLen + this->hSelStart;
 
-        if (this->divsPerSelection > 1) {
-          for (int j = 0; j <= this->divsPerSelection; ++j) {
-            qreal divSample = sample + j * deltaDiv;
-            int px = static_cast<int>(this->samp2px(divSample));
+          if (this->divsPerSelection > 1) {
+            for (int j = 0; j <= this->divsPerSelection; ++j) {
+              qreal divSample = sample + j * deltaDiv;
+              int px = static_cast<int>(this->samp2px(divSample));
 
-            p.setPen(divSample >= this->hSelStart && divSample <= this->hSelEnd
-                     ? this->subSelection
-                     : this->selection);
+              p.setPen(divSample >= this->hSelStart && divSample <= this->hSelEnd
+                       ? this->subSelection
+                       : this->selection);
 
+              if (px > 0 && px < this->geometry.width())
+                p.drawLine(
+                      px,
+                      0,
+                      px,
+                      this->geometry.height());
+            }
+          } else {
+            int px = static_cast<int>(this->samp2px(sample));
             if (px > 0 && px < this->geometry.width())
               p.drawLine(
                     px,
@@ -498,20 +525,11 @@ Waveform::drawSelection(void)
                     px,
                     this->geometry.height());
           }
-        } else {
-          int px = static_cast<int>(this->samp2px(sample));
-          if (px > 0 && px < this->geometry.width())
-            p.drawLine(
-                  px,
-                  0,
-                  px,
-                  this->geometry.height());
         }
       }
     }
+    p.end();
   }
-
-  p.end();
 }
 
 void
@@ -519,10 +537,10 @@ Waveform::drawWave(void)
 {
   const SUCOMPLEX *data = this->data.data();
   int length = static_cast<int>(this->data.length());
-  QPainter p(&this->contentPixmap);
+
+  waveform.fill(Qt::transparent);
 
   if (this->sampPerPx > 1) {
-    QImage image(this->geometry, QImage::Format_ARGB32);
     std::vector<int> history(static_cast<size_t>(this->geometry.height()));
     int iters = static_cast<int>(std::floor(this->sampPerPx));
     int skip = 1;
@@ -531,8 +549,6 @@ Waveform::drawWave(void)
     int y = 0;
     int prev_y;
     bool havePrev = false;
-
-    image.fill(Qt::transparent);
 
     if (iters > WAVEFORM_MAX_ITERS)
       skip = iters / WAVEFORM_MAX_ITERS;
@@ -567,25 +583,23 @@ Waveform::drawWave(void)
         }
 
         // Draw it
-        unsigned int color = 0xffff00;
+        unsigned int color =
+            0xffffff & QColormap::instance().pixel(this->foreground);
         unsigned int alpha;
 
         for (int j = hMin; j <= hMax; ++j) {
           alpha = 63 + (192 * history[static_cast<unsigned>(j)]) / count;
-          image.setPixel(
+          waveform.setPixel(
                 i,
                 j,
                 (alpha << 24) | color);
         }
       }
     }
-
-    p.drawImage(
-          QRect(0, 0, this->geometry.width(), this->geometry.height()),
-          image);
   } else {
     qreal firstSamp, lastSamp;
     int firstIntegerSamp, lastIntegerSamp;
+    QPainter p(&this->waveform);
     QPen pen(this->foreground);
     // Two cases: if sampPerPx > 1: create small history of samples. Otherwise,
     // just interpolate
@@ -607,9 +621,9 @@ Waveform::drawWave(void)
               static_cast<int>(this->samp2px(i + 1)),
               static_cast<int>(this->value2px(this->cast(data[i + 1]))));
     }
-  }
 
-  p.end();
+    p.end();
+  }
 }
 
 QString
@@ -797,6 +811,8 @@ Waveform::drawAxes(void)
 void
 Waveform::draw(void)
 {
+  bool selectionChanged = false;
+
   if (!this->size().isValid())
     return;
 
@@ -820,35 +836,54 @@ Waveform::draw(void)
           this->geometry.width(),
           this->geometry.height());
 
+    this->waveform = QImage(this->geometry, QImage::Format_ARGB32);
+
     this->recalculateDisplayData();
     this->selectionDrawn = false;
+    this->axesDrawn      = false;
+    this->waveDrawn      = false;
   }
 
-  if (!this->selectionDrawn) {
-    this->drawSelection();
-    this->axesDrawn = false;
-  }
+  //
+  // Dirty selection implies to overlay axes and waveform
+  // Dirty axes implies to redraw waveform
+  //
+  if (this->somethingDirty()) {
+    if (!this->selectionDrawn) {
+      this->drawSelection();
+      selectionChanged = true;
+      this->selectionDrawn = true;
+    }
 
-  if (!this->axesDrawn) {
-    this->drawAxes();
-    this->selectionDrawn = false;
-    this->axesDrawn = true;
-    this->waveDrawn = false;
-    QPainter p(&this->selectionPixmap);
-    p.drawPixmap(QPoint(0, 0), this->axesPixmap);
-    p.end();
-  }
-
-  if (!this->waveDrawn) {
+    // Start from a fresh selection
     this->contentPixmap = this->selectionPixmap.copy(
           0,
           0,
           this->geometry.width(),
           this->geometry.height());
 
+    QPainter p(&this->contentPixmap);
 
-    this->drawWave();
-    this->waveDrawn = true;
+    if (selectionChanged || !this->axesDrawn) {
+      if (!this->axesDrawn) {
+        this->drawAxes();
+        this->axesDrawn = true;
+        this->waveDrawn = false;
+      }
+
+      p.drawPixmap(0, 0, this->axesPixmap);
+    }
+
+    if (selectionChanged || !this->waveDrawn) {
+      if (!this->waveDrawn) {
+        this->drawWave();
+        this->waveDrawn = true;
+      }
+
+      p.drawImage(0, 0, this->waveform);
+    }
+
+    p.end();
   }
 }
 
@@ -878,6 +913,7 @@ Waveform::setData(const std::vector<SUCOMPLEX> *data)
   else
     this->data = WaveBuffer();
 
+  this->waveDrawn = false;
   this->resetSelection();
   this->zoomVerticalReset();
   this->zoomHorizontalReset();
