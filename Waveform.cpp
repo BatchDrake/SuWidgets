@@ -426,9 +426,9 @@ Waveform::mouseReleaseEvent(QMouseEvent *event)
 void
 Waveform::wheelEvent(QWheelEvent *event)
 {
-  qreal amount = std::pow<qreal, qreal>(
+  qreal amount = static_cast<qreal>(std::pow<qreal, SUFLOAT>(
         static_cast<qreal>(1.1),
-        static_cast<qreal>(-event->delta() / 120.));
+        static_cast<SUFLOAT>(-event->delta() / 120.)));
   if (event->x() < this->valueTextWidth)
     this->zoomVertical(static_cast<qint64>(event->y()), amount);
   else
