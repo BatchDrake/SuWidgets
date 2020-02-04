@@ -956,7 +956,7 @@ Waveform::Waveform(QWidget *parent) :
   this->deltaT = 1 / this->sampleRate;
 
   for (i = 0; i < 8192; ++i)
-    this->data.feed(.75 * SU_C_EXP(I * (M_PI * i) / 64));
+    this->data.feed(SU_ASFLOAT(.75) * SU_C_EXP(I * SU_ASFLOAT((M_PI * i) / 64)));
 
   this->background   = WAVEFORM_DEFAULT_BACKGROUND_COLOR;
   this->foreground   = WAVEFORM_DEFAULT_FOREGROUND_COLOR;
