@@ -114,7 +114,9 @@ class Waveform : public ThrottleableWidget
   qreal sampleRate = 1;
   qreal deltaT = 1;
 
+  bool showWaveform = true;
   bool showEnvelope = false;
+  bool showPhase = false;
   bool periodicSelection = false;
   bool realComponent = true;
 
@@ -156,6 +158,9 @@ class Waveform : public ThrottleableWidget
 
   // Limits
   WaveBuffer data;
+  std::vector<SUCOMPLEX> magPhase;
+  bool haveMagPhaseInfo = false;
+
   qreal t0 = 0; // Time where the buffer begins
 
   // Sample limits inside data to show. Please note there are two different
@@ -483,7 +488,11 @@ public:
   qreal getHorizontalSelectionEnd(void) const;
   void setAutoScroll(bool);
 
+  SUCOMPLEX getMagPhase(qint64 sample);
+
   void setShowEnvelope(bool);
+  void setShowPhase(bool);
+  void setShowWaveform(bool);
   void zoomVerticalReset(void);
   void zoomVertical(qint64 y, qreal amount);
   void zoomVertical(qreal start, qreal end);

@@ -19,6 +19,20 @@
 #include "Waveform.h"
 #include <QPainter>
 #include <QColormap>
+#include "YIQ.h"
+
+static QColor
+phaseToColor(SUFLOAT angle)
+{
+  if (angle < 0)
+    angle += 2 * PI;
+
+  return yiqTable[
+        qBound(
+          0,
+        static_cast<int>(SU_FLOOR(1024 * angle / (2 * PI))),
+        1023)];
+}
 
 ////////////////////////// WaveBuffer methods //////////////////////////////////
 WaveBuffer::WaveBuffer()
@@ -426,9 +440,9 @@ Waveform::mouseReleaseEvent(QMouseEvent *event)
 void
 Waveform::wheelEvent(QWheelEvent *event)
 {
-  qreal amount = static_cast<qreal>(std::pow<qreal, SUFLOAT>(
+  qreal amount = std::pow<qreal, qreal>(
         static_cast<qreal>(1.1),
-        static_cast<SUFLOAT>(-event->delta() / 120.)));
+        static_cast<qreal>(-event->delta() / 120.));
   if (event->x() < this->valueTextWidth)
     this->zoomVertical(static_cast<qint64>(event->y()), amount);
   else
@@ -445,6 +459,34 @@ Waveform::leaveEvent(QEvent *)
 }
 
 //////////////////////////////// Drawing methods ///////////////////////////////////
+SUCOMPLEX
+Waveform::getMagPhase(qint64 sample)
+{
+  SUCOMPLEX val;
+
+  if (sample < 0 || sample >= static_cast<qint64>(this->getDataLength()))
+    return 0;
+
+  if (!this->haveMagPhaseInfo) {
+    this->magPhase =
+          std::vector<SUCOMPLEX>(
+            this->getDataLength(), std::numeric_limits<SUFLOAT>::quiet_NaN());
+    this->haveMagPhaseInfo = true;
+  }
+
+  val = this->magPhase[static_cast<quint64>(sample)];
+
+  if (std::isnan(SU_C_REAL(val)) || std::isnan(SU_C_IMAG(val))) {
+    val =
+        SU_C_ABS(this->data.data()[sample])
+        + I * SU_C_ARG(this->data.data()[sample]);
+
+    this->magPhase[static_cast<quint64>(sample)] = val;
+  }
+
+  return val;
+}
+
 void
 Waveform::drawSelection(void)
 {
@@ -539,6 +581,7 @@ Waveform::drawWave(void)
 {
   const SUCOMPLEX *data = this->data.data();
   int length = static_cast<int>(this->data.length());
+  bool havePrev = false;
 
   waveform.fill(Qt::transparent);
 
@@ -551,9 +594,8 @@ Waveform::drawWave(void)
     int y = 0;
     int pxHigh, pxLow;
     int prev_y;
-    bool havePrev = false;
     QPainter p(&this->waveform);
-    p.setPen(this->envelope);
+    p.setPen(this->showWaveform ? this->envelope : this->foreground);
 
     if (iters > WAVEFORM_MAX_ITERS)
       skip = iters / WAVEFORM_MAX_ITERS;
@@ -566,17 +608,24 @@ Waveform::drawWave(void)
       if (samp >= 0 && samp < length - iters) {
         int hMin = this->geometry.height();
         int hMax = 0;
-        SUFLOAT env;
+        SUCOMPLEX mp;
+        SUFLOAT magAccum = 0;
+        SUFLOAT meanPhase = 0;
         SUFLOAT absMax = 0;
 
         // Compose history
         for (int j = 0; j < iters; j += skip) {
           ++count;
+          mp = this->getMagPhase(samp + j);
 
-          env = SU_C_ABS(data[samp + j]);
-          if (env > absMax)
-            absMax = env;
+          if (SU_C_REAL(mp) > absMax)
+            absMax = SU_C_REAL(mp);
+
+          meanPhase += SU_C_REAL(mp) * SU_C_IMAG(mp);
+          magAccum += SU_C_REAL(mp);
+
           y = static_cast<int>(this->value2px(this->cast(data[samp + j])));
+
           if (havePrev)
             for (int k = std::min(y, prev_y); k < std::max(y, prev_y); ++k)
               if (k >= 0 && k < this->geometry.height()) {
@@ -586,6 +635,7 @@ Waveform::drawWave(void)
                 if (k < hMin)
                   hMin = k;
               }
+
           havePrev = true;
           prev_y = y;
 
@@ -593,25 +643,35 @@ Waveform::drawWave(void)
             j = iters - skip - 1;
         }
 
+        meanPhase /= magAccum;
+
         if (this->showEnvelope) {
           // If draw envelope
+          if (this->showPhase) {
+            p.setPen(phaseToColor(meanPhase));
+            if (this->showWaveform)
+              p.setOpacity(.5);
+          }
+
           pxHigh = static_cast<int>(this->value2px(static_cast<qreal>(absMax)));
           pxLow  = static_cast<int>(this->value2px(-static_cast<qreal>(absMax)));
 
           p.drawLine(i, pxLow, i, pxHigh);
         }
 
-        // Draw it
-        unsigned int color =
-            0xffffff & QColormap::instance().pixel(this->foreground);
-        unsigned int alpha;
+        if (this->showWaveform) {
+          // Draw it
+          unsigned int color =
+              0xffffff & QColormap::instance().pixel(this->foreground);
+          unsigned int alpha;
 
-        for (int j = hMin; j <= hMax; ++j) {
-          alpha = 63 + (192 * history[static_cast<unsigned>(j)]) / count;
-          waveform.setPixel(
-                i,
-                j,
-                (alpha << 24) | color);
+          for (int j = hMin; j <= hMax; ++j) {
+            alpha = 63 + (192 * history[static_cast<unsigned>(j)]) / count;
+            waveform.setPixel(
+                  i,
+                  j,
+                  (alpha << 24) | color);
+          }
         }
       }
     }
@@ -620,7 +680,8 @@ Waveform::drawWave(void)
     int firstIntegerSamp, lastIntegerSamp;
     int prevPxHigh = 0;
     int prevPxLow = 0;
-    SUFLOAT env;
+    int prevX = 0, currX;
+    SUCOMPLEX prevMp = 0;
     QPainter p(&this->waveform);
     QPen pen(this->foreground);
     // Two cases: if sampPerPx > 1: create small history of samples. Otherwise,
@@ -635,62 +696,59 @@ Waveform::drawWave(void)
     firstIntegerSamp = static_cast<int>(std::ceil(firstSamp));
     lastIntegerSamp  = static_cast<int>(std::floor(lastSamp));
 
-    for (int i = firstIntegerSamp; i < lastIntegerSamp; ++i)
-      if (i >= 0 && i < length - 1) {
-        env = SU_C_ABS(data[i + 1]);
+    for (int i = firstIntegerSamp; i <= lastIntegerSamp; ++i) {
+      currX = static_cast<int>(this->samp2px(i));
+
+      if (i >= 0 && i < length) {
         if (this->showEnvelope) {
+          SUCOMPLEX mp = this->getMagPhase(i);
           int pxHigh = static_cast<int>(
-                this->value2px(static_cast<qreal>(env)));
+                this->value2px(static_cast<qreal>(SU_C_REAL(mp))));
 
           int pxLow = static_cast<int>(
-                this->value2px(-static_cast<qreal>(env)));
+                this->value2px(-static_cast<qreal>(SU_C_REAL(mp))));
 
           p.setPen(Qt::NoPen);
           QPainterPath path;
-          path.moveTo(
-                static_cast<int>(this->samp2px(i)),
-                prevPxHigh);
 
-          path.lineTo(
-                static_cast<int>(this->samp2px(i + 1)),
-                pxHigh);
+          if (havePrev) {
+            path.moveTo(prevX, prevPxHigh);
+            path.lineTo(currX, pxHigh);
+            path.lineTo(currX, pxLow);
+            path.lineTo(prevX, prevPxLow);
 
-          path.lineTo(
-                static_cast<int>(this->samp2px(i + 1)),
-                pxLow);
-
-          path.lineTo(
-                static_cast<int>(this->samp2px(i)),
-                prevPxLow);
-
-          if (pxHigh >= 0 && pxHigh < this->geometry.height())
-            p.drawLine(
-                  static_cast<int>(this->samp2px(i)),
-                  prevPxHigh,
-                  static_cast<int>(this->samp2px(i + 1)),
-                  pxHigh);
-
-          if (prevPxLow >= 0 && prevPxLow < this->geometry.height())
-            p.drawLine(
-                  static_cast<int>(this->samp2px(i)),
-                  prevPxLow,
-                  static_cast<int>(this->samp2px(i + 1)),
-                  pxLow);
-
-          p.fillPath(path, QBrush(this->envelope));
-
+            if (this->showPhase) {
+              QLinearGradient gradient(prevX, 0, currX, 0);
+              gradient.setColorAt(0, phaseToColor(SU_C_IMAG(prevMp)));
+              gradient.setColorAt(1, phaseToColor(SU_C_IMAG(mp)));
+              if (this->showWaveform)
+                p.setOpacity(0.5);
+              p.fillPath(path, gradient);
+            } else {
+              p.fillPath(
+                    path,
+                    QBrush(this->showWaveform
+                           ? this->envelope
+                           : this->foreground));
+            }
+          }
           prevPxHigh = pxHigh;
           prevPxLow = pxLow;
+          prevMp = mp;
         }
 
-        p.setPen(this->foreground);
+        if (this->showWaveform && havePrev) {
+          p.setPen(this->foreground);
+          p.drawLine(
+                prevX,
+                static_cast<int>(this->value2px(this->cast(data[i - 1]))),
+                currX,
+                static_cast<int>(this->value2px(this->cast(data[i]))));
+        }
+      }
 
-        p.drawLine(
-              static_cast<int>(this->samp2px(i)),
-              static_cast<int>(this->value2px(this->cast(data[i]))),
-              static_cast<int>(this->samp2px(i + 1)),
-              static_cast<int>(this->value2px(this->cast(data[i + 1]))));
-
+      prevX = currX;
+      havePrev = true;
     }
 
     p.end();
@@ -984,6 +1042,7 @@ Waveform::setData(const std::vector<SUCOMPLEX> *data)
   else
     this->data = WaveBuffer();
 
+  this->haveMagPhaseInfo = false;
   this->waveDrawn = false;
   this->resetSelection();
   this->zoomVerticalReset();
@@ -1003,6 +1062,24 @@ void
 Waveform::setShowEnvelope(bool show)
 {
   this->showEnvelope = show;
+  this->waveDrawn = false;
+  this->axesDrawn = false;
+  this->invalidate();
+}
+
+void
+Waveform::setShowPhase(bool show)
+{
+  this->showPhase = show;
+  this->waveDrawn = false;
+  this->axesDrawn = false;
+  this->invalidate();
+}
+
+void
+Waveform::setShowWaveform(bool show)
+{
+  this->showWaveform = show;
   this->waveDrawn = false;
   this->axesDrawn = false;
   this->invalidate();
