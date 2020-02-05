@@ -549,8 +549,11 @@ Waveform::drawWave(void)
     int count = 0;
     int samp = 0;
     int y = 0;
+    int pxHigh, pxLow;
     int prev_y;
     bool havePrev = false;
+    QPainter p(&this->waveform);
+    p.setPen(this->envelope);
 
     if (iters > WAVEFORM_MAX_ITERS)
       skip = iters / WAVEFORM_MAX_ITERS;
@@ -563,10 +566,16 @@ Waveform::drawWave(void)
       if (samp >= 0 && samp < length - iters) {
         int hMin = this->geometry.height();
         int hMax = 0;
+        SUFLOAT env;
+        SUFLOAT absMax = 0;
 
         // Compose history
         for (int j = 0; j < iters; j += skip) {
           ++count;
+
+          env = SU_C_ABS(data[samp + j]);
+          if (env > absMax)
+            absMax = env;
           y = static_cast<int>(this->value2px(this->cast(data[samp + j])));
           if (havePrev)
             for (int k = std::min(y, prev_y); k < std::max(y, prev_y); ++k)
@@ -582,6 +591,14 @@ Waveform::drawWave(void)
 
           if (j + skip > iters && j != iters - 1)
             j = iters - skip - 1;
+        }
+
+        if (this->showEnvelope) {
+          // If draw envelope
+          pxHigh = static_cast<int>(this->value2px(static_cast<qreal>(absMax)));
+          pxLow  = static_cast<int>(this->value2px(-static_cast<qreal>(absMax)));
+
+          p.drawLine(i, pxLow, i, pxHigh);
         }
 
         // Draw it
@@ -601,6 +618,9 @@ Waveform::drawWave(void)
   } else {
     qreal firstSamp, lastSamp;
     int firstIntegerSamp, lastIntegerSamp;
+    int prevPxHigh = 0;
+    int prevPxLow = 0;
+    SUFLOAT env;
     QPainter p(&this->waveform);
     QPen pen(this->foreground);
     // Two cases: if sampPerPx > 1: create small history of samples. Otherwise,
@@ -617,11 +637,60 @@ Waveform::drawWave(void)
 
     for (int i = firstIntegerSamp; i < lastIntegerSamp; ++i)
       if (i >= 0 && i < length - 1) {
+        env = SU_C_ABS(data[i + 1]);
+        if (this->showEnvelope) {
+          int pxHigh = static_cast<int>(
+                this->value2px(static_cast<qreal>(env)));
+
+          int pxLow = static_cast<int>(
+                this->value2px(-static_cast<qreal>(env)));
+
+          p.setPen(Qt::NoPen);
+          QPainterPath path;
+          path.moveTo(
+                static_cast<int>(this->samp2px(i)),
+                prevPxHigh);
+
+          path.lineTo(
+                static_cast<int>(this->samp2px(i + 1)),
+                pxHigh);
+
+          path.lineTo(
+                static_cast<int>(this->samp2px(i + 1)),
+                pxLow);
+
+          path.lineTo(
+                static_cast<int>(this->samp2px(i)),
+                prevPxLow);
+
+          if (pxHigh >= 0 && pxHigh < this->geometry.height())
+            p.drawLine(
+                  static_cast<int>(this->samp2px(i)),
+                  prevPxHigh,
+                  static_cast<int>(this->samp2px(i + 1)),
+                  pxHigh);
+
+          if (prevPxLow >= 0 && prevPxLow < this->geometry.height())
+            p.drawLine(
+                  static_cast<int>(this->samp2px(i)),
+                  prevPxLow,
+                  static_cast<int>(this->samp2px(i + 1)),
+                  pxLow);
+
+          p.fillPath(path, QBrush(this->envelope));
+
+          prevPxHigh = pxHigh;
+          prevPxLow = pxLow;
+        }
+
+        p.setPen(this->foreground);
+
         p.drawLine(
               static_cast<int>(this->samp2px(i)),
               static_cast<int>(this->value2px(this->cast(data[i]))),
               static_cast<int>(this->samp2px(i + 1)),
               static_cast<int>(this->value2px(this->cast(data[i + 1]))));
+
     }
 
     p.end();
@@ -931,6 +1000,15 @@ Waveform::setRealComponent(bool real)
 }
 
 void
+Waveform::setShowEnvelope(bool show)
+{
+  this->showEnvelope = show;
+  this->waveDrawn = false;
+  this->axesDrawn = false;
+  this->invalidate();
+}
+
+void
 Waveform::refreshData(void)
 {
   qint64 currSpan = this->end - this->start;
@@ -966,7 +1044,7 @@ Waveform::Waveform(QWidget *parent) :
   this->text         = WAVEFORM_DEFAULT_TEXT_COLOR;
   this->selection    = WAVEFORM_DEFAULT_SELECTION_COLOR;
   this->subSelection = WAVEFORM_DEFAULT_SUBSEL_COLOR;
-
+  this->envelope     = WAVEFORM_DEFAULT_ENVELOPE_COLOR;
   this->setMouseTracking(true);
   this->invalidate();
 }

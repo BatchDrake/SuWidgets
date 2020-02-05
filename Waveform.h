@@ -30,6 +30,7 @@
 #define WAVEFORM_DEFAULT_AXES_COLOR       QColor(0x34, 0x34, 0x34)
 #define WAVEFORM_DEFAULT_TEXT_COLOR       QColor(0xff, 0xff, 0xff)
 #define WAVEFORM_DEFAULT_SELECTION_COLOR  QColor(0x08, 0x08, 0x08)
+#define WAVEFORM_DEFAULT_ENVELOPE_COLOR   QColor(0x3f, 0x3f, 0x00)
 #define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0x7f, 0x08, 0x08)
 #define WAVEFORM_MAX_ITERS                20
 
@@ -91,6 +92,12 @@ class Waveform : public ThrottleableWidget
       NOTIFY subSelectionColorChanged)
 
   Q_PROPERTY(
+      QColor envelopeColor
+      READ getEnvelopeColor
+      WRITE setEnvelopeColor
+      NOTIFY envelopeColorChanged)
+
+  Q_PROPERTY(
       qreal sampleRate
       READ getSampleRate
       WRITE setSampleRate
@@ -101,11 +108,13 @@ class Waveform : public ThrottleableWidget
   QColor foreground;
   QColor selection;
   QColor subSelection;
+  QColor envelope;
   QColor axes;
   QColor text;
   qreal sampleRate = 1;
   qreal deltaT = 1;
 
+  bool showEnvelope = false;
   bool periodicSelection = false;
   bool realComponent = true;
 
@@ -380,6 +389,21 @@ public:
     return this->foreground;
   }
 
+  void
+  setEnvelopeColor(const QColor &c)
+  {
+    this->envelope = c;
+    this->axesDrawn = false;
+    this->invalidate();
+    emit envelopeColorChanged();
+  }
+
+  const QColor &
+  getEnvelopeColor(void) const
+  {
+    return this->envelope;
+  }
+
   qreal
   getSampleRate(void) const
   {
@@ -459,6 +483,7 @@ public:
   qreal getHorizontalSelectionEnd(void) const;
   void setAutoScroll(bool);
 
+  void setShowEnvelope(bool);
   void zoomVerticalReset(void);
   void zoomVertical(qint64 y, qreal amount);
   void zoomVertical(qreal start, qreal end);
@@ -485,6 +510,7 @@ signals:
   void textColorChanged();
   void selectionColorChanged();
   void subSelectionColorChanged();
+  void envelopeColorChanged(void);
   void sampleRateChanged();
   void axesUpdated();
   void selectionUpdated();
