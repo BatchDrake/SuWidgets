@@ -117,10 +117,14 @@ class Waveform : public ThrottleableWidget
   bool showWaveform = true;
   bool showEnvelope = false;
   bool showPhase = false;
+  bool showPhaseDiff = false;
   bool periodicSelection = false;
   bool realComponent = true;
 
   int divsPerSelection = 1;
+
+  // Palette
+  QColor colorTable[256];
 
   // State
   QSize geometry;
@@ -290,6 +294,17 @@ public:
     cast(SUCOMPLEX z) const
     {
       return this->realComponent ? SU_C_REAL(z) : SU_C_IMAG(z);
+    }
+
+    inline QColor const &
+    phaseDiff2Color(SUFLOAT diff) const
+    {
+      int index = qBound(
+            0,
+            static_cast<int>(diff / (2 * PI) * 255),
+            255);
+
+      return this->colorTable[(index + 128) & 0xff];
     }
 
   const inline SUCOMPLEX *
@@ -470,6 +485,20 @@ public:
     return this->px2t(this->currMouseX);
   }
 
+  void
+  setPalette(const QColor *table)
+  {
+    unsigned int i;
+
+    for (i = 0; i < 256; ++i)
+      this->colorTable[i] = table[i];
+
+    if (this->showEnvelope && this->showPhase && this->showPhaseDiff) {
+      this->waveDrawn = false;
+      this->invalidate();
+    }
+  }
+
   Waveform(QWidget *parent = nullptr);
 
   void setData(const std::vector<SUCOMPLEX> *);
@@ -492,6 +521,7 @@ public:
 
   void setShowEnvelope(bool);
   void setShowPhase(bool);
+  void setShowPhaseDiff(bool);
   void setShowWaveform(bool);
   void zoomVerticalReset(void);
   void zoomVertical(qint64 y, qreal amount);

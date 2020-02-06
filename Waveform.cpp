@@ -609,8 +609,11 @@ Waveform::drawWave(void)
         int hMin = this->geometry.height();
         int hMax = 0;
         SUCOMPLEX mp;
+        SUFLOAT mag = 0;
         SUFLOAT magAccum = 0;
+        SUFLOAT meanPhaseDiff = 0;
         SUFLOAT meanPhase = 0;
+        SUFLOAT phase, phaseDiff = 0;
         SUFLOAT absMax = 0;
 
         // Compose history
@@ -618,15 +621,23 @@ Waveform::drawWave(void)
           ++count;
           mp = this->getMagPhase(samp + j);
 
-          if (SU_C_REAL(mp) > absMax)
-            absMax = SU_C_REAL(mp);
+          mag = SU_C_REAL(mp);
+          phase = SU_C_IMAG(mp);
+          phaseDiff = phase - SU_C_IMAG(this->getMagPhase(samp + j - 1));
 
-          meanPhase += SU_C_REAL(mp) * SU_C_IMAG(mp);
-          magAccum += SU_C_REAL(mp);
+          if (mag > absMax)
+            absMax = mag;
+
+          if (phaseDiff < 0)
+            phaseDiff += 2 * PI;
+
+          meanPhase += mag * phase;
+          magAccum += mag;
+          meanPhaseDiff += phaseDiff;
 
           y = static_cast<int>(this->value2px(this->cast(data[samp + j])));
 
-          if (havePrev)
+          if (havePrev) {
             for (int k = std::min(y, prev_y); k < std::max(y, prev_y); ++k)
               if (k >= 0 && k < this->geometry.height()) {
                 ++history[static_cast<unsigned>(k)];
@@ -635,6 +646,7 @@ Waveform::drawWave(void)
                 if (k < hMin)
                   hMin = k;
               }
+          }
 
           havePrev = true;
           prev_y = y;
@@ -648,7 +660,10 @@ Waveform::drawWave(void)
         if (this->showEnvelope) {
           // If draw envelope
           if (this->showPhase) {
-            p.setPen(phaseToColor(meanPhase));
+            p.setPen(
+                  this->showPhaseDiff
+                  ? this->phaseDiff2Color(meanPhaseDiff / count)
+                  : phaseToColor(meanPhase));
             if (this->showWaveform)
               p.setOpacity(.5);
           }
@@ -718,18 +733,30 @@ Waveform::drawWave(void)
             path.lineTo(prevX, prevPxLow);
 
             if (this->showPhase) {
-              QLinearGradient gradient(prevX, 0, currX, 0);
-              gradient.setColorAt(0, phaseToColor(SU_C_IMAG(prevMp)));
-              gradient.setColorAt(1, phaseToColor(SU_C_IMAG(mp)));
-              if (this->showWaveform)
-                p.setOpacity(0.5);
-              p.fillPath(path, gradient);
+              if (this->showPhaseDiff) {
+                SUFLOAT phaseDiff = SU_C_IMAG(mp) - SU_C_IMAG(prevMp);
+
+                if (phaseDiff < 0)
+                  phaseDiff += 2 * PI;
+
+                QColor diff = this->phaseDiff2Color(phaseDiff);
+                if (this->showWaveform)
+                  p.setOpacity(0.5);
+                p.fillPath(path, diff);
+              } else {
+                QLinearGradient gradient(prevX, 0, currX, 0);
+                gradient.setColorAt(0, phaseToColor(SU_C_IMAG(prevMp)));
+                gradient.setColorAt(1, phaseToColor(SU_C_IMAG(mp)));
+                if (this->showWaveform)
+                  p.setOpacity(0.5);
+                p.fillPath(path, gradient);
+              }
             } else {
               p.fillPath(
                     path,
-                    QBrush(this->showWaveform
-                           ? this->envelope
-                           : this->foreground));
+                    this->showWaveform
+                    ? this->envelope
+                    : this->foreground);
             }
           }
           prevPxHigh = pxHigh;
@@ -1071,9 +1098,23 @@ void
 Waveform::setShowPhase(bool show)
 {
   this->showPhase = show;
-  this->waveDrawn = false;
-  this->axesDrawn = false;
-  this->invalidate();
+  if (this->showEnvelope) {
+    this->waveDrawn = false;
+    this->axesDrawn = false;
+    this->invalidate();
+  }
+}
+
+void
+Waveform::setShowPhaseDiff(bool show)
+{
+  this->showPhaseDiff = show;
+
+  if (this->showEnvelope) {
+    this->waveDrawn = false;
+    this->axesDrawn = false;
+    this->invalidate();
+  }
 }
 
 void
@@ -1114,6 +1155,27 @@ Waveform::Waveform(QWidget *parent) :
 
   for (i = 0; i < 8192; ++i)
     this->data.feed(SU_ASFLOAT(.75) * SU_C_EXP(I * SU_ASFLOAT((M_PI * i) / 64)));
+
+  for (int i = 0; i < 256; i++) {
+    // level 0: black background
+    if (i < 20)
+      colorTable[i].setRgb(0, 0, 0);
+    // level 1: black -> blue
+    else if ((i >= 20) && (i < 70))
+      colorTable[i].setRgb(0, 0, 140*(i-20)/50);
+    // level 2: blue -> light-blue / greenish
+    else if ((i >= 70) && (i < 100))
+      colorTable[i].setRgb(60*(i-70)/30, 125*(i-70)/30, 115*(i-70)/30 + 140);
+    // level 3: light blue -> yellow
+    else if ((i >= 100) && (i < 150))
+      colorTable[i].setRgb(195*(i-100)/50 + 60, 130*(i-100)/50 + 125, 255-(255*(i-100)/50));
+    // level 4: yellow -> red
+    else if ((i >= 150) && (i < 250))
+      colorTable[i].setRgb(255, 255-255*(i-150)/100, 0);
+    // level 5: red -> white
+    else if (i >= 250)
+      colorTable[i].setRgb(255, 255*(i-250)/5, 255*(i-250)/5);
+  }
 
   this->background   = WAVEFORM_DEFAULT_BACKGROUND_COLOR;
   this->foreground   = WAVEFORM_DEFAULT_FOREGROUND_COLOR;
