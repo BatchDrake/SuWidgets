@@ -16,8 +16,8 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#ifndef QVerticalLabel_H
-#define QQVerticalLabel_H
+#ifndef QVERTICALLABEL_H
+#define QVERTICALLABEL_H
 
 #include <QLabel>
 
@@ -35,4 +35,4 @@ protected:
     QSize minimumSizeHint() const;
 };
 
-#endif // QVerticalLabel_H
+#endif // QVERTICALLABEL_H
