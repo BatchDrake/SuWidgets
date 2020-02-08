@@ -121,6 +121,7 @@ class Waveform : public ThrottleableWidget
   bool periodicSelection = false;
   bool realComponent = true;
 
+  unsigned int phaseDiffOrigin = 0;
   int divsPerSelection = 1;
 
   // Palette
@@ -299,12 +300,12 @@ public:
     inline QColor const &
     phaseDiff2Color(SUFLOAT diff) const
     {
-      int index = qBound(
-            0,
-            static_cast<int>(diff / (2 * PI) * 255),
-            255);
+      unsigned index = qBound(
+            0u,
+            static_cast<unsigned>(diff / (2 * PI) * 255),
+            255u);
 
-      return this->colorTable[(index + 128) & 0xff];
+      return this->colorTable[(index + this->phaseDiffOrigin) & 0xff];
     }
 
   const inline SUCOMPLEX *
@@ -495,6 +496,7 @@ public:
 
     if (this->showEnvelope && this->showPhase && this->showPhaseDiff) {
       this->waveDrawn = false;
+      this->axesDrawn = false;
       this->invalidate();
     }
   }
@@ -535,6 +537,8 @@ public:
   qreal getVerticalSelectionEnd(void) const;
   void fitToEnvelope(void);
   void setAutoFitToEnvelope(bool);
+
+  void setPhaseDiffOrigin(unsigned);
 
   void resetSelection(void);
   void setPeriodicSelection(bool);

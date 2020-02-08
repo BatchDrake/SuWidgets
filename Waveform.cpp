@@ -21,7 +21,7 @@
 #include <QColormap>
 #include "YIQ.h"
 
-static QColor
+static QColor const &
 phaseToColor(SUFLOAT angle)
 {
   if (angle < 0)
@@ -161,12 +161,12 @@ Waveform::zoomHorizontal(qint64 x, qreal amount)
   // or stretch accordingly
   //
 
-  fixedSamp = std::ceil(this->px2samp(x));
+  fixedSamp = std::round(this->px2samp(x));
   newRange = std::ceil(amount * (this->end - this->start));
 
   this->zoomHorizontal(
-        static_cast<qint64>(fixedSamp - relPoint * newRange),
-        static_cast<qint64>(fixedSamp + (1.0 - relPoint) * newRange));
+        static_cast<qint64>(std::floor(fixedSamp - relPoint * newRange)),
+        static_cast<qint64>(std::ceil(fixedSamp + (1.0 - relPoint) * newRange)));
 }
 
 void
@@ -610,9 +610,7 @@ Waveform::drawWave(void)
         int hMax = 0;
         SUCOMPLEX mp;
         SUFLOAT mag = 0;
-        SUFLOAT magAccum = 0;
-        SUFLOAT meanPhaseDiff = 0;
-        SUFLOAT meanPhase = 0;
+        int redAcc = 0, greenAcc = 0, blueAcc = 0;
         SUFLOAT phase, phaseDiff = 0;
         SUFLOAT absMax = 0;
 
@@ -631,9 +629,14 @@ Waveform::drawWave(void)
           if (phaseDiff < 0)
             phaseDiff += 2 * PI;
 
-          meanPhase += mag * phase;
-          magAccum += mag;
-          meanPhaseDiff += phaseDiff;
+          const QColor &color =
+              this->showPhaseDiff
+              ? this->phaseDiff2Color(phaseDiff)
+              : phaseToColor(phase);
+
+          redAcc   += color.red();
+          greenAcc += color.green();
+          blueAcc  += color.blue();
 
           y = static_cast<int>(this->value2px(this->cast(data[samp + j])));
 
@@ -655,15 +658,10 @@ Waveform::drawWave(void)
             j = iters - skip - 1;
         }
 
-        meanPhase /= magAccum;
-
         if (this->showEnvelope) {
           // If draw envelope
           if (this->showPhase) {
-            p.setPen(
-                  this->showPhaseDiff
-                  ? this->phaseDiff2Color(meanPhaseDiff / count)
-                  : phaseToColor(meanPhase));
+            p.setPen(QColor(redAcc / count, greenAcc / count, blueAcc / count));
             if (this->showWaveform)
               p.setOpacity(.5);
           }
@@ -793,13 +791,14 @@ Waveform::formatLabel(qreal value, int digits, QString units)
     "n" + units,
     "p" + units,
     "f" + units};
+  QString superUnits[] = {
+    units,
+    "k" + units,
+    "M" + units,
+    "G" + units,
+    "T" + units};
   QString num;
   int i = 0;
-
-  while (i++ < 6 && digits < -1) {
-    multiplier *= 1e3;
-    digits += 3;
-  }
 
   if (digits >= 0) {
     if (digits > 2 && units == "s") { // This is too long. Format to minutes and seconds
@@ -820,18 +819,32 @@ Waveform::formatLabel(qreal value, int digits, QString units)
         snprintf(time, sizeof(time), "%02d:%02d:%0d", hours, minutes, seconds);
       else
         snprintf(time, sizeof(time), "%02d:%0d", minutes, seconds);
-      return sign + QString(time);
+      num = sign + QString(time);
     } else {
-      digits = 0;
+      unsigned int pfx = 0;
+      while (digits > 3 && pfx < 4) {
+        multiplier *= 1e-3;
+        digits -= 3;
+        ++pfx;
+      }
+
+      num.setNum(value * multiplier, 'f', digits);
+      num += " " + superUnits[pfx];
     }
+  } else {
+    while (i++ < 6 && digits < -1) {
+      multiplier *= 1e3;
+      digits += 3;
+    }
+
+    if (digits > 0)
+      digits = 0;
+
+    num.setNum(value * multiplier, 'f', -digits);
+    num += " " + subUnits[i - 1];
+    if (units != "s" && value > 0)
+      num = "+" + num;
   }
-
-  num.setNum(value * multiplier, 'f', -digits);
-
-  num += " " + subUnits[i - 1];
-
-  if (units != "s" && value > 0)
-    num = "+" + num;
 
   return num;
 }
@@ -856,6 +869,7 @@ Waveform::drawVerticalAxes(void)
   if (this->hDivSamples > 0) {
     // Draw axes
     axis = static_cast<int>(std::floor(this->start / this->hDivSamples));
+    p.setOpacity(.5);
     while (axis * this->hDivSamples <= this->end) {
       px = static_cast<int>(this->samp2px(axis * this->hDivSamples));
 
@@ -865,6 +879,7 @@ Waveform::drawVerticalAxes(void)
     }
 
     // Draw labels
+    p.setOpacity(1);
     p.setPen(this->text);
     axis = static_cast<int>(std::floor(this->start / this->hDivSamples));
     while (axis * this->hDivSamples <= this->end) {
@@ -911,6 +926,7 @@ Waveform::drawHorizontalAxes(void)
 
   if (this->vDivUnits > 0) {
     axis = static_cast<int>(std::floor(this->min / this->vDivUnits));
+    p.setOpacity(.5);
     while (axis * this->vDivUnits <= this->max) {
       pen.setStyle(axis == 0 ? Qt::SolidLine : Qt::DotLine);
       p.setPen(pen);
@@ -921,6 +937,7 @@ Waveform::drawHorizontalAxes(void)
       ++axis;
     }
 
+    p.setOpacity(1);
     p.setPen(this->text);
     axis = static_cast<int>(std::floor(this->min / this->vDivUnits));
     while (axis * this->vDivUnits <= this->max) {
@@ -1116,6 +1133,18 @@ Waveform::setShowPhaseDiff(bool show)
     this->invalidate();
   }
 }
+
+void
+Waveform::setPhaseDiffOrigin(unsigned origin)
+{
+  if (this->showEnvelope && this->showPhase && this->showPhaseDiff) {
+    this->phaseDiffOrigin = origin & 0xff;
+    this->waveDrawn = false;
+    this->axesDrawn = false;
+    this->invalidate();
+  }
+}
+
 
 void
 Waveform::setShowWaveform(bool show)
