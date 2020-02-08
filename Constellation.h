@@ -84,6 +84,7 @@ class Constellation : public ThrottleableWidget
   unsigned int bits = 2;
   bool haveGeometry = false;
   bool axesDrawn = false;
+  SUFLOAT gain = 1.414f;
 
   // Cached data
   int ox;
@@ -167,6 +168,18 @@ public:
   getOrderHint(unsigned int &m_bits) const
   {
     m_bits = this->bits;
+  }
+
+  void
+  setGain(SUFLOAT gain)
+  {
+    this->gain = gain;
+  }
+
+  SUFLOAT
+  getGain(void) const
+  {
+    return this->gain;
   }
 
   void setHistorySize(unsigned int length);

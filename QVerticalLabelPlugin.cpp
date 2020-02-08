@@ -1,6 +1,6 @@
 //
-//    filename: description
-//    Copyright (C) 2018 Gonzalo José Carracedo Carballal
+//    QVerticalLabelPlugin.cpp: Plugin for vertically oriented label
+//    Copyright (C) 2020 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as
@@ -16,18 +16,18 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#include "LCD.h"
-#include "LCDPlugin.h"
+#include "QVerticalLabel.h"
+#include "QVerticalLabelPlugin.h"
 
 #include <QtPlugin>
 
-LCDPlugin::LCDPlugin(QObject *parent)
+QVerticalLabelPlugin::QVerticalLabelPlugin(QObject *parent)
   : QObject(parent)
 {
   m_initialized = false;
 }
 
-void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
+void QVerticalLabelPlugin::initialize(QDesignerFormEditorInterface * /* core */)
 {
   if (m_initialized)
     return;
@@ -37,53 +37,53 @@ void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
   m_initialized = true;
 }
 
-bool LCDPlugin::isInitialized() const
+bool QVerticalLabelPlugin::isInitialized() const
 {
   return m_initialized;
 }
 
-QWidget *LCDPlugin::createWidget(QWidget *parent)
+QWidget *QVerticalLabelPlugin::createWidget(QWidget *parent)
 {
-  return new LCD(parent);
+  return new QVerticalLabel(parent);
 }
 
-QString LCDPlugin::name() const
+QString QVerticalLabelPlugin::name() const
 {
-  return QLatin1String("LCD");
+  return QLatin1String("QVerticalLabel");
 }
 
-QString LCDPlugin::group() const
+QString QVerticalLabelPlugin::group() const
 {
   return QLatin1String("");
 }
 
-QIcon LCDPlugin::icon() const
+QIcon QVerticalLabelPlugin::icon() const
 {
   return QIcon();
 }
 
-QString LCDPlugin::toolTip() const
+QString QVerticalLabelPlugin::toolTip() const
 {
   return QLatin1String("");
 }
 
-QString LCDPlugin::whatsThis() const
+QString QVerticalLabelPlugin::whatsThis() const
 {
   return QLatin1String("");
 }
 
-bool LCDPlugin::isContainer() const
+bool QVerticalLabelPlugin::isContainer() const
 {
   return false;
 }
 
-QString LCDPlugin::domXml() const
+QString QVerticalLabelPlugin::domXml() const
 {
-  return QLatin1String("<widget class=\"LCD\" name=\"lcd\">\n</widget>\n");
+  return QLatin1String("<widget class=\"QVerticalLabel\" name=\"verticalLabel\">\n</widget>\n");
 }
 
-QString LCDPlugin::includeFile() const
+QString QVerticalLabelPlugin::includeFile() const
 {
-  return QLatin1String("LCD.h");
+  return QLatin1String("QVerticalLabel.h");
 }
 

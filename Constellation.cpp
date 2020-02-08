@@ -134,7 +134,7 @@ Constellation::drawConstellation(void)
 
     while (p++ < this->amount) {
       assert(q < size);
-      c = 1.414f * this->history[q];
+      c = this->gain * this->history[q];
 
       fg.setAlpha(static_cast<int>(alphaK * (p + skip)));
 
@@ -230,7 +230,7 @@ Constellation::feed(const SUCOMPLEX *samples, unsigned int length)
       this->ptr = 0;
   }
 
-  assert(this->ptr < size);
+  assert(size == 0 || this->ptr < size);
   this->invalidate();
 }
 
