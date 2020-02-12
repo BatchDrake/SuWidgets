@@ -595,7 +595,10 @@ Waveform::drawWave(void)
     int pxHigh, pxLow;
     int prev_y;
     QPainter p(&this->waveform);
-    p.setPen(this->showWaveform ? this->envelope : this->foreground);
+    p.setPen(this->foreground);
+
+    if (this->showWaveform)
+      p.setOpacity(.5);
 
     if (iters > WAVEFORM_MAX_ITERS)
       skip = iters / WAVEFORM_MAX_ITERS;
@@ -750,11 +753,11 @@ Waveform::drawWave(void)
                 p.fillPath(path, gradient);
               }
             } else {
+              if (this->showWaveform)
+                p.setOpacity(0.5);
               p.fillPath(
                     path,
-                    this->showWaveform
-                    ? this->envelope
-                    : this->foreground);
+                    this->foreground);
             }
           }
           prevPxHigh = pxHigh;
