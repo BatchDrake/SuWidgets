@@ -71,8 +71,8 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 
 #define CUR_CUT_DELTA 5		//cursor capture delta in pixels
 
-#define FFT_MIN_DB     -160.f
-#define FFT_MAX_DB      0.f
+#define FFT_MIN_DB     -120.f
+#define FFT_MAX_DB      40.f
 
 // Colors of type QRgb in 0xAARRGGBB format (unsigned int)
 #define PLOTTER_BGD_COLOR           0xFF1F1D1D
