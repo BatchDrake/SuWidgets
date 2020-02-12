@@ -17,7 +17,7 @@
 //    <http://www.gnu.org/licenses/>
 //
 #ifndef QVerticalLabel_H
-#define QQVerticalLabel_H
+#define QVerticalLabel_H
 
 #include <QLabel>
 
