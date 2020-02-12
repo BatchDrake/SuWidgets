@@ -23,30 +23,6 @@
 
 // See https://www.linuxquestions.org/questions/blog/rainbowsally-615861/qt-fast-pixel-color-mixing-35589/
 
-const uint lq_colortable[] = {
-  0xFFFFFFFF, // Qt::color0
-  0xFF000000, // Qt::color1
-  0xFF000000, // black
-  0xFFFFFFFF, // white
-  0xFF808080, // index 248   medium gray
-  0xFFA0A0A4, // index 247   light gray
-  0xFFC0C0C0, // index 7     light gray
-  0xFFFF0000, // index 249   red
-  0xFF00FF00, // index 250   green
-  0xFF0000FF, // index 252   blue
-  0xFF00FFFF, // index 254   cyan
-  0xFFFF00FF, // index 253   magenta
-  0xFFFFFF00, // index 251   yellow
-  0xFF800000, // index 1     dark red
-  0xFF008000, // index 2     dark green
-  0xFF000080, // index 4     dark blue
-  0xFF008080, // index 6     dark cyan
-  0xFF800080, // index 5     dark magenta
-  0xFF808000, // index 3     dark yellow
-  0x00000000  //             transparent
-};
-
-
 static QRgb
 qMixRgb(QRgb pixel1, QRgb pixel2, unsigned alpha)
 {
