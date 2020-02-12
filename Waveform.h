@@ -212,6 +212,7 @@ class Waveform : public ThrottleableWidget
   void drawAxes(void);
   void drawWave(void);
   void drawSelection(void);
+  void overlaySelectionMarkes(QPainter &);
   void recalculateDisplayData(void);
 
   static QString formatLabel(qreal value, int digits, QString units = "s");
