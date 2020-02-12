@@ -649,7 +649,8 @@ Waveform::drawWave(void)
             else
               p.setPen(QColor(redAcc / count, greenAcc / count, blueAcc / count));
           } else {
-            p.setPen(darkenedForeground);
+            if (this->showWaveform)
+              p.setPen(darkenedForeground);
           }
 
           pxHigh = static_cast<int>(this->value2px(static_cast<qreal>(absMax)));
