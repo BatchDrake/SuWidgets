@@ -245,6 +245,13 @@ public:
     }
 
     inline qreal
+    getSamplesPerPixel(void) const
+    {
+      return this->sampPerPx;
+    }
+
+
+    inline qreal
     samp2t(qreal samp) const
     {
       return (samp + this->start) * this->deltaT + this->t0;
