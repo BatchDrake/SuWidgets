@@ -34,6 +34,7 @@ class SymView : public ThrottleableWidget
     // Behavior
     bool autoScroll = true;
     bool autoStride = true;
+    bool reverse    = false;
     bool pad[6];
 
     // Representation properties
@@ -45,12 +46,22 @@ class SymView : public ThrottleableWidget
 
     // Private methods
     void assertImage(void);
+    void drawToImage(
+        QImage &image,
+        unsigned int start,
+        unsigned int end,
+        unsigned int stride = 0,
+        unsigned int skip = 0);
 
 public:
   enum FileFormat {
     FILE_FORMAT_TEXT,
     FILE_FORMAT_RAW,
-    FILE_FORMAT_C_ARRAY
+    FILE_FORMAT_C_ARRAY,
+    FILE_FORMAT_BMP,
+    FILE_FORMAT_PNG,
+    FILE_FORMAT_JPEG,
+    FILE_FORMAT_PPM
   };
 
   void clear(void);
@@ -78,6 +89,20 @@ public:
 
     if (val)
       this->setStride(static_cast<unsigned int>(this->width()));
+  }
+
+  bool
+  getReverse(void) const
+  {
+    return this->reverse;
+  }
+
+  void
+  setReverse(bool rev)
+  {
+    this->reverse = rev;
+    if (this->buffer.size() > 0)
+      this->invalidate();
   }
 
   bool

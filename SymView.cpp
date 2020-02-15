@@ -44,13 +44,47 @@ SymView::assertImage(void)
 }
 
 void
+SymView::drawToImage(
+    QImage &image,
+    unsigned int start,
+    unsigned int end,
+    unsigned int lineSize,
+    unsigned int lineSkip)
+{
+  unsigned int x = 0;
+  int y = 0;
+  int asInt, convD;
+  unsigned int p = start;
+  QRgb *scanLine;
+
+  // Calculate conversion coefficients
+  convD = (1 << this->bps) - 1;
+
+  scanLine = reinterpret_cast<QRgb *>(image.scanLine(0));
+
+  if (lineSize == 0)
+    lineSize = static_cast<unsigned int>(image.width());
+
+  while (p < end) {
+    asInt = (static_cast<int>(this->buffer[p++]) * 255) / convD;
+    if (this->reverse)
+      asInt = ~asInt;
+
+    // You like Cobol, right?
+
+    scanLine[x++] = qRgb(asInt, asInt, asInt);
+    if (x >= lineSize) {
+      x = 0;
+      scanLine = reinterpret_cast<QRgb *>(image.scanLine(++y));
+      p += lineSkip; // Skip non visible pixels
+    }
+  }
+}
+
+void
 SymView::draw(void)
 {
-  int convD, asInt;
-  unsigned int p;
-  int x, y;
-  size_t available, last;
-  QRgb *scanLine;
+  unsigned int available;
 
   if (!this->size().isValid())
     return;
@@ -63,39 +97,23 @@ SymView::draw(void)
       : this->stride;
   unsigned int lineSkip = static_cast<unsigned int>(this->stride - lineSize);
 
-  size_t visible = static_cast<size_t>(this->stride * this->viewPort.height());
+  unsigned visible = static_cast<unsigned>(this->stride * this->viewPort.height());
 
   this->viewPort.fill(Qt::black); // Fill in black
 
   if (this->bps > 0 && this->buffer.size() > this->offset) {
-    available = this->buffer.size() - this->offset;
+    available = static_cast<unsigned>(this->buffer.size()) - this->offset;
 
     // Calculate how many symbols are visible
     if (visible > available)
       visible = available;
 
-    // Calculate conversion coefficients
-    convD = (1 << this->bps) - 1;
-
-    x = y = 0;
-    p = this->offset;
-    last = p + visible;
-
-    // Wow, C++ is truly dense
-    scanLine = (QRgb *) this->viewPort.scanLine(0);
-
-    while (p < last) {
-      asInt = (static_cast<int>(this->buffer[p++]) * 255) / convD;
-
-      // You like Cobol, right?
-
-      scanLine[x++] = qRgb(asInt, asInt, asInt);
-      if (x >= lineSize) {
-        x = 0;
-        scanLine = (QRgb *) this->viewPort.scanLine(++y);
-        p += lineSkip; // Skip non visible pixels
-      }
-    }
+    this->drawToImage(
+          this->viewPort,
+          this->offset,
+          this->offset + visible,
+          static_cast<unsigned int>(lineSize),
+          lineSkip);
   }
 }
 
@@ -111,46 +129,79 @@ SymView::clear(void)
 void
 SymView::save(QString const &dest, FileFormat format)
 {
-  std::ofstream fs;
+  QFile file(dest);
+  char b;
+  QImage img;
 
-  fs.open(dest.toStdString(), std::ios::binary);
+  file.open(QIODevice::WriteOnly);
 
-  if (!fs)
+  if (!file.isOpen())
     throw std::ios_base::failure("Failed to save file " + dest.toStdString());
+
+  if (format > FILE_FORMAT_C_ARRAY) {
+    // Initialize image
+    img = QImage(this->stride, this->getLines(), QImage::Format_ARGB32);
+    drawToImage(
+          img,
+          this->offset % static_cast<unsigned>(this->stride),
+          static_cast<unsigned>(this->buffer.size()));
+  }
 
   switch (format) {
     case FILE_FORMAT_TEXT:
       for (auto p = this->buffer.begin();
            p != this->buffer.end();
-           ++p)
-        fs << static_cast<char>('0' + *p);
+           ++p) {
+        b = '0' + static_cast<char>(*p);
+        file.write(&b, 1);
+      }
       break;
 
     case FILE_FORMAT_RAW:
       for (auto p = this->buffer.begin();
            p != this->buffer.end();
-           ++p)
-        fs << static_cast<char>(*p & ((1 << this->bps) - 1));
+           ++p) {
+        b = static_cast<char>(*p & ((1 << this->bps) - 1));
+        file.write(&b, 1);
+      }
       break;
 
     case FILE_FORMAT_C_ARRAY:
-      fs << "#include <stdint.h>" << std::endl << std::endl;
-      fs << "static uint8_t data[" << this->buffer.size() << "] = {" << std::endl;
+      char buf[8];
+      file.write("#include <stdint.h>\n\n");
+      file.write(
+            ("static uint8_t data[" + QString::number(this->buffer.size()) + "] = {\n")
+            .toUtf8());
 
       for (unsigned int i = 0; i < this->buffer.size(); ++i) {
         if (i % 16 == 0)
-          fs << "  ";
-        fs << "0x" << std::hex << std::setw(2) << std::setfill('0')
-            << static_cast<unsigned int>(this->buffer[i]) << ",";
+          file.write("  ");
+        snprintf(buf, 8, "0x%02x, ", static_cast<unsigned int>(this->buffer[i]));
+        file.write(buf);
+
         if (i % 16 == 15)
-          fs << std::endl;
+          file.write("\n");
       }
 
-      fs << "};" << std::endl;
+      file.write("};\n");
+      break;
+
+    case FILE_FORMAT_BMP:
+      img.save(&file, "BMP");
+      break;
+
+    case FILE_FORMAT_PNG:
+      img.save(&file, "PNG");
+      break;
+
+    case FILE_FORMAT_JPEG:
+      img.save(&file, "JPEG");
+      break;
+
+    case FILE_FORMAT_PPM:
+      img.save(&file, "PPM");
       break;
   }
-
-  fs.close();
 }
 
 void
