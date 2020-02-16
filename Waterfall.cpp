@@ -606,7 +606,8 @@ int Waterfall::getNearestPeak(QPoint pt)
 void Waterfall::setWaterfallSpan(quint64 span_ms)
 {
     wf_span = span_ms;
-    msec_per_wfline = wf_span / m_WaterfallPixmap.height();
+    if (m_WaterfallPixmap.height() > 0)
+      msec_per_wfline = wf_span / m_WaterfallPixmap.height();
     clearWaterfall();
 }
 
@@ -974,6 +975,8 @@ void Waterfall::resizeEvent(QResizeEvent* )
 void Waterfall::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
+
+
 
     painter.drawPixmap(0, 0, m_2DPixmap);
     painter.drawPixmap(0, m_Percent2DScreen * m_Size.height() / 100,
