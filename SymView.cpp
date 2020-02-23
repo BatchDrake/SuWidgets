@@ -1,4 +1,4 @@
-//
+﻿//
 //    filename: description
 //    Copyright (C) 2018 Gonzalo José Carracedo Carballal
 //
@@ -25,6 +25,7 @@
 SymView::SymView(QWidget *parent) :
   ThrottleableWidget(parent)
 {
+  this->setFocusPolicy(Qt::StrongFocus);
   this->invalidate();
 }
 
@@ -48,8 +49,10 @@ SymView::drawToImage(
     QImage &image,
     unsigned int start,
     unsigned int end,
+    unsigned int zoom,
     unsigned int lineSize,
-    unsigned int lineSkip)
+    unsigned int lineSkip,
+    unsigned int lineStart)
 {
   unsigned int x = 0;
   int y = 0;
@@ -72,8 +75,9 @@ SymView::drawToImage(
         asInt = ~asInt;
 
       // You like Cobol, right?
+      if (x++ >= lineStart)
+        scanLine[x - 1 - lineStart] = qRgb(asInt, asInt, asInt);
 
-      scanLine[x++] = qRgb(asInt, asInt, asInt);
       if (x >= lineSize) {
         x = 0;
         scanLine = reinterpret_cast<QRgb *>(image.scanLine(++y));
@@ -92,26 +96,27 @@ SymView::drawToImage(
     //  p(x, y) = start + x + y * lineSize
     //
 
-    lineSize += lineSkip;
+    unsigned int stride = lineSize + lineSkip;
 
-    int width = static_cast<int>(lineSize * this->zoom);
+    int width = static_cast<int>(stride * zoom);
     if (width > image.width())
       width = image.width();
 
     for (int j = 0; j < image.height(); ++j) {
-      int y = j / static_cast<int>(this->zoom);
+      unsigned int y = static_cast<unsigned>(j) / zoom;
       scanLine = reinterpret_cast<QRgb *>(image.scanLine(j));
       for (int i = 0; i < width; ++i) {
-        int x = i / static_cast<int>(this->zoom);
-        p = start
-            + static_cast<unsigned>(x)
-            + static_cast<unsigned>(y) * lineSize;
-        asInt = (static_cast<int>(this->buffer[p]) * 255) / convD;
-        if (p >= end)
-          break;
-        if (this->reverse)
-          asInt = ~asInt;
-        scanLine[i] = qRgb(asInt, asInt, asInt);
+        unsigned x = static_cast<unsigned>(i) / zoom
+            + lineStart;
+        if (x < stride) {
+          p = start + x + y * stride;
+          asInt = (static_cast<int>(this->buffer[p]) * 255) / convD;
+          if (p >= end)
+            break;
+          if (this->reverse)
+            asInt = ~asInt;
+          scanLine[i] = qRgb(asInt, asInt, asInt);
+        }
       }
 
       if (p >= end)
@@ -124,19 +129,30 @@ void
 SymView::draw(void)
 {
   unsigned int available;
-
+  int zoom = static_cast<int>(this->zoom);
   if (!this->size().isValid())
     return;
 
   // Assert a few things before going on
   this->assertImage();
 
-  int lineSize = this->stride > this->viewPort.width()
-      ? this->viewPort.width()
+  int lineSize = this->stride > this->viewPort.width() / zoom
+      ? this->viewPort.width() / zoom
       : this->stride;
   unsigned int lineSkip = static_cast<unsigned int>(this->stride - lineSize);
+  unsigned int lineStart = static_cast<unsigned int>(this->hOffset);
 
-  unsigned visible = static_cast<unsigned>(this->stride * this->viewPort.height());
+  // lineSize: Number of visible symbols
+  // lineSkip: Number of invisible symbols
+  // If I start beyond the number of visible symbols, I will fall beyond
+  // the line limits.
+
+  if (lineStart > lineSkip)
+    lineStart = lineSkip;
+
+  unsigned int visibleLines =
+      (static_cast<unsigned>(this->height()) + this->zoom - 1) / this->zoom;
+  unsigned visible = static_cast<unsigned>(this->stride) * visibleLines;
 
   this->viewPort.fill(Qt::black); // Fill in black
 
@@ -151,8 +167,10 @@ SymView::draw(void)
           this->viewPort,
           this->offset,
           this->offset + visible,
-          static_cast<unsigned int>(lineSize),
-          lineSkip);
+          this->zoom,
+          static_cast<unsigned int>(lineSize) + lineStart,
+          lineSkip - lineStart,
+          lineStart);
   }
 }
 
@@ -259,9 +277,10 @@ SymView::scrollToBottom(void)
   int size  = static_cast<int>(this->buffer.size());
   int lines = (size + this->stride - 1) / this->stride;
 
-  if (lines > this->height() / this->zoom)
+  if (lines > this->height() / static_cast<int>(this->zoom))
     new_offset = static_cast<unsigned int>(
-          (lines - this->height() / this->zoom) * this->stride);
+          (lines - this->height()  / static_cast<int>(this->zoom))
+          * this->stride);
 
   this->setOffset(new_offset);
 }
@@ -295,13 +314,115 @@ SymView::mousePressEvent(QMouseEvent *)
 }
 
 void
-SymView::keyPressEvent(QKeyEvent *)
+SymView::keyPressEvent(QKeyEvent *event)
 {
+  unsigned int lineSize = static_cast<unsigned>(this->stride);
+  unsigned int lineCount = static_cast<unsigned>(this->height()) / this->zoom;
+  unsigned int pageSize = lineSize * lineCount;
+  unsigned int visible = static_cast<unsigned>(this->width()) / this->zoom;
 
+  switch (event->key()) {
+    case Qt::Key_PageUp:
+      this->setOffset(
+            this->offset < pageSize
+            ? 0
+            : this->offset - pageSize);
+      break;
+
+    case Qt::Key_PageDown:
+      if (this->getLength() > pageSize) {
+        this->setOffset(
+              static_cast<unsigned int>(
+              this->offset < this->getLength() - pageSize
+              ? this->offset + pageSize
+              : this->getLength() - pageSize));
+      }
+      break;
+
+    case Qt::Key_Up:
+      this->setOffset(
+            this->offset < lineSize
+            ? 0
+            : this->offset - lineSize);
+      break;
+
+    case Qt::Key_Down:
+      if (this->getLength() > pageSize) {
+        this->setOffset(
+              static_cast<unsigned int>(
+              this->offset + lineSize < this->getLength() - pageSize
+              ? this->offset + lineSize
+              : this->getLength() - pageSize));
+      }
+      break;
+
+    case Qt::Key_Home:
+      this->setOffset(0);
+      break;
+
+    case Qt::Key_End:
+      this->setOffset(static_cast<unsigned int>(this->getLength() - pageSize));
+      break;
+
+    case Qt::Key_Left:
+      if (this->hOffset > 0)
+        this->setHOffset(this->hOffset - 1);
+      break;
+
+    case Qt::Key_Right:
+      if (static_cast<unsigned>(this->hOffset) + visible <= lineSize)
+        this->setHOffset(this->hOffset + 1);
+      break;
+
+    case Qt::Key_Plus:
+      if (event->modifiers() & Qt::ControlModifier)
+        this->setZoom(this->zoom + 1);
+      break;
+
+    case Qt::Key_Minus:
+      if (event->modifiers() & Qt::ControlModifier && this->zoom > 1)
+        this->setZoom(this->zoom - 1);
+      break;
+  }
 }
 
 void
-SymView::wheelEvent(QWheelEvent *)
+SymView::wheelEvent(QWheelEvent *event)
 {
+  unsigned int lineSize = static_cast<unsigned>(this->stride);
+  unsigned int lineCount = static_cast<unsigned>(this->height()) / this->zoom;
+  unsigned int pageSize = lineSize * lineCount;
+  int count = (event->delta() + 119) / 120;
 
+  if (event->modifiers() & Qt::ControlModifier) {
+    if (count <= 0) {
+      unsigned int delta = static_cast<unsigned>(-count) + 1;
+      this->setZoom(delta < this->zoom ? this->zoom - delta : 1);
+    } else {
+      unsigned int delta = static_cast<unsigned>(count);
+      this->setZoom(
+            this->zoom + delta > SYMVIEW_MAX_ZOOM
+            ? SYMVIEW_MAX_ZOOM
+            : this->zoom + delta);
+    }
+  } else {
+    if (count > 0) {
+      unsigned int delta = static_cast<unsigned>(count);
+      unsigned int step = 5 * delta * lineSize * this->zoom;
+      this->setOffset(
+            this->offset < step
+            ? 0
+            : this->offset - step);
+    } else {
+      unsigned int delta = static_cast<unsigned>(-count) + 1;
+      unsigned int step = 5 * delta * lineSize * this->zoom;
+      if (this->getLength() > pageSize) {
+        this->setOffset(
+              static_cast<unsigned int>(
+                this->offset + step < this->getLength() - pageSize
+                ? this->offset + step
+                : this->getLength() - pageSize));
+      }
+    }
+  }
 }

@@ -25,6 +25,8 @@
 #include <QResizeEvent>
 #include "ThrottleableWidget.h"
 
+#define SYMVIEW_MAX_ZOOM 50
+
 class SymView : public ThrottleableWidget
 {
   Q_OBJECT
@@ -41,6 +43,7 @@ class SymView : public ThrottleableWidget
     unsigned int bps = 1;     // Bits per symbol.
     unsigned int zoom = 1;    // Pixels per symbol
     unsigned int offset = 0;  // Offset (wrt buffer)
+    int hOffset = 0; // Horizontal offset
     int stride = 1;           // Image stride
     unsigned int pad2;
     QImage viewPort;          // Current view. Matches geometry
@@ -51,8 +54,10 @@ class SymView : public ThrottleableWidget
         QImage &image,
         unsigned int start,
         unsigned int end,
+        unsigned int zoom = 1,
         unsigned int stride = 0,
-        unsigned int skip = 0);
+        unsigned int skip = 0,
+        unsigned int lineStart = 0);
 
 public:
   enum FileFormat {
@@ -176,12 +181,26 @@ public:
   }
 
   void
+  setHOffset(int offset)
+  {
+    if (offset >= this->stride)
+      offset = this->stride - 1;
+
+    if (offset != this->hOffset) {
+      this->hOffset = offset;
+      this->invalidate();
+      emit hOffsetChanged(offset);
+    }
+  }
+
+  void
   setZoom(unsigned int zoom)
   {
-    if (zoom > 0 && zoom != this->zoom) {
+    if (zoom > 0 && zoom != this->zoom && zoom <= SYMVIEW_MAX_ZOOM) {
       this->zoom = zoom;
       this->setAutoStride(this->autoStride);
       this->invalidate();
+      emit zoomChanged(zoom);
     }
   }
 
@@ -206,7 +225,9 @@ public:
 
   signals:
   void offsetChanged(unsigned int);
+  void hOffsetChanged(int);
   void strideChanged(unsigned int);
+  void zoomChanged(unsigned int);
 
 };
 
