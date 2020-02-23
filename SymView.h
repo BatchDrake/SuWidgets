@@ -39,6 +39,7 @@ class SymView : public ThrottleableWidget
 
     // Representation properties
     unsigned int bps = 1;     // Bits per symbol.
+    unsigned int zoom = 1;    // Pixels per symbol
     unsigned int offset = 0;  // Offset (wrt buffer)
     int stride = 1;           // Image stride
     unsigned int pad2;
@@ -88,7 +89,7 @@ public:
     this->autoStride = val;
 
     if (val)
-      this->setStride(static_cast<unsigned int>(this->width()));
+      this->setStride(static_cast<unsigned int>(this->width() / this->zoom));
   }
 
   bool
@@ -172,6 +173,22 @@ public:
       this->invalidate();
       emit offsetChanged(offset);
     }
+  }
+
+  void
+  setZoom(unsigned int zoom)
+  {
+    if (zoom > 0 && zoom != this->zoom) {
+      this->zoom = zoom;
+      this->setAutoStride(this->autoStride);
+      this->invalidate();
+    }
+  }
+
+  unsigned int
+  getZoom(void) const
+  {
+    return this->zoom;
   }
 
   SymView(QWidget *parent = nullptr);

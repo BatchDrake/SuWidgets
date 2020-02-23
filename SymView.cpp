@@ -65,18 +65,57 @@ SymView::drawToImage(
   if (lineSize == 0)
     lineSize = static_cast<unsigned int>(image.width());
 
-  while (p < end) {
-    asInt = (static_cast<int>(this->buffer[p++]) * 255) / convD;
-    if (this->reverse)
-      asInt = ~asInt;
+  if (this->zoom == 1) {
+    while (p < end) {
+      asInt = (static_cast<int>(this->buffer[p++]) * 255) / convD;
+      if (this->reverse)
+        asInt = ~asInt;
 
-    // You like Cobol, right?
+      // You like Cobol, right?
 
-    scanLine[x++] = qRgb(asInt, asInt, asInt);
-    if (x >= lineSize) {
-      x = 0;
-      scanLine = reinterpret_cast<QRgb *>(image.scanLine(++y));
-      p += lineSkip; // Skip non visible pixels
+      scanLine[x++] = qRgb(asInt, asInt, asInt);
+      if (x >= lineSize) {
+        x = 0;
+        scanLine = reinterpret_cast<QRgb *>(image.scanLine(++y));
+        p += lineSkip; // Skip non visible pixels
+      }
+    }
+  } else {
+    // If zoom is bigger than one, we decide which pixel belongs to which
+    // symbol instead. We assume the symbol stream to be divided in
+    // blocks of lineSize symbols, starting by start. Therefore:
+    //
+    //  x = i / zoom
+    //  y = j / zoom
+    //
+    //  if (x >= lineSize) p(x, y) = 0
+    //  p(x, y) = start + x + y * lineSize
+    //
+
+    lineSize += lineSkip;
+
+    int width = static_cast<int>(lineSize * this->zoom);
+    if (width > image.width())
+      width = image.width();
+
+    for (int j = 0; j < image.height(); ++j) {
+      int y = j / static_cast<int>(this->zoom);
+      scanLine = reinterpret_cast<QRgb *>(image.scanLine(j));
+      for (int i = 0; i < width; ++i) {
+        int x = i / static_cast<int>(this->zoom);
+        p = start
+            + static_cast<unsigned>(x)
+            + static_cast<unsigned>(y) * lineSize;
+        asInt = (static_cast<int>(this->buffer[p]) * 255) / convD;
+        if (p >= end)
+          break;
+        if (this->reverse)
+          asInt = ~asInt;
+        scanLine[i] = qRgb(asInt, asInt, asInt);
+      }
+
+      if (p >= end)
+        break;
     }
   }
 }
@@ -220,9 +259,9 @@ SymView::scrollToBottom(void)
   int size  = static_cast<int>(this->buffer.size());
   int lines = (size + this->stride - 1) / this->stride;
 
-  if (lines > this->height())
+  if (lines > this->height() / this->zoom)
     new_offset = static_cast<unsigned int>(
-          (lines - this->height()) * this->stride);
+          (lines - this->height() / this->zoom) * this->stride);
 
   this->setOffset(new_offset);
 }
