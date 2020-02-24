@@ -1219,7 +1219,11 @@ void Waterfall::setNewFftData(float *fftData, int size)
     m_wfData = fftData;
     m_fftData = fftData;
     m_fftDataSize = size;
-    m_tentativeCenterFreq = 0;
+
+    if (m_tentativeCenterFreq != 0) {
+      m_tentativeCenterFreq = 0;
+      m_DrawOverlay = true;
+    }
 
     draw();
 }
@@ -1636,9 +1640,9 @@ void Waterfall::drawOverlay()
     // Draw demod filter box
     if (m_FilterBoxEnabled)
     {
-        m_DemodFreqX = xFromFreq(m_DemodCenterFreq - m_tentativeCenterFreq);
-        m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq - m_tentativeCenterFreq);
-        m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq - m_tentativeCenterFreq);
+        m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
+        m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
+        m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
 
         int dw = m_DemodHiCutFreqX - m_DemodLowCutFreqX;
 
@@ -1820,10 +1824,8 @@ void Waterfall::setCenterFreq(quint64 f)
     if((quint64)m_CenterFreq == f)
         return;
 
-    qint64 offset = m_CenterFreq - m_DemodCenterFreq;
     m_tentativeCenterFreq += f - m_CenterFreq;
     m_CenterFreq = f;
-    m_DemodCenterFreq = m_CenterFreq - offset;
 
     updateOverlay();
 
