@@ -796,6 +796,12 @@ Waveform::formatLabel(qreal value, int digits, QString units)
   QString num;
   int i = 0;
 
+  if (std::isinf(value))
+    return (value < 0 ? "-∞ " : "∞ ") + units;
+
+  if (std::isnan(value))
+    return "NaN " + units;
+
   if (digits >= 0) {
     if (digits > 2 && units == "s") { // This is too long. Format to minutes and seconds
       char time[64];
