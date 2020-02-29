@@ -25,6 +25,8 @@
 #include <QResizeEvent>
 #include "ThrottleableWidget.h"
 
+#define SYMVIEW_MAX_ZOOM 50
+
 class SymView : public ThrottleableWidget
 {
   Q_OBJECT
@@ -34,23 +36,38 @@ class SymView : public ThrottleableWidget
     // Behavior
     bool autoScroll = true;
     bool autoStride = true;
+    bool reverse    = false;
     bool pad[6];
 
     // Representation properties
     unsigned int bps = 1;     // Bits per symbol.
+    unsigned int zoom = 1;    // Pixels per symbol
     unsigned int offset = 0;  // Offset (wrt buffer)
+    int hOffset = 0; // Horizontal offset
     int stride = 1;           // Image stride
     unsigned int pad2;
     QImage viewPort;          // Current view. Matches geometry
 
     // Private methods
     void assertImage(void);
+    void drawToImage(
+        QImage &image,
+        unsigned int start,
+        unsigned int end,
+        unsigned int zoom = 1,
+        unsigned int stride = 0,
+        unsigned int skip = 0,
+        unsigned int lineStart = 0);
 
 public:
   enum FileFormat {
     FILE_FORMAT_TEXT,
     FILE_FORMAT_RAW,
-    FILE_FORMAT_C_ARRAY
+    FILE_FORMAT_C_ARRAY,
+    FILE_FORMAT_BMP,
+    FILE_FORMAT_PNG,
+    FILE_FORMAT_JPEG,
+    FILE_FORMAT_PPM
   };
 
   void clear(void);
@@ -77,7 +94,21 @@ public:
     this->autoStride = val;
 
     if (val)
-      this->setStride(static_cast<unsigned int>(this->width()));
+      this->setStride(static_cast<unsigned int>(this->width() / this->zoom));
+  }
+
+  bool
+  getReverse(void) const
+  {
+    return this->reverse;
+  }
+
+  void
+  setReverse(bool rev)
+  {
+    this->reverse = rev;
+    if (this->buffer.size() > 0)
+      this->invalidate();
   }
 
   bool
@@ -149,6 +180,36 @@ public:
     }
   }
 
+  void
+  setHOffset(int offset)
+  {
+    if (offset >= this->stride)
+      offset = this->stride - 1;
+
+    if (offset != this->hOffset) {
+      this->hOffset = offset;
+      this->invalidate();
+      emit hOffsetChanged(offset);
+    }
+  }
+
+  void
+  setZoom(unsigned int zoom)
+  {
+    if (zoom > 0 && zoom != this->zoom && zoom <= SYMVIEW_MAX_ZOOM) {
+      this->zoom = zoom;
+      this->setAutoStride(this->autoStride);
+      this->invalidate();
+      emit zoomChanged(zoom);
+    }
+  }
+
+  unsigned int
+  getZoom(void) const
+  {
+    return this->zoom;
+  }
+
   SymView(QWidget *parent = nullptr);
 
   void scrollToBottom(void);
@@ -164,7 +225,9 @@ public:
 
   signals:
   void offsetChanged(unsigned int);
+  void hOffsetChanged(int);
   void strideChanged(unsigned int);
+  void zoomChanged(unsigned int);
 
 };
 

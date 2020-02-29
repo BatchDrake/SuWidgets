@@ -16,10 +16,43 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
+
 #include "Waveform.h"
 #include <QPainter>
 #include <QColormap>
+#include <SuWidgetsHelpers.h>
 #include "YIQ.h"
+
+// See https://www.linuxquestions.org/questions/blog/rainbowsally-615861/qt-fast-pixel-color-mixing-35589/
+
+static QRgb
+qMixRgb(QRgb pixel1, QRgb pixel2, unsigned alpha)
+{
+  int a, b, c;
+  uint res1, res2;
+
+  b = static_cast<int>(alpha);
+  // Add and sub are faster than a branch too, so we use the compare to 0
+  // optimization to get the upper clamp value without branching.  Again,
+  // see the disassembly.
+  c = b - 255;
+  c = (c > 0) ? 0 : c;
+  b = c + 255;
+
+  // fudge to compensate for limited fixed point precision
+  a = 256 - b;
+  b++; // still testing fudge algorithm, possibly 'b = b > a ? b+1 : b;'
+
+  // lo bits: mask, multiply, mask, shift
+  res1 = (((pixel1 & 0x00FF00FF) * a) & 0xFF00FF00) >> 8;
+  res1 += ((((pixel2 & 0x00FF00FF) * b) & 0xFF00FF00)) >> 8;
+
+  // hi bits: mask, shift, multiply, mask
+  res2 = (((pixel1 & 0xFF00FF00) >> 8) * a) & 0xFF00FF00;
+  res2 += (((pixel2 & 0xFF00FF00) >> 8) * b) & 0xFF00FF00;
+
+  return (res1 + res2) | 0xff000000; // set alpha = 255 if opaque
+}
 
 static QColor const &
 phaseToColor(SUFLOAT angle)
@@ -440,7 +473,7 @@ Waveform::mouseReleaseEvent(QMouseEvent *event)
 void
 Waveform::wheelEvent(QWheelEvent *event)
 {
-  qreal amount = pow(
+  qreal amount = std::pow(
         static_cast<qreal>(1.1),
         static_cast<qreal>(-event->delta() / 120.));
   if (event->x() < this->valueTextWidth)
@@ -516,62 +549,6 @@ Waveform::drawSelection(void)
 
     p.fillRect(rect, this->selection);
 
-    if (this->periodicSelection) {
-      // The sample buffer is divided in pieces of selLen samples,
-      // starting from selLen.
-      qint64 firstDiv = static_cast<int>((this->start - this->hSelStart) / selLen);
-      qint64 lastDiv  = static_cast<int>((this->end - this->hSelStart) / selLen);
-
-      qreal deltaDiv = selLen / static_cast<qreal>(this->divsPerSelection);
-
-      if (this->divsPerSelection == 1)
-        p.setPen(this->selection);
-
-      if (this->divsPerSelection * (lastDiv - firstDiv)
-          >= this->geometry.width()) {
-        for (qint64 i = 0; i < this->geometry.width(); ++i) {
-          qreal divSample = this->px2samp(i);
-          p.setPen(divSample >= this->hSelStart && divSample <= this->hSelEnd
-                   ? this->subSelection
-                   : this->selection);
-          p.drawLine(
-                i,
-                0,
-                i,
-                this->geometry.height());
-        }
-      } else {
-        for (qint64 i = firstDiv - 1; i <= lastDiv; ++i) {
-          qreal sample = i * selLen + this->hSelStart;
-
-          if (this->divsPerSelection > 1) {
-            for (int j = 0; j <= this->divsPerSelection; ++j) {
-              qreal divSample = sample + j * deltaDiv;
-              int px = static_cast<int>(this->samp2px(divSample));
-
-              p.setPen(divSample >= this->hSelStart && divSample <= this->hSelEnd
-                       ? this->subSelection
-                       : this->selection);
-
-              if (px > 0 && px < this->geometry.width())
-                p.drawLine(
-                      px,
-                      0,
-                      px,
-                      this->geometry.height());
-            }
-          } else {
-            int px = static_cast<int>(this->samp2px(sample));
-            if (px > 0 && px < this->geometry.width())
-              p.drawLine(
-                    px,
-                    0,
-                    px,
-                    this->geometry.height());
-          }
-        }
-      }
-    }
     p.end();
   }
 }
@@ -582,6 +559,13 @@ Waveform::drawWave(void)
   const SUCOMPLEX *data = this->data.data();
   int length = static_cast<int>(this->data.length());
   bool havePrev = false;
+  QColor darkenedForeground;
+
+  if (this->showWaveform && !this->showPhase) {
+    darkenedForeground.setRed(this->foreground.red() / 3);
+    darkenedForeground.setGreen(this->foreground.green() / 3);
+    darkenedForeground.setBlue(this->foreground.blue() / 3);
+  }
 
   waveform.fill(Qt::transparent);
 
@@ -595,7 +579,8 @@ Waveform::drawWave(void)
     int pxHigh, pxLow;
     int prev_y;
     QPainter p(&this->waveform);
-    p.setPen(this->showWaveform ? this->envelope : this->foreground);
+
+    p.setPen(this->foreground);
 
     if (iters > WAVEFORM_MAX_ITERS)
       skip = iters / WAVEFORM_MAX_ITERS;
@@ -661,9 +646,13 @@ Waveform::drawWave(void)
         if (this->showEnvelope) {
           // If draw envelope
           if (this->showPhase) {
-            p.setPen(QColor(redAcc / count, greenAcc / count, blueAcc / count));
             if (this->showWaveform)
-              p.setOpacity(.5);
+              p.setPen(QColor(redAcc / count >> 1, greenAcc / count >> 1, blueAcc / count >> 1));
+            else
+              p.setPen(QColor(redAcc / count, greenAcc / count, blueAcc / count));
+          } else {
+            if (this->showWaveform)
+              p.setPen(darkenedForeground);
           }
 
           pxHigh = static_cast<int>(this->value2px(static_cast<qreal>(absMax)));
@@ -680,10 +669,20 @@ Waveform::drawWave(void)
 
           for (int j = hMin; j <= hMax; ++j) {
             alpha = 63 + (192 * history[static_cast<unsigned>(j)]) / count;
-            waveform.setPixel(
-                  i,
-                  j,
-                  (alpha << 24) | color);
+
+            if (this->showEnvelope) {
+              // Blend
+              QRgb prev = waveform.pixel(i, j);
+              waveform.setPixel(
+                    i,
+                    j,
+                    qMixRgb(prev, color, alpha));
+            } else {
+              waveform.setPixel(
+                    i,
+                    j,
+                    (alpha << 24) | color);
+            }
           }
         }
       }
@@ -752,9 +751,7 @@ Waveform::drawWave(void)
             } else {
               p.fillPath(
                     path,
-                    this->showWaveform
-                    ? this->envelope
-                    : this->foreground);
+                    this->showWaveform ? darkenedForeground : this->foreground);
             }
           }
           prevPxHigh = pxHigh;
@@ -763,6 +760,7 @@ Waveform::drawWave(void)
         }
 
         if (this->showWaveform && havePrev) {
+          p.setOpacity(1);
           p.setPen(this->foreground);
           p.drawLine(
                 prevX,
@@ -778,75 +776,6 @@ Waveform::drawWave(void)
 
     p.end();
   }
-}
-
-QString
-Waveform::formatLabel(qreal value, int digits, QString units)
-{
-  qreal multiplier = 1;
-  QString subUnits[] = {
-    units,
-    "m" + units,
-    "μ" + units,
-    "n" + units,
-    "p" + units,
-    "f" + units};
-  QString superUnits[] = {
-    units,
-    "k" + units,
-    "M" + units,
-    "G" + units,
-    "T" + units};
-  QString num;
-  int i = 0;
-
-  if (digits >= 0) {
-    if (digits > 2 && units == "s") { // This is too long. Format to minutes and seconds
-      char time[64];
-      int seconds = static_cast<int>(value);
-      QString sign;
-      if (seconds < 0) {
-        seconds = 0;
-        sign = "-";
-      }
-      int minutes = seconds / 60;
-      int hours   = seconds / 3600;
-
-      seconds %= 60;
-      minutes %= 60;
-
-      if (hours > 0)
-        snprintf(time, sizeof(time), "%02d:%02d:%0d", hours, minutes, seconds);
-      else
-        snprintf(time, sizeof(time), "%02d:%0d", minutes, seconds);
-      num = sign + QString(time);
-    } else {
-      unsigned int pfx = 0;
-      while (digits > 3 && pfx < 4) {
-        multiplier *= 1e-3;
-        digits -= 3;
-        ++pfx;
-      }
-
-      num.setNum(value * multiplier, 'f', digits);
-      num += " " + superUnits[pfx];
-    }
-  } else {
-    while (i++ < 6 && digits < -1) {
-      multiplier *= 1e3;
-      digits += 3;
-    }
-
-    if (digits > 0)
-      digits = 0;
-
-    num.setNum(value * multiplier, 'f', -digits);
-    num += " " + subUnits[i - 1];
-    if (units != "s" && value > 0)
-      num = "+" + num;
-  }
-
-  return num;
 }
 
 void
@@ -889,7 +818,7 @@ Waveform::drawVerticalAxes(void)
         QString label;
         int tw;
 
-        label = formatLabel(
+        label = SuWidgetsHelpers::formatQuantity(
               axis * this->hDivSamples * this->deltaT,
               this->hDigits);
 
@@ -947,7 +876,7 @@ Waveform::drawHorizontalAxes(void)
         QString label;
         int tw;
 
-        label = formatLabel(
+        label = SuWidgetsHelpers::formatQuantity(
               axis * this->vDivUnits,
               this->vDigits,
               "");
@@ -979,6 +908,72 @@ Waveform::drawAxes(void)
   this->axesPixmap.fill(Qt::transparent);
   this->drawHorizontalAxes();
   this->drawVerticalAxes();
+}
+
+void
+Waveform::overlaySelectionMarkes(QPainter &p)
+{
+
+
+  if (this->periodicSelection) {
+    qreal selLen = this->hSelEnd - this->hSelStart;
+    // The sample buffer is divided in pieces of selLen samples,
+    // starting from selLen.
+    qint64 firstDiv = static_cast<int>((this->start - this->hSelStart) / selLen);
+    qint64 lastDiv  = static_cast<int>((this->end - this->hSelStart) / selLen);
+
+    qreal deltaDiv = selLen / static_cast<qreal>(this->divsPerSelection);
+
+    p.setOpacity(.5);
+
+    if (this->divsPerSelection == 1)
+      p.setPen(this->axes);
+
+    if (this->divsPerSelection * (lastDiv - firstDiv)
+        >= this->geometry.width()) {
+      for (qint64 i = this->valueTextWidth; i < this->geometry.width(); ++i) {
+        qreal divSample = this->px2samp(i);
+        p.setPen(divSample >= this->hSelStart && divSample <= this->hSelEnd
+                 ? this->subSelection
+                 : this->axes);
+        p.drawLine(
+              static_cast<int>(i),
+              0,
+              static_cast<int>(i),
+              this->geometry.height() - this->frequencyTextHeight);
+      }
+    } else {
+      for (qint64 i = firstDiv - 1; i <= lastDiv; ++i) {
+        qreal sample = i * selLen + this->hSelStart;
+        p.setOpacity(1);
+        if (this->divsPerSelection > 1) {
+          for (int j = 0; j <= this->divsPerSelection; ++j) {
+            qreal divSample = sample + j * deltaDiv;
+            int px = static_cast<int>(this->samp2px(divSample));
+
+            p.setPen(divSample >= this->hSelStart && divSample <= this->hSelEnd
+                     ? this->subSelection
+                     : this->axes);
+
+            if (px > this->valueTextWidth && px < this->geometry.width())
+              p.drawLine(
+                    px,
+                    0,
+                    px,
+                    this->geometry.height() - this->frequencyTextHeight);
+          }
+        } else {
+          int px = static_cast<int>(this->samp2px(sample));
+          if (px > this->valueTextWidth && px < this->geometry.width())
+            p.drawLine(
+                  px,
+                  0,
+                  px,
+                  this->geometry.height() - this->frequencyTextHeight);
+        }
+      }
+    }
+  }
 }
 
 void
@@ -1053,8 +1048,14 @@ Waveform::draw(void)
         this->waveDrawn = true;
       }
 
+      if (this->hSelection && this->periodicSelection)
+        p.setOpacity(.5);
+
       p.drawImage(0, 0, this->waveform);
     }
+
+    if (selectionChanged && this->hSelection)
+      this->overlaySelectionMarkes(p);
 
     p.end();
   }

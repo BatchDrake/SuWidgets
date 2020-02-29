@@ -25,7 +25,7 @@ LCD::recalculateDisplayData(void)
 {
   int width, height;
   unsigned int i, j, k;
-  static const unsigned int digit_masks[11] = {
+  static const unsigned int digit_masks[12] = {
        /* 0 */ ~LCD_SEG_MIDDLE,
        /* 1 */ LCD_SEG_TOP_RIGHT | LCD_SEG_BOTTOM_RIGHT,
        /* 2 */ ~LCD_SEG_TOP_LEFT & ~LCD_SEG_BOTTOM_RIGHT,
@@ -36,7 +36,8 @@ LCD::recalculateDisplayData(void)
        /* 7 */ LCD_SEG_TOP_LEFT | LCD_SEG_TOP | LCD_SEG_TOP_RIGHT | LCD_SEG_BOTTOM_RIGHT,
        /* 8 */ LCD_SEG_ALL_H | LCD_SEG_ALL_V,
        /* 9 */ ~LCD_SEG_BOTTOM_LEFT,
-       /* - */ LCD_SEG_MIDDLE
+       /* - */ LCD_SEG_MIDDLE,
+       /*   */ 0
    };
 
   static const struct { bool horiz; qreal x; qreal y; } offsets[] = {
@@ -91,7 +92,7 @@ LCD::recalculateDisplayData(void)
   for (k = 0; k < 2; ++k) {
     brush.setColor(k == 0 ? this->foreground : this->background);
 
-    for (i = 0; i < 11; ++i) {
+    for (i = 0; i < 12; ++i) {
       this->glyphs[k][i] = QPixmap(this->glyphWidth, this->glyphWidth * 2);
 
       QPainter painter(&this->glyphs[k][i]);
@@ -190,6 +191,17 @@ LCD::drawContent(void)
     }
 
     value /= 10;
+  }
+
+  if (this->hasFocus() && this->selected >= this->digits) {
+    x -= this->glyphWidth * (this->selected - this->digits + 1);
+    index = this->revvideo ? 1 : 0;
+
+    painter.drawPixmap(
+          static_cast<int>(x),
+          static_cast<int>(this->margin),
+          this->glyphs[index][11]);
+
   }
 
   /* If negative, draw minus sign */

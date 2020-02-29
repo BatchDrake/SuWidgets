@@ -71,8 +71,8 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 
 #define CUR_CUT_DELTA 5		//cursor capture delta in pixels
 
-#define FFT_MIN_DB     -160.f
-#define FFT_MAX_DB      0.f
+#define FFT_MIN_DB     -120.f
+#define FFT_MAX_DB      40.f
 
 // Colors of type QRgb in 0xAARRGGBB format (unsigned int)
 #define PLOTTER_BGD_COLOR           0xFF1F1D1D
@@ -429,10 +429,7 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
             {
                 emit pandapterRangeChanged(m_PandMindB, m_PandMaxdB);
 
-                if (m_Running)
-                    m_DrawOverlay = true;
-                else
-                    drawOverlay();
+                updateOverlay();
 
                 m_PeakHoldValid = false;
 
@@ -453,13 +450,18 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
               if (!m_Locked) {
                 m_CenterFreq += delta_hz;
                 m_DemodCenterFreq += delta_hz;
+
+                ////////////// TODO: Edit this to fake spectrum scroll /////////
+                ////////////// DONE: Something like this:
+                ///
+                m_tentativeCenterFreq += delta_hz;
+
                 emit newCenterFreq(m_CenterFreq);
               }
+            } else {
+              setFftCenterFreq(m_FftCenter + delta_hz);
             }
-            else
-            {
-                setFftCenterFreq(m_FftCenter + delta_hz);
-            }
+
             updateOverlay();
 
             m_PeakHoldValid = false;
@@ -485,10 +487,7 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
                 clampDemodParameters();
 
                 emit newFilterFreq(m_DemodLowCutFreq, m_DemodHiCutFreq);
-                if (m_Running)
-                    m_DrawOverlay = true;
-                else
-                    drawOverlay();
+                updateOverlay();
             }
             else
             {
@@ -606,7 +605,8 @@ int Waterfall::getNearestPeak(QPoint pt)
 void Waterfall::setWaterfallSpan(quint64 span_ms)
 {
     wf_span = span_ms;
-    msec_per_wfline = wf_span / m_WaterfallPixmap.height();
+    if (m_WaterfallPixmap.height() > 0)
+      msec_per_wfline = wf_span / m_WaterfallPixmap.height();
     clearWaterfall();
 }
 
@@ -749,7 +749,7 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
                 // setCursor(QCursor(Qt::CrossCursor));
                 m_CursorCaptured = CENTER;
                 m_GrabPosition = 1;
-                drawOverlay();
+                updateOverlay();
               }
             }
             else if (event->buttons() == Qt::MidButton)
@@ -760,13 +760,14 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
                 m_DemodCenterFreq = m_CenterFreq;
                 emit newCenterFreq(m_CenterFreq);
                 emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
-                drawOverlay();
+                updateOverlay();
               }
             }
             else if (event->buttons() == Qt::RightButton)
             {
                 // reset frequency zoom
                 resetHorizontalZoom();
+                updateOverlay();
             }
         }
     }
@@ -782,6 +783,7 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             {
                 // reset frequency zoom
                 resetHorizontalZoom();
+                updateOverlay();
             }
         }
         else if (m_CursorCaptured == BOOKMARK)
@@ -967,7 +969,7 @@ void Waterfall::resizeEvent(QResizeEvent* )
         memset(m_wfbuf, 255, MAX_SCREENSIZE);
     }
 
-    drawOverlay();
+    updateOverlay();
 }
 
 // Called by QT when screen needs to be redrawn
@@ -975,44 +977,50 @@ void Waterfall::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
 
+
+
     painter.drawPixmap(0, 0, m_2DPixmap);
     painter.drawPixmap(0, m_Percent2DScreen * m_Size.height() / 100,
                        m_WaterfallPixmap);
 }
 
 // Called to update spectrum data for displaying on the screen
-void Waterfall::draw()
+void Waterfall::draw(bool everything)
 {
     int     i, n;
     int     w;
     int     h;
     int     xmin, xmax;
+    qint64 limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
 
-    if (m_DrawOverlay)
-    {
+    if (m_DrawOverlay) {
         drawOverlay();
         m_DrawOverlay = false;
     }
 
     QPoint LineBuf[MAX_SCREENSIZE];
 
-    if (!m_Running)
-        return;
 
     // get/draw the waterfall
     w = m_WaterfallPixmap.width();
     h = m_WaterfallPixmap.height();
 
     // no need to draw if pixmap is invisible
-    if (w != 0 && h != 0)
+    if (w != 0 && h != 0 && everything)
     {
         quint64     tnow_ms = time_ms();
 
         // get scaled FFT data
         n = qMin(w, MAX_SCREENSIZE);
         getScreenIntegerFFTData(255, n, m_WfMaxdB, m_WfMindB,
-                                m_FftCenter - (qint64)m_Span / 2,
-                                m_FftCenter + (qint64)m_Span / 2,
+                                qBound(
+                                  -limit,
+                                  m_tentativeCenterFreq + m_FftCenter,
+                                  limit) - (qint64)m_Span/2,
+                                qBound(
+                                  -limit,
+                                  m_tentativeCenterFreq + m_FftCenter,
+                                  limit) + (qint64)m_Span/2,
                                 m_wfData, m_fftbuf,
                                 &xmin, &xmax);
 
@@ -1088,8 +1096,14 @@ void Waterfall::draw()
         // get new scaled fft data
         getScreenIntegerFFTData(h, qMin(w, MAX_SCREENSIZE),
                                 m_PandMaxdB, m_PandMindB,
-                                m_FftCenter - (qint64)m_Span/2,
-                                m_FftCenter + (qint64)m_Span/2,
+                                qBound(
+                                  -limit,
+                                  m_tentativeCenterFreq + m_FftCenter,
+                                  limit) - (qint64)m_Span/2,
+                                qBound(
+                                  -limit,
+                                  m_tentativeCenterFreq + m_FftCenter,
+                                  limit) + (qint64)m_Span/2,
                                 m_fftData, m_fftbuf,
                                 &xmin, &xmax);
 
@@ -1206,6 +1220,11 @@ void Waterfall::setNewFftData(float *fftData, int size)
     m_fftData = fftData;
     m_fftDataSize = size;
 
+    if (m_tentativeCenterFreq != 0) {
+      m_tentativeCenterFreq = 0;
+      m_DrawOverlay = true;
+    }
+
     draw();
 }
 
@@ -1228,6 +1247,7 @@ void Waterfall::setNewFftData(float *fftData, float *wfData, int size)
     m_wfData = wfData;
     m_fftData = fftData;
     m_fftDataSize = size;
+    m_tentativeCenterFreq = 0;
 
     draw();
 }
@@ -1454,7 +1474,7 @@ void Waterfall::drawOverlay()
 #endif // Waterfall_BOOKMARKS_SUPPORT
     if (m_CenterLineEnabled)
     {
-        x = xFromFreq(m_CenterFreq);
+        x = xFromFreq(m_CenterFreq - m_tentativeCenterFreq);
         if (x > 0 && x < w)
         {
             painter.setPen(m_FftCenterAxisColor);
@@ -1804,10 +1824,8 @@ void Waterfall::setCenterFreq(quint64 f)
     if((quint64)m_CenterFreq == f)
         return;
 
-    qint64 offset = m_CenterFreq - m_DemodCenterFreq;
-
+    m_tentativeCenterFreq += f - m_CenterFreq;
     m_CenterFreq = f;
-    m_DemodCenterFreq = m_CenterFreq - offset;
 
     updateOverlay();
 
@@ -1817,10 +1835,15 @@ void Waterfall::setCenterFreq(quint64 f)
 // Ensure overlay is updated by either scheduling or forcing a redraw
 void Waterfall::updateOverlay()
 {
-    if (m_Running)
-        m_DrawOverlay = true;
-    else
-        drawOverlay();
+  if (m_Running) {
+    m_DrawOverlay = true;
+    // If the update rate is slow, draw now.
+    if (this->slow())
+      draw(false);
+  } else {
+    // Not the case. Draw now.
+    drawOverlay();
+  }
 }
 
 /** Reset horizontal zoom to 100% and centered around 0. */
@@ -1950,7 +1973,7 @@ void Waterfall::pushFAT(const FrequencyAllocationTable *fat)
   this->m_FATs[fat->getName()] = fat;
 
   if (this->m_ShowFATs)
-    this->drawOverlay();
+    this->updateOverlay();
 }
 
 bool Waterfall::removeFAT(std::string const &name)

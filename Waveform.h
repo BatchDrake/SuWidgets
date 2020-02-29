@@ -212,9 +212,8 @@ class Waveform : public ThrottleableWidget
   void drawAxes(void);
   void drawWave(void);
   void drawSelection(void);
+  void overlaySelectionMarkes(QPainter &);
   void recalculateDisplayData(void);
-
-  static QString formatLabel(qreal value, int digits, QString units = "s");
 
   inline bool
   somethingDirty(void) const
@@ -231,17 +230,12 @@ protected:
     void leaveEvent(QEvent *event) override;
 
 public:
-
-    static inline QString
-    formatLabel(qreal value, QString units)
+    inline qreal
+    getSamplesPerPixel(void) const
     {
-      int digits = 0;
-
-      if (std::fabs(value) > 0)
-        digits = static_cast<int>(std::floor(std::log10(std::fabs(value))));
-
-      return formatLabel(value, digits, units);
+      return this->sampPerPx;
     }
+
 
     inline qreal
     samp2t(qreal samp) const

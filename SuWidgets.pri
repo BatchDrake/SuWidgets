@@ -17,12 +17,12 @@ include(waterfall.pri)
 include(colorchooserbutton.pri)
 
 HEADERS += ThrottleableWidget.h \
-    $$PWD/TimeView.h
+    SuWidgetsHelpers.h
 
 SOURCES += ThrottleableWidget.cpp \
-    $$PWD/TimeView.cpp
+    SuWidgetsHelpers.cpp
 
-WIDGET_HEADERS += ThrottleableWidget.h
+WIDGET_HEADERS += ThrottleableWidget.h SuWidgetsHelpers.h
 
 FORMS += ColorChooserButton.ui
 

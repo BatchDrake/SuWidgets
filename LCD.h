@@ -111,7 +111,7 @@ class LCD : public QFrame
 
   // Content pixmap and drawing area
   QPixmap contentPixmap;
-  QPixmap glyphs[2][11];
+  QPixmap glyphs[2][12];
   QSize   geometry;
   bool    dirty = false;
   bool    geometryChanged = false;

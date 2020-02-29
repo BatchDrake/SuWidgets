@@ -45,6 +45,7 @@
 #define PEAK_CLICK_MAX_H_DISTANCE 10 //Maximum horizontal distance of clicked point from peak
 #define PEAK_CLICK_MAX_V_DISTANCE 20 //Maximum vertical distance of clicked point from peak
 #define PEAK_H_TOLERANCE 2
+#define MINIMUM_REFRESH_RATE      25
 
 struct FrequencyBand {
   qint64 min;
@@ -97,10 +98,11 @@ public:
     QSize sizeHint() const;
 
     //void SetSdrInterface(CSdrInterface* ptr){m_pSdrInterface = ptr;}
-    void draw();		//call to draw new fft data onto screen plot
+    void draw(bool everything = true);		//call to draw new fft data onto screen plot
     void setLocked(bool locked) { m_Locked = locked; }
     void setRunningState(bool running) { m_Running = running; }
     void setClickResolution(int clickres) { m_ClickResolution = clickres; }
+    void setExpectedRate(int rate) { m_expectedRate = rate; }
     void setFilterClickResolution(int clickres) { m_FilterClickResolution = clickres; }
     void setFilterBoxEnabled(bool enabled) { m_FilterBoxEnabled = enabled; }
     void setCenterLineEnabled(bool enabled) { m_CenterLineEnabled = enabled; }
@@ -129,6 +131,17 @@ public:
       this->update();
     }
 
+    bool
+    slow(void) const
+    {
+      if (m_fftDataSize == 0)
+        return true;
+
+      if (m_expectedRate != 0 && m_expectedRate < MINIMUM_REFRESH_RATE)
+        return true;
+
+      return m_SampleFreq / m_fftDataSize < MINIMUM_REFRESH_RATE;
+    }
     /*! \brief Move the filter to freq_hz from center. */
     void setFilterOffset(qint64 freq_hz)
     {
@@ -371,6 +384,7 @@ private:
     QColor      m_FftTextColor;
     bool        m_FftFill;
 
+    qint64      m_tentativeCenterFreq = 0;
     float       m_PeakDetection;
     QMap<int,int>   m_Peaks;
 
@@ -381,7 +395,7 @@ private:
     quint64     msec_per_wfline;    // milliseconds between waterfall updates
     quint64     wf_span;            // waterfall span in milliseconds (0 = auto)
     int         fft_rate;           // expected FFT rate (needed when WF span is auto)
-
+    int         m_expectedRate;
     // Frequency allocations
     bool m_ShowFATs = false;
     std::map<std::string, const FrequencyAllocationTable *> m_FATs;
