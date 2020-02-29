@@ -16,9 +16,11 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
+
 #include "Waveform.h"
 #include <QPainter>
 #include <QColormap>
+#include <SuWidgetsHelpers.h>
 #include "YIQ.h"
 
 // See https://www.linuxquestions.org/questions/blog/rainbowsally-615861/qt-fast-pixel-color-mixing-35589/
@@ -776,81 +778,6 @@ Waveform::drawWave(void)
   }
 }
 
-QString
-Waveform::formatLabel(qreal value, int digits, QString units)
-{
-  qreal multiplier = 1;
-  QString subUnits[] = {
-    units,
-    "m" + units,
-    "μ" + units,
-    "n" + units,
-    "p" + units,
-    "f" + units};
-  QString superUnits[] = {
-    units,
-    "k" + units,
-    "M" + units,
-    "G" + units,
-    "T" + units};
-  QString num;
-  int i = 0;
-
-  if (std::isinf(value))
-    return (value < 0 ? "-∞ " : "∞ ") + units;
-
-  if (std::isnan(value))
-    return "NaN " + units;
-
-  if (digits >= 0) {
-    if (digits > 2 && units == "s") { // This is too long. Format to minutes and seconds
-      char time[64];
-      int seconds = static_cast<int>(value);
-      QString sign;
-      if (seconds < 0) {
-        seconds = 0;
-        sign = "-";
-      }
-      int minutes = seconds / 60;
-      int hours   = seconds / 3600;
-
-      seconds %= 60;
-      minutes %= 60;
-
-      if (hours > 0)
-        snprintf(time, sizeof(time), "%02d:%02d:%0d", hours, minutes, seconds);
-      else
-        snprintf(time, sizeof(time), "%02d:%0d", minutes, seconds);
-      num = sign + QString(time);
-    } else {
-      unsigned int pfx = 0;
-      while (digits > 3 && pfx < 4) {
-        multiplier *= 1e-3;
-        digits -= 3;
-        ++pfx;
-      }
-
-      num.setNum(value * multiplier, 'f', digits);
-      num += " " + superUnits[pfx];
-    }
-  } else {
-    while (i++ < 6 && digits < -1) {
-      multiplier *= 1e3;
-      digits += 3;
-    }
-
-    if (digits > 0)
-      digits = 0;
-
-    num.setNum(value * multiplier, 'f', -digits);
-    num += " " + subUnits[i - 1];
-    if (units != "s" && value > 0)
-      num = "+" + num;
-  }
-
-  return num;
-}
-
 void
 Waveform::drawVerticalAxes(void)
 {
@@ -891,7 +818,7 @@ Waveform::drawVerticalAxes(void)
         QString label;
         int tw;
 
-        label = formatLabel(
+        label = SuWidgetsHelpers::formatQuantity(
               axis * this->hDivSamples * this->deltaT,
               this->hDigits);
 
@@ -949,7 +876,7 @@ Waveform::drawHorizontalAxes(void)
         QString label;
         int tw;
 
-        label = formatLabel(
+        label = SuWidgetsHelpers::formatQuantity(
               axis * this->vDivUnits,
               this->vDigits,
               "");
