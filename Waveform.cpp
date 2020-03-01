@@ -979,7 +979,7 @@ Waveform::overlaySelectionMarkes(QPainter &p)
 void
 Waveform::draw(void)
 {
-  bool selectionChanged = false;
+  bool overlaySel = false;
 
   if (!this->size().isValid())
     return;
@@ -1019,7 +1019,7 @@ Waveform::draw(void)
   if (this->somethingDirty()) {
     if (!this->selectionDrawn) {
       this->drawSelection();
-      selectionChanged = true;
+      overlaySel = true;
       this->selectionDrawn = true;
     }
 
@@ -1032,7 +1032,7 @@ Waveform::draw(void)
 
     QPainter p(&this->contentPixmap);
 
-    if (selectionChanged || !this->axesDrawn) {
+    if (overlaySel || !this->axesDrawn) {
       if (!this->axesDrawn) {
         this->drawAxes();
         this->axesDrawn = true;
@@ -1040,9 +1040,10 @@ Waveform::draw(void)
       }
 
       p.drawPixmap(0, 0, this->axesPixmap);
+      overlaySel = true;
     }
 
-    if (selectionChanged || !this->waveDrawn) {
+    if (overlaySel || !this->waveDrawn) {
       if (!this->waveDrawn) {
         this->drawWave();
         this->waveDrawn = true;
@@ -1052,9 +1053,10 @@ Waveform::draw(void)
         p.setOpacity(.5);
 
       p.drawImage(0, 0, this->waveform);
+      overlaySel = true;
     }
 
-    if (selectionChanged && this->hSelection)
+    if (overlaySel && this->hSelection)
       this->overlaySelectionMarkes(p);
 
     p.end();
