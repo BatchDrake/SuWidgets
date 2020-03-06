@@ -798,7 +798,7 @@ Waveform::drawVerticalAxes(void)
   if (this->hDivSamples > 0) {
     // Draw axes
     axis = static_cast<int>(std::floor(this->start / this->hDivSamples));
-    p.setOpacity(.5);
+
     while (axis * this->hDivSamples <= this->end) {
       px = static_cast<int>(this->samp2px(axis * this->hDivSamples));
 
@@ -808,7 +808,6 @@ Waveform::drawVerticalAxes(void)
     }
 
     // Draw labels
-    p.setOpacity(1);
     p.setPen(this->text);
     axis = static_cast<int>(std::floor(this->start / this->hDivSamples));
     while (axis * this->hDivSamples <= this->end) {
@@ -855,7 +854,7 @@ Waveform::drawHorizontalAxes(void)
 
   if (this->vDivUnits > 0) {
     axis = static_cast<int>(std::floor(this->min / this->vDivUnits));
-    p.setOpacity(.5);
+
     while (axis * this->vDivUnits <= this->max) {
       pen.setStyle(axis == 0 ? Qt::SolidLine : Qt::DotLine);
       p.setPen(pen);
@@ -866,7 +865,6 @@ Waveform::drawHorizontalAxes(void)
       ++axis;
     }
 
-    p.setOpacity(1);
     p.setPen(this->text);
     axis = static_cast<int>(std::floor(this->min / this->vDivUnits));
     while (axis * this->vDivUnits <= this->max) {
@@ -913,8 +911,6 @@ Waveform::drawAxes(void)
 void
 Waveform::overlaySelectionMarkes(QPainter &p)
 {
-
-
   if (this->periodicSelection) {
     qreal selLen = this->hSelEnd - this->hSelStart;
     // The sample buffer is divided in pieces of selLen samples,
