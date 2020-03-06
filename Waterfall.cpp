@@ -1901,7 +1901,6 @@ void Waterfall::setFftAxesColor(const QColor color)
 {
     m_FftCenterAxisColor = color;
     m_FftAxesColor = color;
-    m_FftAxesColor.setAlpha(60);
 }
 
 /** Set FFT text color. */
