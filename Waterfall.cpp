@@ -266,6 +266,7 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     setFftPlotColor(QColor(0xFF,0xFF,0xFF,0xFF));
     setFftBgColor(QColor(PLOTTER_BGD_COLOR));
     setFftAxesColor(QColor(PLOTTER_GRID_COLOR));
+    setFilterBoxColor(QColor(PLOTTER_FILTER_BOX_COLOR));
 
     setFftFill(false);
 
@@ -1647,8 +1648,7 @@ void Waterfall::drawOverlay()
         int dw = m_DemodHiCutFreqX - m_DemodLowCutFreqX;
 
         painter.setOpacity(0.3);
-        painter.fillRect(m_DemodLowCutFreqX, 0, dw, h,
-                         QColor(PLOTTER_FILTER_BOX_COLOR));
+        painter.fillRect(m_DemodLowCutFreqX, 0, dw, h, m_FilterBoxColor);
 
         painter.setOpacity(1.0);
         painter.setPen(QColor(PLOTTER_FILTER_LINE_COLOR));
@@ -1879,12 +1879,21 @@ void Waterfall::setFftPlotColor(const QColor color)
     m_FftFillCol.setAlpha(0x1A);
     m_PeakHoldColor = color;
     m_PeakHoldColor.setAlpha(60);
+    updateOverlay();
+}
+
+/** Set filter box color */
+void Waterfall::setFilterBoxColor(const QColor color)
+{
+  m_FilterBoxColor = color;
+  updateOverlay();
 }
 
 /** Set FFT bg color. */
 void Waterfall::setFftBgColor(const QColor color)
 {
     m_FftBgColor = color;
+    updateOverlay();
 }
 
 /** Set FFT axes color. */
@@ -1899,6 +1908,7 @@ void Waterfall::setFftAxesColor(const QColor color)
 void Waterfall::setFftTextColor(const QColor color)
 {
     m_FftTextColor = color;
+    updateOverlay();
 }
 
 /** Enable/disable filling the area below the FFT plot. */
