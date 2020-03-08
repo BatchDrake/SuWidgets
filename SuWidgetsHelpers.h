@@ -20,6 +20,7 @@
 #define SUWIDGETSHELPERS_H
 
 #include <QString>
+#include <sigutils/types.h>
 #include <cmath>
 
 class SuWidgetsHelpers {
@@ -59,6 +60,55 @@ class SuWidgetsHelpers {
             digits,
             units);
     }
+
+    static inline QString
+    ensureRightExtension(QString const &path, QString const &ext)
+    {
+      if (path.right(ext.length()) != ext)
+        return path + ext;
+
+      return path;
+    }
+
+    static inline QString
+    formatComplex(SUCOMPLEX const &val)
+    {
+      return formatReal(SU_C_REAL(val))
+      + (SU_C_IMAG(val) < 0
+         ? " - " + formatReal(-SU_C_IMAG(val))
+         : " + " + formatReal(SU_C_IMAG(val))) + "i";
+    }
+
+    static inline QString
+    formatScientific(qreal real)
+    {
+      char string[32];
+
+      snprintf(string, 32, "%+-30.6e", real);
+
+      return QString(string);
+    }
+
+    static inline QString
+    formatReal(qreal real)
+    {
+      char string[32];
+
+      snprintf(string, 32, "%g", real);
+
+      return QString(string);
+    }
+
+    static inline QString
+    formatIntegerPart(qreal real)
+    {
+      char string[32];
+
+      snprintf(string, 32, "%lli", static_cast<qint64>(std::floor(real)));
+
+      return QString(string);
+    }
+
 
     SuWidgetsHelpers();
 };
