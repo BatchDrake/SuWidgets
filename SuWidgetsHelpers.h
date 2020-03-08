@@ -20,6 +20,8 @@
 #define SUWIDGETSHELPERS_H
 
 #include <QString>
+#include <QFileInfo>
+#include <QRegularExpression>
 #include <sigutils/types.h>
 #include <cmath>
 
@@ -62,12 +64,25 @@ class SuWidgetsHelpers {
     }
 
     static inline QString
-    ensureRightExtension(QString const &path, QString const &ext)
+    ensureExtension(QString const &path, QString const &ext)
     {
-      if (path.right(ext.length()) != ext)
-        return path + ext;
+      QFileInfo fi(path);
+
+      if (fi.suffix().size() == 0)
+        return path + "." + ext;
 
       return path;
+    }
+
+    static inline QString
+    extractFilterExtension(QString const &filterExpr)
+    {
+      QRegularExpression re(".*\\(\\*\\.([a-zA-Z0-9]*)\\)");
+      QRegularExpressionMatch match = re.match(filterExpr);
+      if (match.hasMatch())
+        return match.captured(1);
+
+      return "";
     }
 
     static inline QString
