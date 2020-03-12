@@ -15,6 +15,7 @@ include(transition.pri)
 include(waveform.pri)
 include(waterfall.pri)
 include(colorchooserbutton.pri)
+include(frequencyspinbox.pri)
 
 HEADERS += ThrottleableWidget.h \
     SuWidgetsHelpers.h
@@ -23,8 +24,6 @@ SOURCES += ThrottleableWidget.cpp \
     SuWidgetsHelpers.cpp
 
 WIDGET_HEADERS += ThrottleableWidget.h SuWidgetsHelpers.h
-
-FORMS += ColorChooserButton.ui
 
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG += sigutils fftw3

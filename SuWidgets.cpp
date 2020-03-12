@@ -25,6 +25,7 @@
 #include "WaterfallPlugin.h"
 #include "ctkRangeSliderPlugin.h"
 #include "ColorChooserButtonPlugin.h"
+#include "FrequencySpinBoxPlugin.h"
 #include "QVerticalLabelPlugin.h"
 #include "SuWidgets.h"
 
@@ -41,6 +42,7 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new ColorChooserButtonPlugin(this));
   m_widgets.append(new ctkRangeSliderPlugin(this));
   m_widgets.append(new QVerticalLabelPlugin(this));
+  m_widgets.append(new FrequencySpinBoxPlugin(this));
 }
 
 QList<QDesignerCustomWidgetInterface*> SuWidgets::customWidgets() const
