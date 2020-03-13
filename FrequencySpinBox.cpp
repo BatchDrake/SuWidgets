@@ -245,6 +245,18 @@ FrequencySpinBox::units(void) const
 
 }
 
+void
+FrequencySpinBox::setEditable(bool editable)
+{
+  this->ui->frequencySpin->setReadOnly(!editable);
+}
+
+bool
+FrequencySpinBox::editable(void) const
+{
+  return !this->ui->frequencySpin->isReadOnly();
+}
+
 
 ///////////////////////////////// Slots ///////////////////////////////////////
 void

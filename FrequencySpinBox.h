@@ -78,6 +78,9 @@ public:
   void setUnits(QString const units);
   QString units(void) const;
 
+  void setEditable(bool);
+  bool editable(void) const;
+
   void incFrequencyUnitMultiplier(void);
   void decFrequencyUnitMultiplier(void);
 
