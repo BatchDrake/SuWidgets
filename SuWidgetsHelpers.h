@@ -99,7 +99,7 @@ class SuWidgetsHelpers {
     {
       char string[32];
 
-      snprintf(string, 32, "%+-30.6e", real);
+      snprintf(string, 32, "%+-14.6e", real);
 
       return QString(string);
     }
