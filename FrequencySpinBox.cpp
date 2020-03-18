@@ -106,13 +106,15 @@ FrequencySpinBox::connectAll(void)
 void
 FrequencySpinBox::adjustUnitMultiplier(void)
 {
-  if (this->currValue >= 1e12)
+  qreal absValue = std::abs(this->currValue);
+
+  if (absValue >= 1e12)
     this->setFrequencyUnitMultiplier(MUL_TERA);
-  else if (this->currValue >= 1e9)
+  else if (absValue >= 1e9)
     this->setFrequencyUnitMultiplier(MUL_GIGA);
-  else if (this->currValue >= 1e6)
+  else if (absValue >= 1e6)
     this->setFrequencyUnitMultiplier(MUL_MEGA);
-  else if (this->currValue >= 1e3)
+  else if (absValue >= 1e3)
     this->setFrequencyUnitMultiplier(MUL_KILO);
   else
     this->setFrequencyUnitMultiplier(MUL_NONE);
@@ -131,7 +133,9 @@ FrequencySpinBox::refreshUi(void)
     this->ui->decFreqUnitsButton->setEnabled(this->UnitMultiplier != MUL_NONE);
 
     this->ui->frequencySpin->setSuffix(" " + this->freqSuffix());
-    this->ui->frequencySpin->setDecimals(static_cast<int>(this->UnitMultiplier) * 3);
+    this->ui->frequencySpin->setDecimals(
+          static_cast<int>(this->UnitMultiplier) * 3
+          + static_cast<int>(this->uExtraDecimals));
 
     this->ui->frequencySpin->setMaximum(this->max * mul);
     this->ui->frequencySpin->setMinimum(this->min * mul);
@@ -172,7 +176,6 @@ FrequencySpinBox::maximum(void) const
   return this->max;
 }
 
-
 void
 FrequencySpinBox::setMinimum(double min)
 {
@@ -184,6 +187,19 @@ double
 FrequencySpinBox::minimum(void) const
 {
   return this->min;
+}
+
+void
+FrequencySpinBox::setExtraDecimals(unsigned int extra)
+{
+  this->uExtraDecimals = extra;
+  this->refreshUi();
+}
+
+unsigned int
+FrequencySpinBox::extraDecimals(void) const
+{
+  return this->uExtraDecimals;
 }
 
 void

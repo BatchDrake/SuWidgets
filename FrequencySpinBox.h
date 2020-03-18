@@ -47,6 +47,7 @@ private:
   double max = 18e9;
   double min = 0;
   bool refreshing = false;
+  unsigned int uExtraDecimals = 0;
 
   void connectAll(void);
   void refreshUi(void);
@@ -68,6 +69,9 @@ public:
 
   void setMinimum(double);
   double minimum(void) const;
+
+  void setExtraDecimals(unsigned int);
+  unsigned int extraDecimals(void) const;
 
   void setAutoUnitMultiplierEnabled(bool);
   bool autoUnitMultiplierEnabled(void) const;
