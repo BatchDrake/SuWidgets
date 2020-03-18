@@ -497,7 +497,7 @@ public:
 
   Waveform(QWidget *parent = nullptr);
 
-  void setData(const std::vector<SUCOMPLEX> *);
+  void setData(const std::vector<SUCOMPLEX> *, bool keepView = false);
   void draw(void) override;
   void paint(void) override;
   void zoomHorizontalReset(void); // To show full wave or to sampPerPix = 1

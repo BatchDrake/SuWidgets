@@ -1078,7 +1078,7 @@ Waveform::paint(void)
 }
 
 void
-Waveform::setData(const std::vector<SUCOMPLEX> *data)
+Waveform::setData(const std::vector<SUCOMPLEX> *data, bool keepView)
 {
   if (data != nullptr)
     this->data = WaveBuffer(data);
@@ -1087,9 +1087,16 @@ Waveform::setData(const std::vector<SUCOMPLEX> *data)
 
   this->haveMagPhaseInfo = false;
   this->waveDrawn = false;
-  this->resetSelection();
-  this->zoomVerticalReset();
-  this->zoomHorizontalReset();
+
+  if (!keepView) {
+    this->resetSelection();
+    this->zoomVerticalReset();
+    this->zoomHorizontalReset();
+  } else {
+    this->axesDrawn = false;
+    this->selectionDrawn = false;
+  }
+
   this->invalidate();
 }
 
