@@ -108,10 +108,11 @@ Histogram::drawAxes(void)
 
     delta = 1.f  / this->decider->getIntervals();
 
-    for (int i = 0; i < this->decider->getIntervals(); ++i)
-      painter.drawLine(
-            this->floatToScreenPoint(i * delta, 0),
-            this->floatToScreenPoint(i * delta, 1));
+    if (this->drawThreshold)
+      for (int i = 0; i < this->decider->getIntervals(); ++i)
+        painter.drawLine(
+              this->floatToScreenPoint(i * delta, 0),
+              this->floatToScreenPoint(i * delta, 1));
   }
 
   this->axesDrawn = true;
@@ -208,6 +209,7 @@ Histogram::draw(void)
     this->contentPixmap  = QPixmap(this->geometry.width(), this->geometry.height());
     this->axesPixmap = QPixmap(this->geometry.width(), this->geometry.height());
     this->axesDrawn = false;
+    emit blanked();
   }
 
   if (!this->axesDrawn) {
@@ -240,6 +242,19 @@ Histogram::setDecider(Decider *decider)
   // Important to ALWAYS INVALIDATE this.
   this->decider = decider;
   this->setOrderHint(this->decider->getBps());
+  this->invalidate();
+}
+
+void
+Histogram::setUpdateDecider(bool upd)
+{
+  this->updateDecider = upd;
+}
+
+void
+Histogram::setDrawThreshold(bool draw)
+{
+  this->drawThreshold = draw;
   this->invalidate();
 }
 
@@ -335,9 +350,14 @@ void
 Histogram::resetDecider(void)
 {
   if (this->decider !=  nullptr) {
-    this->decider->setMinAngle(0.f);
-    this->decider->setMaxAngle(static_cast<float>(2 * M_PI));
-    this->reset();
+    if (this->updateDecider) {
+      this->decider->setMinAngle(0.f);
+      this->decider->setMaxAngle(static_cast<float>(2 * M_PI));
+      this->reset();
+      emit blanked();
+    } else {
+      emit resetLimits();
+    }
   }
 }
 
@@ -400,9 +420,16 @@ Histogram::mouseReleaseEvent(QMouseEvent *event)
       float max = this->decider->getMaxAngle();
       float range = max - min;
 
-      this->decider->setMinAngle(min + this->sStart * range);
-      this->decider->setMaxAngle(min + this->sEnd   * range);
-      this->reset();
+      if (this->updateDecider) {
+        this->decider->setMinAngle(min + this->sStart * range);
+        this->decider->setMaxAngle(min + this->sEnd   * range);
+        this->reset();
+        emit blanked();
+      } else {
+        emit newLimits(
+              min + this->sStart * range,
+              min + this->sEnd   * range);
+      }
     }
   }
 

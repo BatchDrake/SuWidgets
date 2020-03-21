@@ -80,6 +80,8 @@ class Histogram : public ThrottleableWidget
   QColor background;
   QColor foreground;
   QColor axes;
+  bool updateDecider = true;
+  bool drawThreshold = true;
   unsigned int bits = 2;
   bool axesDrawn = false;
   bool pad[3];
@@ -185,6 +187,8 @@ public:
   void setDecider(Decider *decider);
   void resetDecider(void);
   void reset(void);
+  void setUpdateDecider(bool);
+  void setDrawThreshold(bool);
 
   void draw(void);
   void paint(void);
@@ -201,7 +205,9 @@ signals:
   void foregroundColorChanged();
   void axesColorChanged();
   void axesUpdated();
-
+  void resetLimits();
+  void newLimits(float min, float max);
+  void blanked();
 };
 
 #endif
