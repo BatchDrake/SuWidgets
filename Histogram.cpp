@@ -355,9 +355,9 @@ Histogram::resetDecider(void)
       this->decider->setMaxAngle(static_cast<float>(2 * M_PI));
       this->reset();
       emit blanked();
-    } else {
-      emit resetLimits();
     }
+
+    emit resetLimits();
   }
 }
 
@@ -425,11 +425,11 @@ Histogram::mouseReleaseEvent(QMouseEvent *event)
         this->decider->setMaxAngle(min + this->sEnd   * range);
         this->reset();
         emit blanked();
-      } else {
-        emit newLimits(
-              min + this->sStart * range,
-              min + this->sEnd   * range);
       }
+
+      emit newLimits(
+            min + this->sStart * range,
+            min + this->sEnd   * range);
     }
   }
 

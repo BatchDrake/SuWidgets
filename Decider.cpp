@@ -28,6 +28,15 @@ void
 Decider::feed(const SUCOMPLEX *data, size_t len)
 {
   this->buffer.resize(len);
+  this->decide(data, this->buffer.data(), len);
+}
+
+void
+Decider::decide(
+    const SUCOMPLEX *data,
+    Symbol *buffer,
+    size_t len) const
+{
   float arg;
   int sym;
 
@@ -43,7 +52,7 @@ Decider::feed(const SUCOMPLEX *data, size_t len)
         else if (sym >= this->intervals)
           sym = this->intervals - 1;
 
-        this->buffer[i] = static_cast<Symbol>(sym);
+        buffer[i] = static_cast<Symbol>(sym);
       }
       break;
 
@@ -58,7 +67,7 @@ Decider::feed(const SUCOMPLEX *data, size_t len)
         else if (sym >= this->intervals)
           sym = this->intervals - 1;
 
-        this->buffer[i] = static_cast<Symbol>(sym);
+        buffer[i] = static_cast<Symbol>(sym);
       }
       break;
   }

@@ -136,6 +136,8 @@ class Decider
 
     void feed(const SUCOMPLEX *data, size_t len);
 
+    void decide(const SUCOMPLEX *data, Symbol *symbols, size_t len) const;
+
     Decider();
 };
 
