@@ -243,6 +243,36 @@ Histogram::setDecider(Decider *decider)
   this->invalidate();
 }
 
+// TODO: Use templates!!
+
+void
+Histogram:: feed(const SUFLOAT *data, unsigned int length)
+{
+  if (this->decider != nullptr && length > 0) {
+    int bin;
+    bool invalidate = false;
+    unsigned long hlen = this->history.size();
+    float arg;
+    float mAngl = this->decider->getMinAngle();
+    float delta = this->decider->getMaxAngle() - mAngl;
+
+    for (auto i = 0u; i < length; ++i) {
+      arg = data[i];
+      arg = (arg - mAngl) / delta;
+      bin = static_cast<int>(hlen * arg);
+
+      if (bin >= 0 && bin < static_cast<int>(hlen)) {
+        if (++this->history[static_cast<unsigned>(bin)] > this->max)
+          this->max = this->history[static_cast<unsigned>(bin)];
+        invalidate = true;
+      }
+    }
+
+    if (invalidate)
+      this->invalidate();
+  }
+}
+
 void
 Histogram::feed(const SUCOMPLEX *samples, unsigned int length)
 {
