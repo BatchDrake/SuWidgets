@@ -53,9 +53,10 @@ class SuWidgetsHelpers {
         QString units = "s")
     {
       int digits = 0;
+      qreal absValue = std::fabs(value);
 
-      if (std::fabs(value) > std::numeric_limits<qreal>::epsilon())
-        digits = 3 * std::floor(std::log10(value) / 3) + decimals;
+      if (absValue > std::numeric_limits<qreal>::epsilon())
+        digits = 3 * std::floor(std::log10(absValue) / 3) + decimals;
 
       return SuWidgetsHelpers::formatQuantity(
             value,
