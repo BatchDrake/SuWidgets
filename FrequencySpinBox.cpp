@@ -16,6 +16,7 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
+#include <cmath>
 #include "FrequencySpinBox.h"
 #include "ui_FrequencySpinBox.h"
 
@@ -106,7 +107,7 @@ FrequencySpinBox::connectAll(void)
 void
 FrequencySpinBox::adjustUnitMultiplier(void)
 {
-  qreal absValue = std::abs(this->currValue);
+  qreal absValue = std::fabs(this->currValue);
 
   if (absValue >= 1e12)
     this->setFrequencyUnitMultiplier(MUL_TERA);
