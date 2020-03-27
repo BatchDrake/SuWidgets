@@ -26,6 +26,7 @@ SymView::SymView(QWidget *parent) :
   ThrottleableWidget(parent)
 {
   this->setFocusPolicy(Qt::StrongFocus);
+  this->setMouseTracking(true);
   this->invalidate();
 }
 
@@ -97,6 +98,7 @@ SymView::drawToImage(
     //
 
     unsigned int stride = lineSize + lineSkip;
+    bool highlight = zoom > 2 && this->hoverX > 0 && this->hoverY > 0;
 
     int width = static_cast<int>(stride * zoom);
     if (width > image.width())
@@ -115,13 +117,47 @@ SymView::drawToImage(
             break;
           if (this->reverse)
             asInt = ~asInt;
+
           scanLine[i] = qRgb(asInt, asInt, asInt);
         }
       }
 
-      if (p >= end)
+      if (p > end)
         break;
     }
+
+    if (highlight) {
+      unsigned int y = static_cast<unsigned>(this->hoverY) / zoom;
+      unsigned int x = static_cast<unsigned>(this->hoverX) / zoom;
+      unsigned int highlightPtr = start + x + lineStart + y * stride;
+      unsigned int uWidth = stride - lineStart;
+
+      if (highlightPtr >= start
+          && highlightPtr < end
+          && x < uWidth) {
+        x *= zoom;
+        y *= zoom;
+        uWidth *= zoom;
+
+        emit hoverSymbol(highlightPtr);
+
+        for (unsigned int j = 0; j < zoom; ++j)
+          if (y + j < static_cast<unsigned>(image.height())) {
+            scanLine = reinterpret_cast<QRgb *>(
+                  image.scanLine(static_cast<int>(y + j)));
+            if (j == 0 || j == zoom - 1) {
+              for (unsigned int i = x; i < qBound(0u, x + zoom, uWidth); ++i)
+                scanLine[i] = qRgb(255, 0, 0);
+            } else {
+              scanLine[x] = qRgb(255, 0, 0);
+
+              if (x + zoom <= uWidth)
+                scanLine[x + zoom - 1] = qRgb(255, 0, 0);
+            }
+          }
+      }
+    }
+
   }
 }
 
@@ -311,6 +347,16 @@ void
 SymView::mousePressEvent(QMouseEvent *)
 {
 
+}
+
+void
+SymView::mouseMoveEvent(QMouseEvent *event)
+{
+  if (this->zoom > 2) {
+    hoverX = event->x();
+    hoverY = event->y();
+    this->invalidate();
+  }
 }
 
 void

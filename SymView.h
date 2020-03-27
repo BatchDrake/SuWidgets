@@ -45,6 +45,8 @@ class SymView : public ThrottleableWidget
     unsigned int offset = 0;  // Offset (wrt buffer)
     int hOffset = 0; // Horizontal offset
     int stride = 1;           // Image stride
+    int hoverX = -1;
+    int hoverY = -1;
     unsigned int pad2;
     QImage viewPort;          // Current view. Matches geometry
 
@@ -220,6 +222,7 @@ public:
   void draw(void);
   void paint(void);
   void mousePressEvent(QMouseEvent *event);
+  void mouseMoveEvent(QMouseEvent *event);
   void keyPressEvent(QKeyEvent *event);
   void wheelEvent(QWheelEvent *event);
 
@@ -228,6 +231,7 @@ public:
   void hOffsetChanged(int);
   void strideChanged(unsigned int);
   void zoomChanged(unsigned int);
+  void hoverSymbol(unsigned int position);
 
 };
 
