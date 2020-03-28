@@ -473,15 +473,22 @@ Waveform::mouseReleaseEvent(QMouseEvent *event)
 void
 Waveform::wheelEvent(QWheelEvent *event)
 {
-  qreal amount = std::pow(
-        static_cast<qreal>(1.1),
-        static_cast<qreal>(-event->delta() / 120.));
-  if (event->x() < this->valueTextWidth)
-    this->zoomVertical(static_cast<qint64>(event->y()), amount);
-  else
-    this->zoomHorizontal(static_cast<qint64>(event->x()), amount);
+  // In some barely-reproducible cases, the first scroll produces a
+  // delta value that is so big that jumps straight to the maximum
+  // zoom level. The causes for this are yet to be determined.
 
-  this->invalidate();
+  if (event->delta() >= -WAVEFORM_DELTA_LIMIT
+      && event->delta() <= WAVEFORM_DELTA_LIMIT) {
+    qreal amount = std::pow(
+          static_cast<qreal>(1.1),
+          static_cast<qreal>(-event->delta() / 120.));
+    if (event->x() < this->valueTextWidth)
+      this->zoomVertical(static_cast<qint64>(event->y()), amount);
+    else
+      this->zoomHorizontal(static_cast<qint64>(event->x()), amount);
+
+    this->invalidate();
+  }
 }
 
 void

@@ -33,6 +33,7 @@
 #define WAVEFORM_DEFAULT_ENVELOPE_COLOR   QColor(0x3f, 0x3f, 0x00)
 #define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0x7f, 0x08, 0x08)
 #define WAVEFORM_MAX_ITERS                20
+#define WAVEFORM_DELTA_LIMIT              9000
 
 class WaveBuffer {
   bool loan = false;
