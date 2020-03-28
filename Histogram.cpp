@@ -113,20 +113,34 @@ Histogram::recalculateDisplayData(void)
   if (this->decider != nullptr) {
     qreal range;
     qreal divLen;
+    bool degs = std::fabs(this->getDisplayRange() - 360) <
+        std::numeric_limits<qreal>::epsilon();
 
     // Recalculate ranges
     range = static_cast<qreal>(
           this->decider->getMaximum() - this->decider->getMinimum());
     range *= this->getDisplayRange() / this->getDataRange();
 
-    divLen = pow(10, std::floor(std::log10(range)));
+    // If we are displaying degrees, we override the automatic behavior
+    if (degs) {
+      if (range >= 180)
+        divLen = 45;
+      else if (range >= 90)
+        divLen = 15;
+      else
+        degs = false;
+    }
 
-    if (range / divLen < 5) {
-      divLen /= 2;
+    if (!degs) {
+      divLen = pow(10, std::floor(std::log10(range)));
+
       if (range / divLen < 5) {
-        divLen /= 2.5;
+        divLen /= 2;
         if (range / divLen < 5) {
-          divLen /= 4;
+          divLen /= 2.5;
+          if (range / divLen < 5) {
+            divLen /= 4;
+          }
         }
       }
     }
@@ -521,6 +535,7 @@ Histogram::resetDecider(void)
         this->decider->setMinimum(-static_cast<float>(.5 * this->getDataRange()));
         this->decider->setMaximum(static_cast<float>(.5 * this->getDataRange()));
       }
+      this->axesDrawn = false;
       this->reset();
       emit blanked();
     }
@@ -591,6 +606,7 @@ Histogram::mouseReleaseEvent(QMouseEvent *event)
       if (this->updateDecider) {
         this->decider->setMinimum(min + this->sStart * range);
         this->decider->setMaximum(min + this->sEnd   * range);
+        this->axesDrawn = false;
         this->reset();
         emit blanked();
       }
