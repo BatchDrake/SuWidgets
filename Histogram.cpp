@@ -18,6 +18,7 @@
 //
 
 #include "Histogram.h"
+#include "SuWidgetsHelpers.h"
 
 #include <QPainter>
 #include <QMouseEvent>
@@ -38,7 +39,9 @@ Histogram::floatToScreenPoint(float x, float y)
     this->ox + static_cast<int>(
           this->width  * (x * HORIZONTAL_SCALE + LEFT_MARGIN)),
     this->oy - static_cast<int>(
-          this->height * (y * VERTICAL_SCALE + BOTTOM_MARGIN)));
+          (this->height - this->legendTextHeight)
+          * (y * VERTICAL_SCALE + BOTTOM_MARGIN))
+        - this->legendTextHeight);
 
   return qp;
 }
@@ -50,6 +53,46 @@ Histogram::reset(void)
   this->max = 0;
   this->invalidate();
 }
+
+qreal
+Histogram::getDataRange(void) const
+{
+  if (this->dataRangeOverride > 0)
+    return this->dataRangeOverride;
+
+  if (this->decider != nullptr
+      && this->decider->getDecisionMode() == Decider::ARGUMENT)
+    return 2 * M_PI;
+
+  return 1;
+}
+
+qreal
+Histogram::getDisplayRange(void) const
+{
+  if (this->displayRangeOverride > 0)
+    return this->displayRangeOverride;
+
+  if (this->decider != nullptr
+      && this->decider->getDecisionMode() == Decider::ARGUMENT)
+    return 360;
+
+  return 1;
+}
+
+QString
+Histogram::getUnits(void) const
+{
+  if (this->unitsOverride.size() > 0)
+    return this->unitsOverride;
+
+  if (this->decider != nullptr
+      && this->decider->getDecisionMode() == Decider::ARGUMENT)
+    return "º";
+
+  return "";
+}
+
 
 void
 Histogram::recalculateDisplayData(void)
@@ -66,6 +109,121 @@ Histogram::recalculateDisplayData(void)
   // Recalculate origin
   this->ox = 0;
   this->oy = this->height - 1;
+
+  if (this->decider != nullptr) {
+    qreal range;
+    qreal divLen;
+
+    // Recalculate ranges
+    range = static_cast<qreal>(
+          this->decider->getMaximum() - this->decider->getMinimum());
+    range *= this->getDisplayRange() / this->getDataRange();
+
+    divLen = pow(10, std::floor(std::log10(range)));
+
+    if (range / divLen < 5) {
+      divLen /= 2;
+      if (range / divLen < 5) {
+        divLen /= 2.5;
+        if (range / divLen < 5) {
+          divLen /= 4;
+        }
+      }
+    }
+
+    this->hDivDegs = divLen;
+    this->hDigits  = static_cast<int>(std::floor(std::log10(divLen)));
+  }
+}
+
+void
+Histogram::drawHorizontalAxes(QPainter &p)
+{
+  QPen pen(this->axes);
+
+  pen.setStyle(Qt::DotLine);
+  p.setPen(pen);
+
+  for (int i = 0; i < 10; ++i)
+    p.drawLine(
+          this->floatToScreenPoint(0.f, i * .1f),
+          this->floatToScreenPoint(1.f, i * .1f));
+}
+
+void
+Histogram::drawVerticalAxes(QPainter &p)
+{
+  QFont font;
+  QFontMetrics metrics(font);
+  QRect rect;
+  QPen pen(this->axes);
+  int axis;
+
+  pen.setStyle(Qt::DotLine);
+  p.setPen(pen);
+  p.setFont(font);
+
+  if (this->legendTextHeight == 0)
+    this->legendTextHeight = metrics.height();
+
+  if (this->hDivDegs > 0) {
+    qreal dataRange = this->getDataRange();
+    qreal start = static_cast<qreal>(this->decider->getMinimum()) / dataRange;
+    qreal end   = static_cast<qreal>(this->decider->getMaximum()) / dataRange;
+    qreal range;
+    qreal fullRange = this->getDisplayRange();
+
+    start *= fullRange;
+    end   *= fullRange;
+
+    range = end - start;
+
+    // Draw axes
+    axis = static_cast<int>(std::floor(start / this->hDivDegs));
+
+    while (axis * this->hDivDegs <= end) {
+      QPoint pt =
+          this->floatToScreenPoint(
+            static_cast<float>((axis * this->hDivDegs - start) / range),
+            0.);
+
+      if (pt.x() > 0)
+        p.drawLine(pt.x(), 0, pt.x(), pt.y());
+      ++axis;
+    }
+
+    // Draw labels
+    p.setPen(this->text);
+    axis = static_cast<int>(std::floor(start / this->hDivDegs));
+
+    while (axis * this->hDivDegs <= end) {
+      QPoint pt =
+          this->floatToScreenPoint(
+            static_cast<float>((axis * this->hDivDegs - start) / range),
+            1.);
+
+      if (pt.x() > 0) {
+        QString label;
+        int tw;
+
+        label = SuWidgetsHelpers::formatQuantity(
+              axis * this->hDivDegs,
+              this->hDigits,
+              this->getUnits());
+
+        tw = metrics.width(label);
+
+        rect.setRect(
+              pt.x() - tw / 2,
+              this->geometry.height() - this->legendTextHeight,
+              tw,
+              this->legendTextHeight);
+        p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, label);
+      }
+      ++axis;
+    }
+  }
+
 }
 
 void
@@ -99,11 +257,15 @@ Histogram::drawAxes(void)
   if (this->decider != nullptr) {
     float delta;
 
+    this->drawVerticalAxes(painter);
+    this->drawHorizontalAxes(painter);
+
     // Draw outer border
     pen.setWidth(1);
 
     // Draw intervals.
-    pen.setStyle(Qt::DotLine);
+    pen.setStyle(Qt::SolidLine);
+    pen.setColor(this->interval);
     painter.setPen(pen);
 
     delta = 1.f  / this->decider->getIntervals();
@@ -242,6 +404,7 @@ Histogram::setDecider(Decider *decider)
   // Important to ALWAYS INVALIDATE this.
   this->decider = decider;
   this->setOrderHint(this->decider->getBps());
+  this->axesDrawn = false;
   this->invalidate();
 }
 
@@ -261,15 +424,15 @@ Histogram::setDrawThreshold(bool draw)
 // TODO: Use templates!!
 
 void
-Histogram:: feed(const SUFLOAT *data, unsigned int length)
+Histogram::feed(const SUFLOAT *data, unsigned int length)
 {
   if (this->decider != nullptr && length > 0) {
     int bin;
     bool invalidate = false;
     unsigned long hlen = this->history.size();
     float arg;
-    float mAngl = this->decider->getMinAngle();
-    float delta = this->decider->getMaxAngle() - mAngl;
+    float mAngl = this->decider->getMinimum();
+    float delta = this->decider->getMaximum() - mAngl;
 
     for (auto i = 0u; i < length; ++i) {
       arg = data[i];
@@ -296,15 +459,15 @@ Histogram::feed(const SUCOMPLEX *samples, unsigned int length)
     bool invalidate = false;
     unsigned long hlen = this->history.size();
     float arg;
-    float mAngl = this->decider->getMinAngle();
-    float delta = this->decider->getMaxAngle() - mAngl;
+    float min   = this->decider->getMinimum();
+    float delta = this->decider->getMaximum() - min;
 
     switch (this->decider->getDecisionMode()) {
       case Decider::ARGUMENT:
         for (auto i = 0u; i < length; ++i) {
           SUWIDGETS_DETECT_ARGUMENT(arg, samples[i]);
 
-          arg = (arg - mAngl) / delta;
+          arg = (arg - min) / delta;
           bin = static_cast<int>(hlen * arg);
 
           if (bin >= 0 && bin < static_cast<int>(hlen)) {
@@ -319,7 +482,7 @@ Histogram::feed(const SUCOMPLEX *samples, unsigned int length)
         for (auto i = 0u; i < length; ++i) {
           SUWIDGETS_DETECT_MODULUS(arg, samples[i]);
 
-          arg = (arg - mAngl) / delta;
+          arg = (arg - min) / delta;
           bin = static_cast<int>(hlen * arg);
 
           if (bin >= 0 && bin < static_cast<int>(hlen)) {
@@ -351,8 +514,13 @@ Histogram::resetDecider(void)
 {
   if (this->decider !=  nullptr) {
     if (this->updateDecider) {
-      this->decider->setMinAngle(0.f);
-      this->decider->setMaxAngle(static_cast<float>(2 * M_PI));
+      if (this->decider->getDecisionMode() == Decider::MODULUS) {
+        this->decider->setMinimum(0);
+        this->decider->setMaximum(static_cast<float>(this->getDataRange()));
+      } else {
+        this->decider->setMinimum(-static_cast<float>(.5 * this->getDataRange()));
+        this->decider->setMaximum(static_cast<float>(.5 * this->getDataRange()));
+      }
       this->reset();
       emit blanked();
     }
@@ -416,20 +584,20 @@ Histogram::mouseReleaseEvent(QMouseEvent *event)
     this->sEnd   += add;
 
     if (this->decider != nullptr) {
-      float min = this->decider->getMinAngle();
-      float max = this->decider->getMaxAngle();
+      float min = this->decider->getMinimum();
+      float max = this->decider->getMaximum();
       float range = max - min;
 
       if (this->updateDecider) {
-        this->decider->setMinAngle(min + this->sStart * range);
-        this->decider->setMaxAngle(min + this->sEnd   * range);
+        this->decider->setMinimum(min + this->sStart * range);
+        this->decider->setMaximum(min + this->sEnd   * range);
         this->reset();
         emit blanked();
       }
 
       emit newLimits(
-            min + this->sStart * range,
-            min + this->sEnd   * range);
+            min + (this->sStart + add) * range,
+            min + (this->sEnd - add)   * range);
     }
   }
 
@@ -447,6 +615,8 @@ Histogram::Histogram(QWidget *parent) :
   this->background = HISTOGRAM_DEFAULT_BACKGROUND_COLOR;
   this->foreground = HISTOGRAM_DEFAULT_FOREGROUND_COLOR;
   this->axes       = HISTOGRAM_DEFAULT_AXES_COLOR;
+  this->text       = HISTOGRAM_DEFAULT_TEXT_COLOR;
+  this->interval   = HISTOGRAM_DEFAULT_INTERVAL_COLOR;
 
   this->invalidate();
 }

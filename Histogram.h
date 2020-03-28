@@ -29,8 +29,10 @@
 #include "Decider.h"
 
 #define HISTOGRAM_DEFAULT_BACKGROUND_COLOR QColor(0,     0,   0)
-#define HISTOGRAM_DEFAULT_FOREGROUND_COLOR QColor(255, 255, 255)
+#define HISTOGRAM_DEFAULT_FOREGROUND_COLOR QColor(255, 255, 0)
 #define HISTOGRAM_DEFAULT_AXES_COLOR       QColor(128, 128, 128)
+#define HISTOGRAM_DEFAULT_TEXT_COLOR       QColor(255, 255, 255)
+#define HISTOGRAM_DEFAULT_INTERVAL_COLOR   QColor(128, 128, 128, 128)
 
 #define HISTOGRAM_DEFAULT_HISTORY_SIZE 256
 
@@ -56,13 +58,23 @@ class Histogram : public ThrottleableWidget
       WRITE setForegroundColor
       NOTIFY foregroundColorChanged)
 
-
   Q_PROPERTY(
       QColor axesColor
       READ getAxesColor
       WRITE setAxesColor
       NOTIFY axesColorChanged)
 
+  Q_PROPERTY(
+      QColor textColor
+      READ getTextColor
+      WRITE setTextColor
+      NOTIFY textColorChanged)
+
+  Q_PROPERTY(
+      QColor intervalColor
+      READ getIntervalColor
+      WRITE setIntervalColor
+      NOTIFY intervalColorChanged)
 
   // Drawing area properties
   QPixmap contentPixmap; // Graph
@@ -80,6 +92,13 @@ class Histogram : public ThrottleableWidget
   QColor background;
   QColor foreground;
   QColor axes;
+  QColor text;
+  QColor interval;
+
+  qreal dataRangeOverride = 0;
+  qreal displayRangeOverride = 0;
+  QString unitsOverride;
+
   bool updateDecider = true;
   bool drawThreshold = true;
   unsigned int bits = 2;
@@ -97,16 +116,50 @@ class Histogram : public ThrottleableWidget
   int oy;
   int width;
   int height;
+  int legendTextHeight = 0;
+  qreal hDivDegs;
+  int   hDigits;
 
   // Private methods
   QPoint floatToScreenPoint(float x, float y);
 
   void recalculateDisplayData(void);
 
+  void drawVerticalAxes(QPainter &);
+  void drawHorizontalAxes(QPainter &);
+
   void drawAxes(void);
   void drawHistogram(void);
 
+  qreal getDataRange(void) const;
+  qreal getDisplayRange(void) const;
+  QString getUnits(void) const;
+
 public:
+  void
+  overrideDataRange(qreal range)
+  {
+    this->dataRangeOverride = range;
+    this->axesDrawn = false;
+    this->invalidate();
+  }
+
+  void
+  overrideDisplayRange(qreal range)
+  {
+    this->displayRangeOverride = range;
+    this->axesDrawn = false;
+    this->invalidate();
+  }
+
+  void
+  overrideUnits(QString units)
+  {
+    this->unitsOverride = units;
+    this->axesDrawn = false;
+    this->invalidate();
+  }
+
   std::vector<unsigned int> const &
   getHistory(void) const
   {
@@ -159,6 +212,36 @@ public:
   }
 
   void
+  setTextColor(const QColor &c)
+  {
+    this->text = c;
+    this->axesDrawn = false;
+    this->invalidate();
+    emit textColorChanged();
+  }
+
+  const QColor &
+  getTextColor(void) const
+  {
+    return this->text;
+  }
+
+  void
+  setIntervalColor(const QColor &c)
+  {
+    this->interval = c;
+    this->axesDrawn = false;
+    this->invalidate();
+    emit intervalColorChanged();
+  }
+
+  const QColor &
+  getIntervalColor(void) const
+  {
+    return this->interval;
+  }
+
+  void
   setOrderHint(unsigned int bits)
   {
     if (this->bits != bits) {
@@ -204,6 +287,8 @@ signals:
   void backgroundColorChanged();
   void foregroundColorChanged();
   void axesColorChanged();
+  void textColorChanged();
+  void intervalColorChanged();
   void axesUpdated();
   void resetLimits();
   void newLimits(float min, float max);

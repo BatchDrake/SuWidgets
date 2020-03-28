@@ -46,7 +46,7 @@ Decider::decide(
         SUWIDGETS_DETECT_ARGUMENT(arg, data[i]);
 
         sym = static_cast<int>(
-              floorf((arg - this->minAngle) / (this->delta)));
+              floorf((arg - this->min) / (this->delta)));
         if (sym < 0)
           sym = 0;
         else if (sym >= this->intervals)
@@ -61,7 +61,7 @@ Decider::decide(
         SUWIDGETS_DETECT_MODULUS(arg, data[i]);
 
         sym = static_cast<int>(
-              floorf((arg - this->minAngle) / (this->delta)));
+              floorf((arg - this->min) / (this->delta)));
         if (sym < 0)
           sym = 0;
         else if (sym >= this->intervals)

@@ -30,8 +30,7 @@
 typedef uint8_t Symbol;
 
 #define SUWIDGETS_DETECT_ARGUMENT(dest, orig) \
-  if ((dest = SU_C_ARG(orig)) < 0.f) \
-    dest += 2 * M_PI
+  dest = SU_C_ARG(orig)
 
 #define SUWIDGETS_DETECT_MODULUS(dest, orig) \
   dest = SU_C_ABS(orig)
@@ -49,8 +48,8 @@ class Decider
     int bps = 1;
     int intervals = 2;
     float delta = static_cast<float>(M_PI);
-    float minAngle = 0;
-    float maxAngle = static_cast<float>(2 * M_PI);
+    float min = 0;
+    float max = static_cast<float>(2 * M_PI);
     float scale = static_cast<float>(2 * M_PI);
     std::vector<Symbol> buffer;
 
@@ -62,35 +61,35 @@ class Decider
     }
 
     void
-    setMinAngle(float minAngle)
+    setMinimum(float val)
     {
-      if (fabsf(this->minAngle - minAngle) > 1e-15f) {
-        this->minAngle = minAngle;
-        this->scale = this->maxAngle - this->minAngle;
+      if (fabsf(this->min - val) > 1e-15f) {
+        this->min = val;
+        this->scale = this->max - this->min;
         this->delta = this->scale / this->intervals;
       }
     }
 
     void
-    setMaxAngle(float maxAngle)
+    setMaximum(float val)
     {
-      if (fabsf(this->maxAngle - maxAngle) > 1e-15f) {
-        this->maxAngle = maxAngle;
-        this->scale = this->maxAngle - this->minAngle;
+      if (fabsf(this->max - val) > 1e-15f) {
+        this->max = val;
+        this->scale = this->max - this->min;
         this->delta = this->scale / this->intervals;
       }
     }
 
     float
-    getMinAngle(void) const
+    getMinimum(void) const
     {
-      return this->minAngle;
+      return this->min;
     }
 
     float
-    getMaxAngle(void) const
+    getMaximum(void) const
     {
-      return this->maxAngle;
+      return this->max;
     }
 
     int
@@ -111,7 +110,7 @@ class Decider
       if (this->bps != static_cast<int>(bps)) {
         this->bps = static_cast<int>(bps);
         this->intervals = 1 << bps;
-        this->scale = this->maxAngle - this->minAngle;
+        this->scale = this->max - this->min;
         this->delta = this->scale / this->intervals;
       }
     }
