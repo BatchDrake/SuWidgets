@@ -153,25 +153,30 @@ public:
         return m_DemodCenterFreq - m_CenterFreq;
     }
 
-    int getFilterBw()
+    qint64 getFilterBw()
     {
         return m_DemodHiCutFreq - m_DemodLowCutFreq;
     }
 
-    void setHiLowCutFrequencies(int LowCut, int HiCut)
+    void setHiLowCutFrequencies(qint64 LowCut, qint64 HiCut)
     {
         m_DemodLowCutFreq = LowCut;
         m_DemodHiCutFreq = HiCut;
         drawOverlay();
     }
 
-    void getHiLowCutFrequencies(int *LowCut, int *HiCut)
+    void getHiLowCutFrequencies(qint64 *LowCut, qint64 *HiCut)
     {
         *LowCut = m_DemodLowCutFreq;
         *HiCut = m_DemodHiCutFreq;
     }
 
-    void setDemodRanges(int FLowCmin, int FLowCmax, int FHiCmin, int FHiCmax, bool symetric);
+    void setDemodRanges(
+        qint64 FLowCmin,
+        qint64 FLowCmax,
+        qint64 FHiCmin,
+        qint64 FHiCmax,
+        bool symetric);
 
     qint64
     getCenterFreq(void) const
@@ -180,10 +185,10 @@ public:
     }
 
     /* Shown bandwidth around SetCenterFreq() */
-    void setSpanFreq(quint32 s)
+    void setSpanFreq(qint64 s)
     {
-        if (s > 0 && s < INT_MAX) {
-            m_Span = (qint32)s;
+        if (s > 0) {
+            m_Span = s;
             setFftCenterFreq(m_FftCenter);
         }
         drawOverlay();
@@ -342,8 +347,8 @@ private:
     bool        m_TooltipsEnabled;     /*!< Tooltips enabled */
     bool        m_BookmarksEnabled;   /*!< Show/hide bookmarks on spectrum */
     bool        m_Locked; /* Prevent manual adjust of center frequency */
-    int         m_DemodHiCutFreq;
-    int         m_DemodLowCutFreq;
+    qint64      m_DemodHiCutFreq;
+    qint64      m_DemodLowCutFreq;
     int         m_DemodFreqX;		//screen coordinate x position
     int         m_DemodHiCutFreqX;	//screen coordinate x position
     int         m_DemodLowCutFreqX;	//screen coordinate x position
@@ -351,10 +356,10 @@ private:
     int         m_GrabPosition;
     int         m_Percent2DScreen;
 
-    int         m_FLowCmin;
-    int         m_FLowCmax;
-    int         m_FHiCmin;
-    int         m_FHiCmax;
+    qint64      m_FLowCmin;
+    qint64      m_FLowCmax;
+    qint64      m_FHiCmin;
+    qint64      m_FHiCmax;
     bool        m_symetric;
 
     int         m_HorDivs;   /*!< Current number of horizontal divisions. Calculated from width. */
@@ -379,7 +384,7 @@ private:
     int         m_HdivDelta; /*!< Minimum distance in pixels between two horizontal grid lines (vertical division). */
     int         m_VdivDelta; /*!< Minimum distance in pixels between two vertical grid lines (horizontal division). */
 
-    quint32     m_LastSampleRate;
+    quint64     m_LastSampleRate;
 
     QColor      m_FftColor, m_FftFillCol, m_PeakHoldColor;
     QColor      m_FftBgColor, m_FftCenterAxisColor, m_FftAxesColor;

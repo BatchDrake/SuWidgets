@@ -850,7 +850,7 @@ void Waterfall::zoomStepX(float step, int x)
     qint64 fc = (qint64)(f_min + (f_max - f_min) / 2.0);
 
     setFftCenterFreq(fc - m_CenterFreq);
-    setSpanFreq((quint32)new_range);
+    setSpanFreq(new_range);
 
     float factor = (float)m_SampleFreq / (float)m_Span;
     emit newZoomLevel(factor);
@@ -1491,6 +1491,7 @@ void Waterfall::drawOverlay()
     calcDivSize(StartFreq, EndFreq,
                 qMin(w/(metrics.width(label) + metrics.width("O")), HORZ_DIVS_MAX),
                 m_StartFreqAdj, m_FreqPerDiv, m_HorDivs);
+
     pixperdiv = (float)w * (float) m_FreqPerDiv / (float) m_Span;
     adjoffset = pixperdiv * float (m_StartFreqAdj - StartFreq) / (float) m_FreqPerDiv;
 
@@ -1749,7 +1750,7 @@ int Waterfall::xFromFreq(qint64 freq)
 {
     int w = m_OverlayPixmap.width();
     qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span/2;
-    int x = (int) w * ((float)freq - StartFreq)/(float)m_Span;
+    int x = (int) w * ((qreal)freq - StartFreq)/(qreal)m_Span;
     if (x < 0)
         return 0;
     if (x > (int)w)
@@ -1762,7 +1763,7 @@ qint64 Waterfall::freqFromX(int x)
 {
     int w = m_OverlayPixmap.width();
     qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
-    qint64 f = (qint64)(StartFreq + (float)m_Span * (float)x / (float)w);
+    qint64 f = (qint64)(StartFreq + (qreal)m_Span * (qreal)x / (qreal)w);
     return f;
 }
 
@@ -1806,8 +1807,8 @@ void Waterfall::clampDemodParameters()
         m_DemodHiCutFreq = m_FHiCmax;
 }
 
-void Waterfall::setDemodRanges(int FLowCmin, int FLowCmax,
-                              int FHiCmin, int FHiCmax,
+void Waterfall::setDemodRanges(qint64 FLowCmin, qint64 FLowCmax,
+                              qint64 FHiCmin, qint64 FHiCmax,
                               bool symetric)
 {
     m_FLowCmin=FLowCmin;
@@ -1850,7 +1851,7 @@ void Waterfall::updateOverlay()
 void Waterfall::resetHorizontalZoom(void)
 {
     setFftCenterFreq(0);
-    setSpanFreq((qint32)m_SampleFreq);
+    setSpanFreq(static_cast<qint64>(m_SampleFreq));
     emit newZoomLevel(1);
 }
 
@@ -1951,14 +1952,14 @@ void Waterfall::calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &ad
     static const int stepTableSize = sizeof (stepTable) / sizeof (stepTable[0]);
     qint64 multiplier = 1;
     step = 1;
-    divs = high - low;
+    qint64 divsLong = high - low;
     int index = 0;
     adjlow = (low / step) * step;
 
-    while (divs > divswanted)
+    while (divsLong > divswanted)
     {
         step = stepTable[index] * multiplier;
-        divs = int ((high - low) / step);
+        divsLong = (high - low) / step;
         adjlow = (low / step) * step;
         index = index + 1;
         if (index == stepTableSize)
@@ -1969,6 +1970,9 @@ void Waterfall::calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &ad
     }
     if (adjlow < low)
         adjlow += step;
+
+
+    divs = static_cast<int>(divsLong);
 
 #ifdef PLOTTER_DEBUG
     qDebug() << "adjlow: "  << adjlow;
