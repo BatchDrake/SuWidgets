@@ -136,12 +136,14 @@ class LCD : public QFrame
   bool pad3[7];
   int selected = -1;
   int digits = 1;
+  int hoverDigit = -1;
 
   // Private methods
   void drawSegAt(int x, int y, bool flip);
   void recalculateDisplayData(void);
   void drawContent(void);
   void draw(void);
+  void drawSeparator(QPainter &, qreal x, int index);
   void scrollDigit(int digit, int delta);
 
 public:
@@ -340,6 +342,8 @@ public:
   void mousePressEvent(QMouseEvent *event);
   void keyPressEvent(QKeyEvent *event);
   void wheelEvent(QWheelEvent *event);
+  void mouseMoveEvent(QMouseEvent *event);
+  void leaveEvent(QEvent *event);
 
   LCD(QWidget *parent = nullptr);
 

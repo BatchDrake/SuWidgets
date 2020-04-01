@@ -131,6 +131,27 @@ LCD::recalculateDisplayData(void)
 }
 
 void
+LCD::drawSeparator(QPainter &painter, qreal x, int index)
+{
+  painter.setBrush(
+        index == 0
+        ? this->foreground
+        : this->background);
+
+  QPainterPath path;
+  path.addEllipse(
+        x + this->segBoxLength + this->segBoxThickness,
+        this->margin + 2 * this->segBoxLength + 1.5 * this->segBoxThickness,
+        this->segThickness,
+        this->segThickness);
+  painter.fillPath(
+        path,
+        index == 0
+          ? this->foreground
+          : this->background);
+}
+
+void
 LCD::drawContent(void)
 {
   QPainter painter(&this->contentPixmap);
@@ -140,6 +161,7 @@ LCD::drawContent(void)
   bool negative = false;
   int index;
   qreal x;
+  qreal maxX;
 
   this->digits = 0;
 
@@ -171,30 +193,42 @@ LCD::drawContent(void)
           this->glyphs[index][value % 10]);
 
     // Draw thousands separator
-    if (i % 3 == 0) {
-      painter.setBrush(
-            index == 0
-            ? this->foreground
-            : this->background);
-
-      QPainterPath path;
-      path.addEllipse(
-            x + this->segBoxLength + this->segBoxThickness,
-            this->margin + 2 * this->segBoxLength + 1.5 * this->segBoxThickness,
-            this->segThickness,
-            this->segThickness);
-      painter.fillPath(
-            path,
-            index == 0
-              ? this->foreground
-              : this->background);
-    }
+    if (i % 3 == 0)
+      this->drawSeparator(painter, x, index);
 
     value /= 10;
   }
 
+  maxX = x;
+
+  if (this->hoverDigit >= 0
+      && this->hoverDigit >= this->digits
+      && this->digits > 0) {
+    int count = this->hoverDigit - this->digits + 1;
+    x = this->width - this->glyphWidth * (this->hoverDigit + 1);
+    if (x < maxX)
+      maxX = x;
+
+    painter.setOpacity(.5);
+
+    for (int i = 0; i < count; ++i) {
+      painter.drawPixmap(
+            static_cast<int>(x + i * this->glyphWidth),
+            static_cast<int>(this->margin),
+            this->glyphs[0][0]);
+
+      if ((this->hoverDigit - i) % 3 == 0)
+        this->drawSeparator(painter, x + i * this->glyphWidth, 0);
+    }
+
+    painter.setOpacity(1);
+  }
+
   if (this->hasFocus() && this->selected >= this->digits) {
-    x -= this->glyphWidth * (this->selected - this->digits + 1);
+    x = this->width - this->glyphWidth * (this->selected + 1);
+    if (x < maxX)
+      maxX = x;
+
     index = this->revvideo ? 1 : 0;
 
     painter.drawPixmap(
@@ -206,9 +240,9 @@ LCD::drawContent(void)
 
   /* If negative, draw minus sign */
   if (negative) {
-    x -= this->glyphWidth;
+    maxX -= this->glyphWidth;
     painter.drawPixmap(
-          static_cast<int>(x),
+          static_cast<int>(maxX),
           static_cast<int>(this->margin),
           this->glyphs[0][10]);
   }
@@ -297,6 +331,31 @@ LCD::wheelEvent(QWheelEvent *ev)
     int amount = ev->delta() > 0 ? 1 : -1;
     int digit = (this->width - ev->x()) / this->glyphWidth;
     this->scrollDigit(digit, amount);
+  }
+}
+
+void
+LCD::mouseMoveEvent(QMouseEvent *event)
+{
+  int digit = -1;
+
+  if (this->rect().contains(event->pos()))
+    digit = (this->width - event->x()) / this->glyphWidth;
+
+  if (digit != this->hoverDigit) {
+    this->hoverDigit = digit;
+    this->dirty = true;
+    this->draw();
+  }
+}
+
+void
+LCD::leaveEvent(QEvent *)
+{
+  if (this->hoverDigit != -1) {
+    this->hoverDigit = -1;
+    this->dirty = true;
+    this->draw();
   }
 }
 
@@ -390,6 +449,7 @@ LCD::LCD(QWidget *parent) :
   this->setFocusPolicy(Qt::StrongFocus);
   this->background = LCD_DEFAULT_BACKGROUND_COLOR;
   this->foreground = LCD_DEFAULT_FOREGROUND_COLOR;
+  this->setMouseTracking(true);
 
   this->timer = new QTimer(this);
   connect(this->timer, SIGNAL(timeout()), this, SLOT(onTimerTimeout()));
