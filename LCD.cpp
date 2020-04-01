@@ -356,6 +356,14 @@ LCD::keyPressEvent(QKeyEvent *event)
       }
       break;
 
+    case Qt::Key_Plus:
+      this->setValue(std::abs(this->value));
+      break;
+
+    case Qt::Key_Minus:
+      this->setValue(-this->value);
+      break;
+
     default:
       changes = false;
   }
