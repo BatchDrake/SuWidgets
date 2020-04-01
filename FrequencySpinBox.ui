@@ -31,6 +31,12 @@
    </property>
    <item row="0" column="0">
     <widget class="QDoubleSpinBox" name="frequencySpin">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="font">
       <font>
        <family>Monospace</family>
@@ -66,7 +72,7 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>24</width>
+       <width>20</width>
        <height>16777215</height>
       </size>
      </property>
@@ -85,7 +91,7 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>24</width>
+       <width>20</width>
        <height>16777215</height>
       </size>
      </property>
