@@ -1820,9 +1820,9 @@ void Waterfall::setDemodRanges(qint64 FLowCmin, qint64 FLowCmax,
     updateOverlay();
 }
 
-void Waterfall::setCenterFreq(quint64 f)
+void Waterfall::setCenterFreq(qint64 f)
 {
-    if((quint64)m_CenterFreq == f)
+    if(m_CenterFreq == f)
         return;
 
     m_tentativeCenterFreq += f - m_CenterFreq;

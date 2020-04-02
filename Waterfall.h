@@ -116,10 +116,10 @@ public:
     void setNewFftData(float *fftData, int size);
     void setNewFftData(float *fftData, float *wfData, int size);
 
-    void setCenterFreq(quint64 f);
+    void setCenterFreq(qint64 f);
     void setFreqUnits(qint32 unit) { m_FreqUnits = unit; }
 
-    void setDemodCenterFreq(quint64 f) { m_DemodCenterFreq = f; }
+    void setDemodCenterFreq(qint64 f) { m_DemodCenterFreq = f; }
 
     void setPalette(const QColor *table)
     {
