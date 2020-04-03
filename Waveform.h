@@ -104,6 +104,18 @@ class Waveform : public ThrottleableWidget
       WRITE setSampleRate
       NOTIFY sampleRateChanged)
 
+  Q_PROPERTY(
+      QString horizontalUnits
+      READ getHorizontalUnits
+      WRITE setHorizontalUnits
+      NOTIFY horizontalUnitsChanged)
+
+  Q_PROPERTY(
+      QString verticalUnits
+      READ getVerticalUnits
+      WRITE setVerticalUnits
+      NOTIFY verticalUnitsChanged)
+
   // Properties
   QColor background;
   QColor foreground;
@@ -112,8 +124,12 @@ class Waveform : public ThrottleableWidget
   QColor envelope;
   QColor axes;
   QColor text;
+  QString horizontalUnits = "s";
+  QString verticalUnits = "";
+
   qreal sampleRate = 1;
   qreal deltaT = 1;
+  qreal oX = 0;
 
   bool showWaveform = true;
   bool showEnvelope = false;
@@ -439,6 +455,36 @@ public:
     emit sampleRateChanged();
   }
 
+  QString
+  getHorizontalUnits(void) const
+  {
+    return this->horizontalUnits;
+  }
+
+  void
+  setHorizontalUnits(QString units)
+  {
+    this->horizontalUnits = units;
+    this->axesDrawn = false;
+    this->invalidate();
+    emit horizontalUnitsChanged();
+  }
+
+  QString
+  getVerticalUnits(void) const
+  {
+    return this->verticalUnits;
+  }
+
+  void
+  setVerticalUnits(QString units)
+  {
+    this->verticalUnits = units;
+    this->axesDrawn = false;
+    this->invalidate();
+    emit verticalUnitsChanged();
+  }
+
   void
   setDivsPerSelection(int divs)
   {
@@ -496,6 +542,12 @@ public:
     }
   }
 
+  void
+  setOriginX(qreal origin)
+  {
+    this->oX = origin;
+  }
+
   Waveform(QWidget *parent = nullptr);
 
   void setData(const std::vector<SUCOMPLEX> *, bool keepView = false);
@@ -546,6 +598,8 @@ signals:
   void foregroundColorChanged();
   void axesColorChanged();
   void textColorChanged();
+  void horizontalUnitsChanged();
+  void verticalUnitsChanged();
   void selectionColorChanged();
   void subSelectionColorChanged();
   void envelopeColorChanged(void);

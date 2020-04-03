@@ -174,12 +174,8 @@ Waveform::recalculateDisplayData(void)
 void
 Waveform::zoomHorizontalReset(void)
 {
-  if (this->haveGeometry) {
-    if (this->data.length() <= static_cast<unsigned>(this->geometry.width()))
-      this->zoomHorizontal(0, static_cast<qint64>(this->geometry.width() - 1));
-    else
-      this->zoomHorizontal(0, static_cast<qint64>(this->data.length()) - 1);
-  }
+  if (this->haveGeometry)
+    this->zoomHorizontal(0, static_cast<qint64>(this->data.length()) - 1);
 }
 
 void
@@ -803,11 +799,14 @@ Waveform::drawVerticalAxes(void)
   this->frequencyTextHeight = metrics.height();
 
   if (this->hDivSamples > 0) {
+    qreal rem = this->oX -
+        this->hDivSamples * std::floor(this->oX / this->hDivSamples);
+
     // Draw axes
     axis = static_cast<int>(std::floor(this->start / this->hDivSamples));
 
-    while (axis * this->hDivSamples <= this->end) {
-      px = static_cast<int>(this->samp2px(axis * this->hDivSamples));
+    while (axis * this->hDivSamples <= this->end + rem) {
+      px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
 
       if (px > 0)
         p.drawLine(px, 0, px, this->geometry.height() - 1);
@@ -817,16 +816,17 @@ Waveform::drawVerticalAxes(void)
     // Draw labels
     p.setPen(this->text);
     axis = static_cast<int>(std::floor(this->start / this->hDivSamples));
-    while (axis * this->hDivSamples <= this->end) {
-      px = static_cast<int>(this->samp2px(axis * this->hDivSamples));
+    while (axis * this->hDivSamples <= this->end + rem) {
+      px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
 
       if (px > 0) {
         QString label;
         int tw;
 
         label = SuWidgetsHelpers::formatQuantity(
-              axis * this->hDivSamples * this->deltaT,
-              this->hDigits);
+              (this->oX + axis * this->hDivSamples - rem) * this->deltaT,
+              this->hDigits,
+              this->horizontalUnits);
 
         tw = metrics.width(label);
 
@@ -884,7 +884,7 @@ Waveform::drawHorizontalAxes(void)
         label = SuWidgetsHelpers::formatQuantity(
               axis * this->vDivUnits,
               this->vDigits,
-              "");
+              this->verticalUnits);
 
         tw = metrics.width(label);
 
