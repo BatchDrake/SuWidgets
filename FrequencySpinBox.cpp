@@ -29,6 +29,11 @@ FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
   this->refreshUi();
 
   this->connectAll();
+
+  QFontMetrics m(this->ui->decFreqUnitsButton->font());
+
+  this->ui->incFreqUnitsButton->setMaximumWidth(4 * m.width(">"));
+  this->ui->decFreqUnitsButton->setMaximumWidth(4 * m.width("<"));
 }
 
 FrequencySpinBox::~FrequencySpinBox()

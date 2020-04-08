@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>24</height>
+    <height>33</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -72,7 +72,7 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>20</width>
+       <width>16777215</width>
        <height>16777215</height>
       </size>
      </property>
@@ -91,12 +91,18 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>20</width>
+       <width>16777215</width>
        <height>16777215</height>
       </size>
      </property>
+     <property name="autoFillBackground">
+      <bool>false</bool>
+     </property>
      <property name="text">
       <string>&gt;</string>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
      </property>
     </widget>
    </item>
