@@ -25,10 +25,13 @@
 #include <sigutils/types.h>
 #include <cmath>
 
+class QWidget;
+
 class SuWidgetsHelpers {
 
   public:
     static QString formatBinaryQuantity(qint64 value, QString units = "B");
+    static int getWidgetTextWidth(const QWidget *widget, QString const &text);
 
     static QString formatQuantity(
         qreal value,

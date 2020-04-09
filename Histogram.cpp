@@ -225,7 +225,11 @@ Histogram::drawVerticalAxes(QPainter &p)
               this->hDigits,
               this->getUnits());
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+        tw = metrics.horizontalAdvance(label);
+#else
         tw = metrics.width(label);
+#endif // QT_VERSION_CHECK
 
         rect.setRect(
               pt.x() - tw / 2,

@@ -1,4 +1,4 @@
-/* -*- c++ -*- */
+ /* -*- c++ -*- */
 /* + + +   This Software is released under the "Simplified BSD License"  + + +
  * Copyright 2010 Moe Wheatley. All rights reserved.
  * Copyright 2011-2013 Alexandru Csete OZ9AEC
@@ -1401,7 +1401,6 @@ void Waterfall::drawOverlay()
     QFontMetrics    metrics(m_Font);
     QPainter        painter(&m_OverlayPixmap);
 
-    painter.initFrom(this);
     painter.setFont(m_Font);
 
     // solid background
@@ -1412,7 +1411,13 @@ void Waterfall::drawOverlay()
 #define VER_MARGIN 5
 
     // X and Y axis areas
-    m_YAxisWidth = metrics.width("XXXX") + 2 * HOR_MARGIN;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+   int tw = metrics.horizontalAdvance("XXXX");
+#else
+   int tw = metrics.width("XXXX");
+#endif // QT_VERSION_CHECK
+
+    m_YAxisWidth = tw + 2 * HOR_MARGIN;
     m_XAxisYCenter = h - metrics.height()/2;
     int xAxisHeight = metrics.height() + 2 * VER_MARGIN;
     int xAxisTop = h - xAxisHeight;
@@ -1488,8 +1493,15 @@ void Waterfall::drawOverlay()
     qint64  EndFreq = StartFreq + m_Span;
     QString label;
     label.setNum(float(EndFreq / m_FreqUnits), 'f', m_FreqDigits);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+   tw = metrics.horizontalAdvance(label) + metrics.horizontalAdvance("O");
+#else
+   tw = metrics.width(label) + metrics.width("O");
+#endif // QT_VERSION_CHECK
+
     calcDivSize(StartFreq, EndFreq,
-                qMin(w/(metrics.width(label) + metrics.width("O")), HORZ_DIVS_MAX),
+                qMin(w/tw, HORZ_DIVS_MAX),
                 m_StartFreqAdj, m_FreqPerDiv, m_HorDivs);
 
     pixperdiv = (float)w * (float) m_FreqPerDiv / (float) m_Span;
@@ -1508,7 +1520,11 @@ void Waterfall::drawOverlay()
     painter.setPen(m_FftTextColor);
     for (int i = 0; i <= m_HorDivs; i++)
     {
-        int tw = metrics.width(m_HDivText[i]);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+   int tw = metrics.horizontalAdvance(m_HDivText[i]);
+#else
+   int tw = metrics.width(m_HDivText[i]);
+#endif // QT_VERSION_CHECK
         x = (int)((float)i*pixperdiv + adjoffset);
         if (x > m_YAxisWidth)
         {
@@ -1578,7 +1594,11 @@ void Waterfall::drawOverlay()
                   Qt::ElideRight,
                   boxw);
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+            tw = metrics.horizontalAdvance(label);
+#else
             tw = metrics.width(label);
+#endif // QT_VERSION_CHECK
 
             if (tw < boxw) {
               painter.setPen(m_FftTextColor);
@@ -1625,7 +1645,11 @@ void Waterfall::drawOverlay()
 
     // draw amplitude values (y axis)
     int dB = m_PandMaxdB;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    m_YAxisWidth = metrics.horizontalAdvance("-120 ");
+#else
     m_YAxisWidth = metrics.width("-120 ");
+#endif // QT_VERSION_CHECK
     painter.setPen(m_FftTextColor);
     for (int i = 0; i < m_VerDivs; i++)
     {

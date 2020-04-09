@@ -18,10 +18,24 @@
 //
 
 #include "SuWidgetsHelpers.h"
+#include <QWidget>
+#include <QFont>
 
 SuWidgetsHelpers::SuWidgetsHelpers()
 {
 
+}
+
+int
+SuWidgetsHelpers::getWidgetTextWidth(const QWidget *widget, QString const &text)
+{
+  QFontMetrics metrics(widget->font());
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+  return metrics.horizontalAdvance(text);
+#else
+  return metrics.width(text);
+#endif // QT_VERSION_CHECK
 }
 
 QString

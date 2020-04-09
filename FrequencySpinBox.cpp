@@ -18,6 +18,7 @@
 //
 #include <cmath>
 #include "FrequencySpinBox.h"
+#include "SuWidgetsHelpers.h"
 #include "ui_FrequencySpinBox.h"
 
 FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
@@ -30,10 +31,11 @@ FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
 
   this->connectAll();
 
-  QFontMetrics m(this->ui->decFreqUnitsButton->font());
+  int width = SuWidgetsHelpers::getWidgetTextWidth(
+        this->ui->decFreqUnitsButton, "<");
 
-  this->ui->incFreqUnitsButton->setMaximumWidth(4 * m.width(">"));
-  this->ui->decFreqUnitsButton->setMaximumWidth(4 * m.width("<"));
+  this->ui->incFreqUnitsButton->setMaximumWidth(4 * width);
+  this->ui->decFreqUnitsButton->setMaximumWidth(4 * width);
 }
 
 FrequencySpinBox::~FrequencySpinBox()
