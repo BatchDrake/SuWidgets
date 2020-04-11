@@ -2,6 +2,8 @@ CONFIG      += debug_and_release
 TARGET      = $$qtLibraryTarget(suwidgets)
 TEMPLATE    = lib
 
+darwin: QMAKE_SONAME_PREFIX = @rpath
+
 greaterThan(QT_MAJOR_VERSION, 4) {
     QT += widgets
 }

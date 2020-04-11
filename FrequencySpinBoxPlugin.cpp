@@ -16,18 +16,18 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#include "LCD.h"
-#include "LCDPlugin.h"
+#include "FrequencySpinBox.h"
+#include "FrequencySpinBoxPlugin.h"
 
 #include <QtPlugin>
 
-LCDPlugin::LCDPlugin(QObject *parent)
+FrequencySpinBoxPlugin::FrequencySpinBoxPlugin(QObject *parent)
   : QObject(parent)
 {
   m_initialized = false;
 }
 
-void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
+void FrequencySpinBoxPlugin::initialize(QDesignerFormEditorInterface * /* core */)
 {
   if (m_initialized)
     return;
@@ -37,53 +37,53 @@ void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
   m_initialized = true;
 }
 
-bool LCDPlugin::isInitialized() const
+bool FrequencySpinBoxPlugin::isInitialized() const
 {
   return m_initialized;
 }
 
-QWidget *LCDPlugin::createWidget(QWidget *parent)
+QWidget *FrequencySpinBoxPlugin::createWidget(QWidget *parent)
 {
-  return new LCD(parent);
+  return new FrequencySpinBox(parent);
 }
 
-QString LCDPlugin::name() const
+QString FrequencySpinBoxPlugin::name() const
 {
-  return QLatin1String("LCD");
+  return QLatin1String("FrequencySpinBox");
 }
 
-QString LCDPlugin::group() const
-{
-  return QLatin1String("");
-}
-
-QIcon LCDPlugin::icon() const
-{
-  return QIcon();
-}
-
-QString LCDPlugin::toolTip() const
+QString FrequencySpinBoxPlugin::group() const
 {
   return QLatin1String("");
 }
 
-QString LCDPlugin::whatsThis() const
+QIcon FrequencySpinBoxPlugin::icon() const
+{
+  return QIcon(":/icons/open_icon.png");
+}
+
+QString FrequencySpinBoxPlugin::toolTip() const
 {
   return QLatin1String("");
 }
 
-bool LCDPlugin::isContainer() const
+QString FrequencySpinBoxPlugin::whatsThis() const
+{
+  return QLatin1String("Button that allows you to pick a color");
+}
+
+bool FrequencySpinBoxPlugin::isContainer() const
 {
   return false;
 }
 
-QString LCDPlugin::domXml() const
+QString FrequencySpinBoxPlugin::domXml() const
 {
-  return QLatin1String("<widget class=\"LCD\" name=\"lcd\">\n</widget>\n");
+  return QLatin1String("<widget class=\"FrequencySpinBox\" name=\"frequencySpinBox\">\n</widget>\n");
 }
 
-QString LCDPlugin::includeFile() const
+QString FrequencySpinBoxPlugin::includeFile() const
 {
-  return QLatin1String("LCD.h");
+  return QLatin1String("FrequencySpinBox.h");
 }
 

@@ -45,7 +45,46 @@
 #define PEAK_CLICK_MAX_H_DISTANCE 10 //Maximum horizontal distance of clicked point from peak
 #define PEAK_CLICK_MAX_V_DISTANCE 20 //Maximum vertical distance of clicked point from peak
 #define PEAK_H_TOLERANCE 2
+#define MINIMUM_REFRESH_RATE      25
 
+struct FrequencyBand {
+  qint64 min;
+  qint64 max;
+  std::string primary;
+  std::string secondary;
+  std::string footnotes;
+  QColor color;
+};
+
+typedef std::map<qint64, FrequencyBand>::const_iterator FrequencyBandIterator;
+
+class FrequencyAllocationTable {
+  std::string name;
+  std::map<qint64, FrequencyBand> allocation;
+
+public:
+  FrequencyAllocationTable();
+  FrequencyAllocationTable(std::string const &name);
+
+  void
+  setName(std::string const &name)
+  {
+    this->name = name;
+  }
+  std::string const &
+  getName(void) const
+  {
+    return this->name;
+  }
+
+  void pushBand(FrequencyBand const &);
+  void pushBand(qint64, qint64, std::string const &);
+
+  FrequencyBandIterator cbegin(void) const;
+  FrequencyBandIterator cend(void) const;
+
+  FrequencyBandIterator find(qint64 freq) const;
+};
 
 class Waterfall : public QFrame
 {
@@ -59,23 +98,28 @@ public:
     QSize sizeHint() const;
 
     //void SetSdrInterface(CSdrInterface* ptr){m_pSdrInterface = ptr;}
-    void draw();		//call to draw new fft data onto screen plot
+    void draw(bool everything = true);		//call to draw new fft data onto screen plot
     void setLocked(bool locked) { m_Locked = locked; }
     void setRunningState(bool running) { m_Running = running; }
     void setClickResolution(int clickres) { m_ClickResolution = clickres; }
+    void setExpectedRate(int rate) { m_expectedRate = rate; }
     void setFilterClickResolution(int clickres) { m_FilterClickResolution = clickres; }
     void setFilterBoxEnabled(bool enabled) { m_FilterBoxEnabled = enabled; }
     void setCenterLineEnabled(bool enabled) { m_CenterLineEnabled = enabled; }
     void setTooltipsEnabled(bool enabled) { m_TooltipsEnabled = enabled; }
     void setBookmarksEnabled(bool enabled) { m_BookmarksEnabled = enabled; }
 
+    bool removeFAT(std::string const &);
+    void pushFAT(const FrequencyAllocationTable *);
+    void setFATsVisible(bool);
+
     void setNewFftData(float *fftData, int size);
     void setNewFftData(float *fftData, float *wfData, int size);
 
-    void setCenterFreq(quint64 f);
+    void setCenterFreq(qint64 f);
     void setFreqUnits(qint32 unit) { m_FreqUnits = unit; }
 
-    void setDemodCenterFreq(quint64 f) { m_DemodCenterFreq = f; }
+    void setDemodCenterFreq(qint64 f) { m_DemodCenterFreq = f; }
 
     void setPalette(const QColor *table)
     {
@@ -87,6 +131,17 @@ public:
       this->update();
     }
 
+    bool
+    slow(void) const
+    {
+      if (m_fftDataSize == 0)
+        return true;
+
+      if (m_expectedRate != 0 && m_expectedRate < MINIMUM_REFRESH_RATE)
+        return true;
+
+      return m_SampleFreq / m_fftDataSize < MINIMUM_REFRESH_RATE;
+    }
     /*! \brief Move the filter to freq_hz from center. */
     void setFilterOffset(qint64 freq_hz)
     {
@@ -98,25 +153,30 @@ public:
         return m_DemodCenterFreq - m_CenterFreq;
     }
 
-    int getFilterBw()
+    qint64 getFilterBw()
     {
         return m_DemodHiCutFreq - m_DemodLowCutFreq;
     }
 
-    void setHiLowCutFrequencies(int LowCut, int HiCut)
+    void setHiLowCutFrequencies(qint64 LowCut, qint64 HiCut)
     {
         m_DemodLowCutFreq = LowCut;
         m_DemodHiCutFreq = HiCut;
         drawOverlay();
     }
 
-    void getHiLowCutFrequencies(int *LowCut, int *HiCut)
+    void getHiLowCutFrequencies(qint64 *LowCut, qint64 *HiCut)
     {
         *LowCut = m_DemodLowCutFreq;
         *HiCut = m_DemodHiCutFreq;
     }
 
-    void setDemodRanges(int FLowCmin, int FLowCmax, int FHiCmin, int FHiCmax, bool symetric);
+    void setDemodRanges(
+        qint64 FLowCmin,
+        qint64 FLowCmax,
+        qint64 FHiCmin,
+        qint64 FHiCmax,
+        bool symetric);
 
     qint64
     getCenterFreq(void) const
@@ -125,10 +185,10 @@ public:
     }
 
     /* Shown bandwidth around SetCenterFreq() */
-    void setSpanFreq(quint32 s)
+    void setSpanFreq(qint64 s)
     {
-        if (s > 0 && s < INT_MAX) {
-            m_Span = (qint32)s;
+        if (s > 0) {
+            m_Span = s;
             setFftCenterFreq(m_FftCenter);
         }
         drawOverlay();
@@ -199,6 +259,8 @@ public slots:
     void setFftBgColor(const QColor color);
     void setFftAxesColor(const QColor color);
     void setFftTextColor(const QColor color);
+    void setFilterBoxColor(const QColor color);
+
     void setFftFill(bool enabled);
     void setPeakHold(bool enabled);
     void setFftRange(float min, float max);
@@ -285,8 +347,8 @@ private:
     bool        m_TooltipsEnabled;     /*!< Tooltips enabled */
     bool        m_BookmarksEnabled;   /*!< Show/hide bookmarks on spectrum */
     bool        m_Locked; /* Prevent manual adjust of center frequency */
-    int         m_DemodHiCutFreq;
-    int         m_DemodLowCutFreq;
+    qint64      m_DemodHiCutFreq;
+    qint64      m_DemodLowCutFreq;
     int         m_DemodFreqX;		//screen coordinate x position
     int         m_DemodHiCutFreqX;	//screen coordinate x position
     int         m_DemodLowCutFreqX;	//screen coordinate x position
@@ -294,10 +356,10 @@ private:
     int         m_GrabPosition;
     int         m_Percent2DScreen;
 
-    int         m_FLowCmin;
-    int         m_FLowCmax;
-    int         m_FHiCmin;
-    int         m_FHiCmax;
+    qint64      m_FLowCmin;
+    qint64      m_FLowCmax;
+    qint64      m_FHiCmin;
+    qint64      m_FHiCmax;
     bool        m_symetric;
 
     int         m_HorDivs;   /*!< Current number of horizontal divisions. Calculated from width. */
@@ -322,13 +384,15 @@ private:
     int         m_HdivDelta; /*!< Minimum distance in pixels between two horizontal grid lines (vertical division). */
     int         m_VdivDelta; /*!< Minimum distance in pixels between two vertical grid lines (horizontal division). */
 
-    quint32     m_LastSampleRate;
+    quint64     m_LastSampleRate;
 
     QColor      m_FftColor, m_FftFillCol, m_PeakHoldColor;
     QColor      m_FftBgColor, m_FftCenterAxisColor, m_FftAxesColor;
     QColor      m_FftTextColor;
+    QColor      m_FilterBoxColor;
     bool        m_FftFill;
 
+    qint64      m_tentativeCenterFreq = 0;
     float       m_PeakDetection;
     QMap<int,int>   m_Peaks;
 
@@ -339,6 +403,10 @@ private:
     quint64     msec_per_wfline;    // milliseconds between waterfall updates
     quint64     wf_span;            // waterfall span in milliseconds (0 = auto)
     int         fft_rate;           // expected FFT rate (needed when WF span is auto)
+    int         m_expectedRate;
+    // Frequency allocations
+    bool m_ShowFATs = false;
+    std::map<std::string, const FrequencyAllocationTable *> m_FATs;
 };
 
 #endif // PLOTTER_H
