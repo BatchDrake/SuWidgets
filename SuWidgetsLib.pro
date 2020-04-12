@@ -1,6 +1,7 @@
 CONFIG      += debug_and_release
 TARGET      = $$qtLibraryTarget(suwidgets)
 TEMPLATE    = lib
+VERSION     = 0.1.0
 
 darwin: QMAKE_SONAME_PREFIX = @rpath
 
