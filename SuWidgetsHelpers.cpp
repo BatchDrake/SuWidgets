@@ -18,12 +18,48 @@
 //
 
 #include "SuWidgetsHelpers.h"
+
 #include <QWidget>
 #include <QFont>
+#include <iostream>
+
+#ifndef SUWIDGETS_PKGVERSION
+#  define SUWIDGETS_PKGVERSION \
+  "custom build on " __DATE__ " at " __TIME__ " (" __VERSION__ ")"
+#endif /* SUSCAN_BUILD_STRING */
 
 SuWidgetsHelpers::SuWidgetsHelpers()
 {
 
+}
+
+QString
+SuWidgetsHelpers::version(void)
+{
+  return QString(SUWIDGETS_VERSION_STRING);
+}
+
+QString
+SuWidgetsHelpers::pkgversion(void)
+{
+  return QString(SUWIDGETS_PKGVERSION);
+}
+
+unsigned int
+SuWidgetsHelpers::abiVersion(void)
+{
+  return SUWIDGETS_ABI_VERSION;
+}
+
+void
+SuWidgetsHelpers::abiErrorAbort(unsigned int user)
+{
+  std::cerr
+      << "SuWidgets ABI mismatch. Headers are v"
+      << user
+      << " but library is v"
+      << SUWIDGETS_ABI_VERSION
+      << std::endl;
 }
 
 int

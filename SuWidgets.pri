@@ -18,6 +18,7 @@ include(colorchooserbutton.pri)
 include(frequencyspinbox.pri)
 
 HEADERS += ThrottleableWidget.h \
+    Version.h \
     SuWidgetsHelpers.h
 
 SOURCES += ThrottleableWidget.cpp \

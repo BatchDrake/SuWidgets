@@ -23,11 +23,14 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <sigutils/types.h>
+#include "Version.h"
 #include <cmath>
 
 class QWidget;
 
 class SuWidgetsHelpers {
+
+    static void abiErrorAbort(unsigned int);
 
   public:
     static QString formatBinaryQuantity(qint64 value, QString units = "B");
@@ -130,6 +133,17 @@ class SuWidgetsHelpers {
 
 
     SuWidgetsHelpers();
+
+    static inline void
+    abiCheck(void)
+    {
+      if (abiVersion() != SUWIDGETS_ABI_VERSION)
+        abiErrorAbort(SUWIDGETS_ABI_VERSION);
+    }
+
+    static unsigned int abiVersion(void);
+    static QString version(void);
+    static QString pkgversion(void);
 };
 
 #endif // SUWIDGETSHELPERS_H
