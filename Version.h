@@ -17,8 +17,8 @@
 //    <http://www.gnu.org/licenses/>
 //
 
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef SUWIDGETS_VERSION_H
+#define SUWIDGETS_VERSION_H
 
 #include <sigutils/version.h>
 
@@ -39,4 +39,4 @@
   STRINGIFY(SUWIDGETS_VERSION_MINOR) "." \
   STRINGIFY(SUWIDGETS_VERSION_PATCH)
 
-#endif // VERSION_H
+#endif // SUWIDGETS_VERSION_H
