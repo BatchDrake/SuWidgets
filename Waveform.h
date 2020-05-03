@@ -139,6 +139,7 @@ class Waveform : public ThrottleableWidget
   bool realComponent = true;
 
   unsigned int phaseDiffOrigin = 0;
+  qreal phaseDiffContrast = 1;
   int divsPerSelection = 1;
 
   // Palette
@@ -313,7 +314,8 @@ public:
     {
       unsigned index = qBound(
             0u,
-            static_cast<unsigned>(diff / (2 * PI) * 255),
+            static_cast<unsigned>(
+              this->phaseDiffContrast * diff / (2 * PI) * 255),
             255u);
 
       return this->colorTable[(index + this->phaseDiffOrigin) & 0xff];
@@ -586,6 +588,7 @@ public:
   void setAutoFitToEnvelope(bool);
 
   void setPhaseDiffOrigin(unsigned);
+  void setPhaseDiffContrast(qreal);
 
   void resetSelection(void);
   void setPeriodicSelection(bool);

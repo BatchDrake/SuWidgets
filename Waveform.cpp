@@ -1158,14 +1158,26 @@ Waveform::setShowPhaseDiff(bool show)
 void
 Waveform::setPhaseDiffOrigin(unsigned origin)
 {
+  this->phaseDiffOrigin = origin & 0xff;
+
   if (this->showEnvelope && this->showPhase && this->showPhaseDiff) {
-    this->phaseDiffOrigin = origin & 0xff;
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
   }
 }
 
+void
+Waveform::setPhaseDiffContrast(qreal contrast)
+{
+  this->phaseDiffContrast = contrast;
+
+  if (this->showEnvelope && this->showPhase && this->showPhaseDiff) {
+    this->waveDrawn = false;
+    this->axesDrawn = false;
+    this->invalidate();
+  }
+}
 
 void
 Waveform::setShowWaveform(bool show)
