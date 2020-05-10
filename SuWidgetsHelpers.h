@@ -23,7 +23,7 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <sigutils/types.h>
-#include <SuWidgets/Version.h>
+#include "Version.h"
 #include <cmath>
 
 class QWidget;
