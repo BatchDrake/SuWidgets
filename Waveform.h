@@ -312,11 +312,8 @@ public:
     inline QColor const &
     phaseDiff2Color(SUFLOAT diff) const
     {
-      unsigned index = qBound(
-            0u,
-            static_cast<unsigned>(
-              this->phaseDiffContrast * diff / (2 * PI) * 255),
-            255u);
+      unsigned index = static_cast<unsigned>(
+              this->phaseDiffContrast * diff / (2 * PI) * 255);
 
       return this->colorTable[(index + this->phaseDiffOrigin) & 0xff];
     }
