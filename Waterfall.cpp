@@ -212,6 +212,9 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
             m_ColorTbl[i].setRgb(255, 255*(i-250)/5, 255*(i-250)/5);
     }
 
+    for (int i = 0; i < 256; i++)
+        m_ColorPenTbl[i] = QPen(m_ColorTbl[i]);
+
     m_PeakHoldActive = false;
     m_PeakHoldValid = false;
 
@@ -1061,7 +1064,7 @@ void Waterfall::draw(bool everything)
                 // user set time span
                 for (i = xmin; i < xmax; i++)
                 {
-                    painter1.setPen(m_ColorTbl[255 - m_wfbuf[i]]);
+                    painter1.setPen(m_ColorPenTbl[255 - m_wfbuf[i]]);
                     painter1.drawPoint(i, 0);
                     m_wfbuf[i] = 255;
                 }
@@ -1070,7 +1073,7 @@ void Waterfall::draw(bool everything)
             {
                 for (i = xmin; i < xmax; i++)
                 {
-                    painter1.setPen(m_ColorTbl[255 - m_fftbuf[i]]);
+                    painter1.setPen(m_ColorPenTbl[255 - m_fftbuf[i]]);
                     painter1.drawPoint(i, 0);
                 }
             }
