@@ -115,8 +115,17 @@ SuWidgetsHelpers::formatQuantity(qreal value, int digits, QString units)
   if (std::isnan(value))
     return "NaN " + units;
 
+  if (units == "dB") {
+    if (digits < 0)
+      digits = -digits;
+    else
+      digits = 0;
+
+    return QString::number(value, 'f', digits) + " dB";
+  }
+
   if (digits >= 0) {
-    if (digits > 2 && units == "s") { // This is too long. Format to minutes and seconds
+    if (digits > 1 && units == "s") { // This is too long. Format to minutes and seconds
       char time[64];
       int seconds = static_cast<int>(value);
       QString sign;
@@ -131,9 +140,9 @@ SuWidgetsHelpers::formatQuantity(qreal value, int digits, QString units)
       minutes %= 60;
 
       if (hours > 0)
-        snprintf(time, sizeof(time), "%02d:%02d:%0d", hours, minutes, seconds);
+        snprintf(time, sizeof(time), "%02d:%02d:%02d", hours, minutes, seconds);
       else
-        snprintf(time, sizeof(time), "%02d:%0d", minutes, seconds);
+        snprintf(time, sizeof(time), "%02d:%02d", minutes, seconds);
       num = sign + QString(time);
     } else {
       unsigned int pfx = 0;
