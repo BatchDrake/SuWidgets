@@ -248,6 +248,12 @@ protected:
     void leaveEvent(QEvent *event) override;
 
 public:
+    inline qint64
+    getVerticalAxisWidth(void) const
+    {
+      return this->valueTextWidth;
+    }
+
     inline qreal
     getSamplesPerPixel(void) const
     {

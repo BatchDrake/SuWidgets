@@ -995,6 +995,10 @@ Waveform::draw(void)
   if (!this->size().isValid())
     return;
 
+  // This is not valid either
+  if (this->size().width() * this->size().height() < 1)
+    return;
+
   if (this->geometry != this->size()) {
     this->geometry = this->size();
     if (!this->haveGeometry) {
@@ -1192,14 +1196,14 @@ void
 Waveform::refreshData(void)
 {
   qint64 currSpan = this->end - this->start;
-  qint64 nextSpan = static_cast<qint64>(this->data.length());
+  qint64 lastSample = static_cast<qint64>(this->data.length()) - 1;
 
-  if (this->autoScroll && nextSpan > currSpan) {
-    this->end = nextSpan - 1;
-    this->start = nextSpan - currSpan - 1;
-  } else {
-    this->waveDrawn = false;
+  if (this->autoScroll && this->end <= lastSample) {
+    this->end = lastSample;
+    this->start = lastSample - currSpan;
   }
+
+  this->waveDrawn = false;
 
   this->recalculateDisplayData();
 
