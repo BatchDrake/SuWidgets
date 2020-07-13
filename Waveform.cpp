@@ -1123,7 +1123,7 @@ void
 Waveform::setRealComponent(bool real)
 {
   this->realComponent = real;
-  this->waveDrawn = false;
+  this->fitToEnvelope();
   this->invalidate();
 }
 
@@ -1209,6 +1209,8 @@ Waveform::refreshData(void)
 
   if (this->autoFitToEnvelope)
     this->fitToEnvelope();
+  else
+    this->axesDrawn = false;
 }
 
 Waveform::Waveform(QWidget *parent) :
