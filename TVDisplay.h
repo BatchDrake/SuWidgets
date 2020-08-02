@@ -56,6 +56,14 @@ class TVDisplay : public ThrottleableWidget
 
   QSize geometry;
 
+  qreal brightness = 0;
+  qreal contrast = 0;
+  qreal contrastMul = 1;
+
+  SUFLOAT fBrightness = 0;
+  SUFLOAT fContrastMul = 1;
+  qreal gamma;
+
   // Data
   bool dirty = false;
 
@@ -78,6 +86,36 @@ public:
   getBackgroundColor(void) const
   {
     return this->background;
+  }
+
+  void
+  setBrightness(const qreal &val)
+  {
+    this->brightness = qBound(-1., val, 1.);
+    this->fBrightness = SU_ASFLOAT(this->brightness);
+    this->invalidate();
+    emit brightnessChanged();
+  }
+
+  const qreal &
+  getBrightness(void) const
+  {
+    return this->brightness;
+  }
+
+  void
+  setContrast(const qreal &val)
+  {
+    this->contrast = qBound(-1., val, 1.);
+    this->fContrastMul = SU_ASFLOAT(std::pow(10., this->contrast));
+    this->invalidate();
+    emit contrastChanged();
+  }
+
+  const qreal &
+  getContrast(void) const
+  {
+    return this->contrast;
   }
 
   void
@@ -104,7 +142,10 @@ public:
   QRgb
   tvSampleToRgb(SUFLOAT x)
   {
-    x = qBound(SU_ASFLOAT(0), x, SU_ASFLOAT(1));
+    x = qBound(
+          SU_ASFLOAT(0),
+          this->fContrastMul * (x + this->fBrightness),
+          SU_ASFLOAT(1));
     return
         qRgba(
           static_cast<int>(
@@ -128,6 +169,8 @@ public:
 signals:
   void backgroundColorChanged();
   void foregroundColorChanged();
+  void brightnessChanged();
+  void contrastChanged();
 
 };
 
