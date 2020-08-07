@@ -55,11 +55,15 @@ class TVDisplay : public ThrottleableWidget
   QImage  picture;
 
   QSize geometry;
-
+  QSize requestedGeometry;
+  qreal aspect = 4. / 3.;
   qreal brightness = 0;
   qreal contrast = 0;
   qreal contrastMul = 1;
-
+  qreal angle = 0;
+  qreal pZoom = 1;
+  bool hFlip = false;
+  bool vFlip = false;
   SUFLOAT fBrightness = 0;
   SUFLOAT fContrastMul = 1;
   qreal gamma;
@@ -67,7 +71,7 @@ class TVDisplay : public ThrottleableWidget
   // Data
   bool dirty = false;
 
-  // Properties
+  // PropertiesQResizeEvent
   QColor background;
   QColor foreground;
   QRgb   colors[2];
@@ -139,6 +143,59 @@ public:
     return this->picture.width() * this->picture.height() > 0;
   }
 
+  void
+  setRotation(qreal angle)
+  {
+    this->angle = angle;
+    this->invalidate();
+  }
+
+  qreal
+  rotation(void) const
+  {
+    return this->angle;
+  }
+
+  void
+  setZoom(qreal zoom)
+  {
+    this->pZoom = qBound(1., zoom, 100.);
+    this->invalidate();
+  }
+
+  qreal
+  zoom(void) const
+  {
+    return this->pZoom;
+  }
+
+  void
+  setHorizontalFlip(bool val)
+  {
+    this->hFlip = val;
+    this->invalidate();
+  }
+
+  bool
+  horizontalFlip(void) const
+  {
+    return this->hFlip;
+  }
+
+
+  void
+  setVerticalFlip(bool val)
+  {
+    this->vFlip = val;
+    this->invalidate();
+  }
+
+  bool
+  verticalFlip(void) const
+  {
+    return this->vFlip;
+  }
+
   QRgb
   tvSampleToRgb(SUFLOAT x)
   {
@@ -163,6 +220,8 @@ public:
   void putFrame(const sigutils_tv_frame_buffer *);
   void draw(void);
   void paint(void);
+  void resizeEvent(QResizeEvent *);
+  QSize sizeHint(void) const;
 
   TVDisplay(QWidget *parent = nullptr);
 

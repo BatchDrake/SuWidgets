@@ -27,6 +27,7 @@
 #include <cmath>
 
 class QWidget;
+class QLayout;
 
 class SuWidgetsHelpers {
 
@@ -35,6 +36,8 @@ class SuWidgetsHelpers {
   public:
     static QString formatBinaryQuantity(qint64 value, QString units = "B");
     static int getWidgetTextWidth(const QWidget *widget, QString const &text);
+    static QLayout *findParentLayout(const QWidget *);
+    static QLayout *findParentLayout(const QWidget *, const QLayout *);
 
     static QString formatQuantity(
         qreal value,

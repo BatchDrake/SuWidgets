@@ -20,6 +20,8 @@
 #include <QPainter>
 
 #include <sigutils/tvproc.h>
+
+#include <QResizeEvent>
 #include "TVDisplay.h"
 
 void
@@ -101,17 +103,73 @@ TVDisplay::draw(void)
     } else {
       this->contentPixmap =
         QPixmap::fromImage(this->picture).scaled(
-          this->width(), this->height(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+          this->width(),
+            this->height(),
+            Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }
     this->dirty = false;
   }
 }
 
+QSize
+TVDisplay::sizeHint(void) const
+{
+  QSize s = this->size();
+
+  if (this->parentWidget() != nullptr)
+    s = this->parentWidget()->size();
+
+  if (s.width() != 0)
+    s.setHeight(static_cast<int>(s.width() / this->aspect));
+  else if (s.height() != 0)
+    s.setWidth(static_cast<int>(s.height() * this->aspect));
+  else
+    s = QSize(640, 480);
+
+  return s;
+}
+
+void
+TVDisplay::resizeEvent(QResizeEvent *event)
+{
+  if (event->size().width() > 0
+      && event->size().height() > 0) {
+    int width, height;
+
+    this->requestedGeometry = event->size();
+    event->accept();
+    width = std::min(
+          event->size().width(),
+          static_cast<int>(event->size().height() * this->aspect));
+    height = std::min(
+          event->size().height(),
+          static_cast<int>(event->size().width() / this->aspect));
+
+    this->resize(width, height);
+    this->invalidate();
+  }
+}
+
+
 void
 TVDisplay::paint(void)
 {
   QPainter painter(this);
-  painter.drawPixmap(0, 0, this->contentPixmap);
+  qreal rx = .5 * this->width();
+  qreal ry = .5 * this->height();
+
+  painter.translate(QPointF(rx, ry));
+  painter.scale(
+        this->hFlip ? -this->pZoom : this->pZoom,
+        this->vFlip ? -this->pZoom : this->pZoom);
+
+  if (this->angle < 0 || this->angle > 0)
+    painter.rotate(this->angle);
+
+  painter.drawPixmap(
+        static_cast<int>(-rx),
+        static_cast<int>(-ry),
+        this->contentPixmap);
 }
 
 
