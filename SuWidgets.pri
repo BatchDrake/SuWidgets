@@ -16,6 +16,8 @@ include(waveform.pri)
 include(waterfall.pri)
 include(colorchooserbutton.pri)
 include(frequencyspinbox.pri)
+include(tvdisplay.pri)
+include(timespinbox.pri)
 
 HEADERS += ThrottleableWidget.h \
     Version.h \

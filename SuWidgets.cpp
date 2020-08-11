@@ -27,6 +27,8 @@
 #include "ColorChooserButtonPlugin.h"
 #include "FrequencySpinBoxPlugin.h"
 #include "QVerticalLabelPlugin.h"
+#include "TVDisplayPlugin.h"
+#include "TimeSpinBoxPlugin.h"
 #include "SuWidgets.h"
 
 SuWidgets::SuWidgets(QObject *parent)
@@ -43,6 +45,8 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new ctkRangeSliderPlugin(this));
   m_widgets.append(new QVerticalLabelPlugin(this));
   m_widgets.append(new FrequencySpinBoxPlugin(this));
+  m_widgets.append(new TVDisplayPlugin(this));
+  m_widgets.append(new TimeSpinBoxPlugin(this));
 }
 
 QList<QDesignerCustomWidgetInterface*> SuWidgets::customWidgets() const

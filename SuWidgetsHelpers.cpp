@@ -22,6 +22,7 @@
 #include <QWidget>
 #include <QFont>
 #include <iostream>
+#include <QLayout>
 
 #ifndef SUWIDGETS_PKGVERSION
 #  define SUWIDGETS_PKGVERSION \
@@ -172,4 +173,34 @@ SuWidgetsHelpers::formatQuantity(qreal value, int digits, QString units)
   }
 
   return num;
+}
+
+QLayout *
+SuWidgetsHelpers::findParentLayout(const QWidget *w)
+{
+  if (w->parentWidget() != nullptr)
+    if (w->parentWidget()->layout() != nullptr)
+      return findParentLayout(w, w->parentWidget()->layout());
+  return nullptr;
+}
+
+QLayout *
+SuWidgetsHelpers::findParentLayout(
+    const QWidget *w,
+    const QLayout *topLevelLayout)
+{
+  for (QObject* qo: topLevelLayout->children()) {
+    QLayout *layout = qobject_cast<QLayout *>(qo);
+    if (layout != nullptr) {
+      if (layout->indexOf(const_cast<QWidget *>(w)) > -1)
+        return layout;
+      else if (!layout->children().isEmpty()) {
+        layout = findParentLayout(w, layout);
+        if (layout != nullptr)
+          return layout;
+      }
+    }
+  }
+
+  return nullptr;
 }
