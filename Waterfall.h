@@ -125,8 +125,10 @@ public:
     {
       unsigned int i;
 
-      for (i = 0; i < 256; ++i)
+      for (i = 0; i < 256; ++i) {
         this->m_ColorTbl[i] = table[i];
+        this->m_ColorPenTbl[i] = QPen(table[i]);
+      }
 
       this->update();
     }
@@ -331,7 +333,8 @@ private:
     QPixmap     m_2DPixmap;
     QPixmap     m_OverlayPixmap;
     QPixmap     m_WaterfallPixmap;
-    QColor              m_ColorTbl[256];
+    QColor      m_ColorTbl[256];
+    QPen        m_ColorPenTbl[256];
     QSize       m_Size;
     QString     m_Str;
     QString     m_HDivText[HORZ_DIVS_MAX+1];
