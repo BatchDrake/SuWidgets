@@ -30,6 +30,7 @@
 
 #define TVDISPLAY_DEFAULT_BACKGROUND_COLOR QColor(0,     0,   0)
 #define TVDISPLAY_DEFAULT_FOREGROUND_COLOR QColor(255, 255, 255)
+#define TVDISPLAY_GAMMA_RANGE_SIZE 256
 
 struct sigutils_tv_frame_buffer;
 
@@ -66,7 +67,8 @@ class TVDisplay : public ThrottleableWidget
   bool vFlip = false;
   SUFLOAT fBrightness = 0;
   SUFLOAT fContrastMul = 1;
-  qreal gamma;
+  qreal gammaExp = 1;
+  SUFLOAT gammaLookupTable[TVDISPLAY_GAMMA_RANGE_SIZE];
 
   // Data
   bool dirty = false;
@@ -75,6 +77,8 @@ class TVDisplay : public ThrottleableWidget
   QColor background;
   QColor foreground;
   QRgb   colors[2];
+
+  void computeGammaLookupTable(void);
 
 public:
   void
@@ -196,13 +200,36 @@ public:
     return this->vFlip;
   }
 
+  qreal
+  gamma(void) const
+  {
+    return this->gammaExp;
+  }
+
+  void
+  setGamma(qreal gamma)
+  {
+    if (gamma < 0)
+      gamma = 0;
+
+    this->gammaExp = gamma;
+    this->computeGammaLookupTable();
+    this->invalidate();
+  }
+
   QRgb
   tvSampleToRgb(SUFLOAT x)
   {
-    x = qBound(
-          SU_ASFLOAT(0),
-          this->fContrastMul * (x + this->fBrightness),
-          SU_ASFLOAT(1));
+    int index = qBound(
+                    0,
+                    static_cast<int>(
+                        (TVDISPLAY_GAMMA_RANGE_SIZE - 1)
+                        * this->fContrastMul
+                        * (x + this->fBrightness)),
+                    TVDISPLAY_GAMMA_RANGE_SIZE - 1);
+
+    x = this->gammaLookupTable[index];
+
     return
         qRgba(
           static_cast<int>(

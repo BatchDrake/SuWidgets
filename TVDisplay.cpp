@@ -85,6 +85,18 @@ TVDisplay::putLine(int line, const SUFLOAT *data, int size)
 }
 
 void
+TVDisplay::computeGammaLookupTable(void)
+{
+  unsigned int i;
+
+  for (i = 0; i < TVDISPLAY_GAMMA_RANGE_SIZE; ++i)
+      this->gammaLookupTable[i] =
+          SU_POW(
+              i / SU_ASFLOAT(TVDISPLAY_GAMMA_RANGE_SIZE - 1),
+              SU_ASFLOAT(this->gammaExp));
+}
+
+void
 TVDisplay::draw(void)
 {
   if (!this->size().isValid())
@@ -181,5 +193,6 @@ TVDisplay::TVDisplay(QWidget *parent) : ThrottleableWidget(parent)
   this->setBackgroundColor(TVDISPLAY_DEFAULT_BACKGROUND_COLOR);
   this->setForegroundColor(TVDISPLAY_DEFAULT_FOREGROUND_COLOR);
 
+  this->computeGammaLookupTable();
   this->invalidate();
 }
