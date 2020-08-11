@@ -79,6 +79,7 @@ class TVDisplay : public ThrottleableWidget
   QRgb   colors[2];
 
   void computeGammaLookupTable(void);
+  void paintPicture(QPainter &, QPixmap const &);
 
 public:
   void
@@ -242,6 +243,7 @@ public:
             (1 - x) * qAlpha(this->colors[0]) + x * qAlpha(this->colors[1])));
   }
 
+  bool saveToFile(QString path);
   void setPicGeometry(int width, int height);
   void putLine(int line, const SUFLOAT *data, int size);
   void putFrame(const sigutils_tv_frame_buffer *);

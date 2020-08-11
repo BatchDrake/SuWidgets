@@ -149,7 +149,7 @@ TVDisplay::resizeEvent(QResizeEvent *event)
     int width, height;
 
     this->requestedGeometry = event->size();
-    event->accept();
+    event->ignore();
     width = std::min(
           event->size().width(),
           static_cast<int>(event->size().height() * this->aspect));
@@ -158,15 +158,19 @@ TVDisplay::resizeEvent(QResizeEvent *event)
           static_cast<int>(event->size().width() / this->aspect));
 
     this->resize(width, height);
+
+    if (this->parentWidget() != nullptr)
+      this->move(
+        (this->parentWidget()->width() - width) / 2,
+        this->pos().y());
+
     this->invalidate();
   }
 }
 
-
 void
-TVDisplay::paint(void)
+TVDisplay::paintPicture(QPainter &painter, QPixmap const &pixmap)
 {
-  QPainter painter(this);
   qreal rx = .5 * this->width();
   qreal ry = .5 * this->height();
 
@@ -181,9 +185,28 @@ TVDisplay::paint(void)
   painter.drawPixmap(
         static_cast<int>(-rx),
         static_cast<int>(-ry),
-        this->contentPixmap);
+        pixmap);
 }
 
+void
+TVDisplay::paint(void)
+{
+  QPainter painter(this);
+  this->paintPicture(painter, this->contentPixmap);
+}
+
+bool
+TVDisplay::saveToFile(QString path)
+{
+  QFile file(path);
+
+  if (!file.open(QIODevice::WriteOnly))
+    return false;
+
+  this->contentPixmap.save(&file);
+
+  return true;
+}
 
 TVDisplay::TVDisplay(QWidget *parent) : ThrottleableWidget(parent)
 {
