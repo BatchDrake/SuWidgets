@@ -113,6 +113,15 @@ WaveBuffer::data(void) const
   return this->buffer->data();
 }
 
+const std::vector<SUCOMPLEX> *
+WaveBuffer::loanedBuffer(void) const
+{
+  if (!this->loan)
+    return nullptr;
+
+  return this->buffer;
+}
+
 ////////////////////////// Geometry methods ////////////////////////////////////
 void
 Waveform::recalculateDisplayData(void)
@@ -506,7 +515,8 @@ Waveform::getMagPhase(qint64 sample)
   if (!this->haveMagPhaseInfo) {
     this->magPhase =
           std::vector<SUCOMPLEX>(
-            this->getDataLength(), std::numeric_limits<SUFLOAT>::quiet_NaN());
+            this->getDataLength(),
+          std::numeric_limits<SUFLOAT>::quiet_NaN());
     this->haveMagPhaseInfo = true;
   }
 
@@ -1097,14 +1107,34 @@ Waveform::paint(void)
 }
 
 void
-Waveform::setData(const std::vector<SUCOMPLEX> *data, bool keepView)
+Waveform::setData(
+    const std::vector<SUCOMPLEX> *data,
+    bool keepView)
 {
+  bool appending = data == this->data.loanedBuffer();
+
   if (data != nullptr)
     this->data = WaveBuffer(data);
   else
     this->data = WaveBuffer();
 
-  this->haveMagPhaseInfo = false;
+  if (appending) {
+    qint64 curr  = this->magPhase.size();
+    qint64 extra = this->getDataLength() - curr;
+
+    this->magPhase.resize(this->getDataLength());
+
+    if (extra > 0) {
+      std::fill(
+            this->magPhase.begin() + curr,
+            this->magPhase.end(),
+            std::numeric_limits<SUFLOAT>::quiet_NaN());
+      this->haveMagPhaseInfo = true;
+    }
+  } else {
+    this->haveMagPhaseInfo = false;
+  }
+
   this->waveDrawn = false;
 
   if (!keepView) {

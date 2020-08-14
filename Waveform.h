@@ -49,6 +49,7 @@ public:
   bool feed(std::vector<SUCOMPLEX> const &);
   size_t length(void) const;
   const SUCOMPLEX *data(void) const;
+  const std::vector<SUCOMPLEX> *loanedBuffer(void) const;
 };
 
 class Waveform : public ThrottleableWidget
