@@ -148,7 +148,7 @@ SuWidgetsHelpers::formatQuantity(qreal value, int digits, QString units)
     } else {
       unsigned int pfx = 0;
 
-      while (digits > 3 && pfx < 4) {
+      while (digits >= 3 && pfx < 4) {
         multiplier *= 1e-3;
         digits -= 3;
         ++pfx;
