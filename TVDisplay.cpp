@@ -27,8 +27,15 @@
 void
 TVDisplay::setPicGeometry(int width, int height)
 {
-  this->picture = QImage(width, height, QImage::Format_ARGB32);
-  this->picture.fill(this->background);
+  if (width != this->picture.width() || height != this->picture.height()) {
+    this->picture = QImage(width, height, QImage::Format_ARGB32);
+    this->picture.fill(this->background);
+
+    if (this->mAcummulate) {
+      this->frameAccum.resize(width * height);
+      this->mAcumCount = 0;
+    }
+  }
 }
 
 void
@@ -37,6 +44,8 @@ TVDisplay::putFrame(const struct sigutils_tv_frame_buffer *buffer)
   int i;
   int x = 0, y = 0, size;
   QRgb *scanLine;
+  const SUFLOAT *picBuf = buffer->buffer;
+  SUFLOAT k = 1;
 
   if (this->picture.width() != buffer->width
       || this->picture.height() != buffer->height)
@@ -44,10 +53,24 @@ TVDisplay::putFrame(const struct sigutils_tv_frame_buffer *buffer)
 
   size = buffer->width * buffer->height;
 
+  if (this->mAcummulate) {
+    if (this->mAcumCount++ == 0)
+      std::copy(
+            picBuf,
+            picBuf + size,
+            this->frameAccum.begin());
+    else
+      for (int i = 0; i < size; ++i)
+        this->frameAccum[i] += picBuf[i];
+
+    k = 1.f / this->mAcumCount;
+    picBuf = this->frameAccum.data();
+  }
+
   scanLine = reinterpret_cast<QRgb *>(this->picture.scanLine(0));
 
   for (i = 0; i < size; ++i) {
-    scanLine[x++] = this->tvSampleToRgb(buffer->buffer[i]);
+    scanLine[x++] = this->tvSampleToRgb(k * picBuf[i]);
 
     if (x == buffer->width) {
       x = 0;
@@ -193,6 +216,19 @@ TVDisplay::paint(void)
 {
   QPainter painter(this);
   this->paintPicture(painter, this->contentPixmap);
+}
+
+void
+TVDisplay::setAccumulate(bool accum)
+{
+  if (accum) {
+    if (!this->mAcummulate) {
+      this->frameAccum.resize(this->picture.width() * this->picture.height());
+      this->mAcumCount = 0;
+    }
+  }
+
+  this->mAcummulate = accum;
 }
 
 bool
