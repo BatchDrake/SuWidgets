@@ -32,7 +32,7 @@ TVDisplay::setPicGeometry(int width, int height)
     this->picture.fill(this->background);
 
     if (this->mAcummulate) {
-      this->frameAccum.resize(width * height);
+      this->mAccumBuffer.resize(width * height);
       this->mAcumCount = 0;
     }
   }
@@ -54,17 +54,27 @@ TVDisplay::putFrame(const struct sigutils_tv_frame_buffer *buffer)
   size = buffer->width * buffer->height;
 
   if (this->mAcummulate) {
-    if (this->mAcumCount++ == 0)
+    if (this->mAcumCount++ == 0) {
       std::copy(
             picBuf,
             picBuf + size,
-            this->frameAccum.begin());
-    else
-      for (int i = 0; i < size; ++i)
-        this->frameAccum[i] += picBuf[i];
+            this->mAccumBuffer.begin());
+    } else {
+      if (this->mAccumSPLPF) {
+        // SPLPF-based accumulation
+        for (int i = 0; i < size; ++i)
+          this->mAccumBuffer[i] +=
+            this->mAccumAlpha * (picBuf[i] - this->mAccumBuffer[i]);
+      } else {
+        // Regular average accumulation
+        for (int i = 0; i < size; ++i)
+          this->mAccumBuffer[i] += picBuf[i];
+        k = 1.f / this->mAcumCount;
+      }
+    }
 
-    k = 1.f / this->mAcumCount;
-    picBuf = this->frameAccum.data();
+
+    picBuf = this->mAccumBuffer.data();
   }
 
   scanLine = reinterpret_cast<QRgb *>(this->picture.scanLine(0));
@@ -223,12 +233,24 @@ TVDisplay::setAccumulate(bool accum)
 {
   if (accum) {
     if (!this->mAcummulate) {
-      this->frameAccum.resize(this->picture.width() * this->picture.height());
+      this->mAccumBuffer.resize(this->picture.width() * this->picture.height());
       this->mAcumCount = 0;
     }
   }
 
   this->mAcummulate = accum;
+}
+
+void
+TVDisplay::setEnableSPLPF(bool value)
+{
+  this->mAccumSPLPF = value;
+}
+
+void
+TVDisplay::setAccumAlpha(SUFLOAT alpha)
+{
+  this->mAccumAlpha = qBound(SU_ASFLOAT(0), alpha, SU_ASFLOAT(1));
 }
 
 bool

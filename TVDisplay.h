@@ -54,7 +54,11 @@ class TVDisplay : public ThrottleableWidget
   // Drawing area properties
   QPixmap contentPixmap;
   QImage  picture;
-  QVector<SUFLOAT> frameAccum;
+
+  QVector<SUFLOAT> mAccumBuffer;
+  qint64 mAcumCount = 0;
+  SUFLOAT mAccumAlpha = 0;
+
   QSize geometry;
   QSize requestedGeometry;
   qreal aspect = 4. / 3.;
@@ -63,9 +67,10 @@ class TVDisplay : public ThrottleableWidget
   qreal contrastMul = 1;
   qreal angle = 0;
   qreal pZoom = 1;
-  bool mAcummulate = false;
-  qint64 mAcumCount = 0;
 
+
+  bool mAccumSPLPF = false;
+  bool mAcummulate = false;
   bool hFlip = false;
   bool vFlip = false;
   SUFLOAT fBrightness = 0;
@@ -248,6 +253,8 @@ public:
 
   bool saveToFile(QString path);
   void setAccumulate(bool);
+  void setEnableSPLPF(bool);
+  void setAccumAlpha(SUFLOAT);
   void setPicGeometry(int width, int height);
   void putLine(int line, const SUFLOAT *data, int size);
   void putFrame(const sigutils_tv_frame_buffer *);
