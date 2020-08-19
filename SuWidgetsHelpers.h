@@ -29,6 +29,8 @@
 class QWidget;
 class QLayout;
 
+#define SUWIDGETS_DEFAULT_PRECISION 3
+
 class SuWidgetsHelpers {
 
     static void abiErrorAbort(unsigned int);
@@ -42,7 +44,17 @@ class SuWidgetsHelpers {
     static QString formatQuantity(
         qreal value,
         int digits,
+        int decimals,
         QString units = "s");
+
+    static inline
+    QString formatQuantity(
+        qreal value,
+        int digits,
+        QString units = "s")
+    {
+      return formatQuantity(value, digits, -1, units);
+    }
 
     static inline QString
     formatQuantity(qreal value, QString units = "s")
@@ -52,7 +64,7 @@ class SuWidgetsHelpers {
       if (std::fabs(value) > 0)
         digits = static_cast<int>(std::floor(std::log10(std::fabs(value))));
 
-      return SuWidgetsHelpers::formatQuantity(value, digits, units);
+      return  formatQuantity(value, digits, units);
     }
 
     static inline QString
@@ -65,12 +77,9 @@ class SuWidgetsHelpers {
       qreal absValue = std::fabs(value);
 
       if (absValue > std::numeric_limits<qreal>::epsilon())
-        digits = 3 * std::floor(std::log10(absValue) / 3) + decimals;
+        digits = 3 * static_cast<int>(std::floor(std::log10(absValue) / 3));
 
-      return SuWidgetsHelpers::formatQuantity(
-            value,
-            digits,
-            units);
+      return formatQuantity(value, digits, decimals, units);
     }
 
     static inline QString

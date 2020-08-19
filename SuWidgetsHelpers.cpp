@@ -91,7 +91,11 @@ SuWidgetsHelpers::formatBinaryQuantity(qint64 quantity, QString units)
 }
 
 QString
-SuWidgetsHelpers::formatQuantity(qreal value, int digits, QString units)
+SuWidgetsHelpers::formatQuantity(
+    qreal value,
+    int digits,
+    int precision,
+    QString units)
 {
   qreal multiplier = 1;
   QString subUnits[] = {
@@ -148,13 +152,16 @@ SuWidgetsHelpers::formatQuantity(qreal value, int digits, QString units)
     } else {
       unsigned int pfx = 0;
 
-      while (digits > 3 && pfx < 4) {
+      while (digits >= 3 && pfx < 4) {
         multiplier *= 1e-3;
         digits -= 3;
         ++pfx;
       }
 
-      num.setNum(value * multiplier, 'f', digits);
+      if (precision < 0)
+        precision = digits;
+
+      num.setNum(value * multiplier, 'f', precision);
       num += " " + superUnits[pfx];
     }
   } else {
@@ -163,10 +170,10 @@ SuWidgetsHelpers::formatQuantity(qreal value, int digits, QString units)
       digits += 3;
     }
 
-    if (digits > 0)
-      digits = 0;
+    if (precision < 0)
+      precision = digits > 0 ? 0 : -digits;
 
-    num.setNum(value * multiplier, 'f', -digits);
+    num.setNum(value * multiplier, 'f', precision);
     num += " " + subUnits[i - 1];
     if (units != "s" && value > 0)
       num = "+" + num;
