@@ -35,6 +35,7 @@
 #include <QFont>
 #include <QFrame>
 #include <QImage>
+#include <QList>
 #include <vector>
 #include <QMap>
 
@@ -54,6 +55,11 @@ struct FrequencyBand {
   std::string secondary;
   std::string footnotes;
   QColor color;
+};
+
+struct TimeStamp {
+  int counter;
+  QString timeStampText;
 };
 
 typedef std::map<qint64, FrequencyBand>::const_iterator FrequencyBandIterator;
@@ -108,13 +114,21 @@ public:
     void setCenterLineEnabled(bool enabled) { m_CenterLineEnabled = enabled; }
     void setTooltipsEnabled(bool enabled) { m_TooltipsEnabled = enabled; }
     void setBookmarksEnabled(bool enabled) { m_BookmarksEnabled = enabled; }
-
+    void setTimeStampsEnabled(bool enabled) { m_TimeStampsEnabled = enabled; }
     bool removeFAT(std::string const &);
     void pushFAT(const FrequencyAllocationTable *);
     void setFATsVisible(bool);
 
-    void setNewFftData(float *fftData, int size);
-    void setNewFftData(float *fftData, float *wfData, int size);
+    void setNewFftData(
+        float *fftData,
+        int size,
+        QDateTime const &stamp = QDateTime::currentDateTime());
+
+    void setNewFftData(
+        float *fftData,
+        float *wfData,
+        int size,
+        QDateTime const &stamp = QDateTime::currentDateTime());
 
     void setCenterFreq(qint64 f);
     void setFreqUnits(qint32 unit) { m_FreqUnits = unit; }
@@ -298,6 +312,7 @@ private:
         BOOKMARK
     };
 
+    void        paintTimeStamps(QPainter &, QRect const &);
     void        drawOverlay();
     void        makeFrequencyStrs();
     int         xFromFreq(qint64 freq);
@@ -400,6 +415,12 @@ private:
     QMap<int,int>   m_Peaks;
 
     QList< QPair<QRect, qint64> >     m_BookmarkTags;
+
+    QList<TimeStamp> m_TimeStamps;
+    bool        m_TimeStampsEnabled = true;
+    int         m_TimeStampSpacing = 64;
+    int         m_TimeStampCounter = 64;
+    int         m_TimeStampMaxHeight = 0;
 
     // Waterfall averaging
     quint64     tlast_wf_ms;        // last time waterfall has been updated

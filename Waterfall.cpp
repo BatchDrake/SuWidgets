@@ -980,12 +980,56 @@ void Waterfall::resizeEvent(QResizeEvent* )
 void Waterfall::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
-
+    int y = m_Percent2DScreen * m_Size.height() / 100;
 
 
     painter.drawPixmap(0, 0, m_2DPixmap);
-    painter.drawPixmap(0, m_Percent2DScreen * m_Size.height() / 100,
-                       m_WaterfallPixmap);
+    painter.drawPixmap(0, y, m_WaterfallPixmap);
+
+    if (m_TimeStampsEnabled) {
+      paintTimeStamps(
+            painter,
+            QRect(2, y, this->width(), this->height()));
+    }
+}
+
+void Waterfall::paintTimeStamps(
+    QPainter &painter,
+    QRect const &where)
+{
+  QFontMetrics metrics(m_Font);
+  int y = where.y();
+  int textWidth;
+  int textHeight = metrics.height();
+  int items = 0;
+  QBrush brush(m_ColorTbl[0]);
+  auto it = m_TimeStamps.begin();
+
+  painter.setFont(m_Font);
+
+  y += m_TimeStampCounter;
+
+  if (m_TimeStampMaxHeight < where.height())
+    m_TimeStampMaxHeight = where.height();
+
+  painter.setPen(m_ColorPenTbl[255]);
+
+  while (y < m_TimeStampMaxHeight + textHeight && it != m_TimeStamps.end()) {
+    textWidth = metrics.width(it->timeStampText);
+    painter.drawLine(where.x(), y, textWidth + where.x(), y);
+
+    painter.drawText(where.x(), y - 2, it->timeStampText);
+
+    y += it->counter;
+    ++it;
+    ++items;
+  }
+
+  // TimeStamps from here could not be painted due to geometry restrictions.
+  // we silently discard them.
+
+  while (items < m_TimeStamps.size())
+    m_TimeStamps.removeLast();
 }
 
 // Called to update spectrum data for displaying on the screen
@@ -1046,6 +1090,8 @@ void Waterfall::draw(bool everything)
         if (tnow_ms - tlast_wf_ms >= msec_per_wfline)
         {
             tlast_wf_ms = tnow_ms;
+
+            ++this->m_TimeStampCounter;
 
             // move current data down one line(must do before attaching a QPainter object)
             m_WaterfallPixmap.scroll(0, 1, 0, 0, w, h);
@@ -1214,7 +1260,7 @@ void Waterfall::draw(bool everything)
  * When FFT data is set using this method, the same data will be used for both the
  * pandapter and the waterfall.
  */
-void Waterfall::setNewFftData(float *fftData, int size)
+void Waterfall::setNewFftData(float *fftData, int size, QDateTime const &t)
 {
     /** FIXME **/
     if (!m_Running)
@@ -1227,6 +1273,16 @@ void Waterfall::setNewFftData(float *fftData, int size)
     if (m_tentativeCenterFreq != 0) {
       m_tentativeCenterFreq = 0;
       m_DrawOverlay = true;
+    }
+
+    if (m_TimeStampCounter >= m_TimeStampSpacing) {
+      TimeStamp ts;
+
+      ts.counter = m_TimeStampCounter;
+      ts.timeStampText = t.toString("hh:mm:ss.zzz");
+
+      m_TimeStamps.push_front(ts);
+      m_TimeStampCounter = 0;
     }
 
     draw();
@@ -1242,7 +1298,11 @@ void Waterfall::setNewFftData(float *fftData, int size)
  * waterfall.
  */
 
-void Waterfall::setNewFftData(float *fftData, float *wfData, int size)
+void Waterfall::setNewFftData(
+    float *fftData,
+    float *wfData,
+    int size,
+    QDateTime const &t)
 {
     /** FIXME **/
     if (!m_Running)
@@ -1252,6 +1312,16 @@ void Waterfall::setNewFftData(float *fftData, float *wfData, int size)
     m_fftData = fftData;
     m_fftDataSize = size;
     m_tentativeCenterFreq = 0;
+
+    if (m_TimeStampCounter >= m_TimeStampSpacing) {
+      TimeStamp ts;
+
+      ts.counter = m_TimeStampCounter;
+      ts.timeStampText = t.toString();
+
+      m_TimeStamps.push_front(ts);
+      m_TimeStampCounter = 0;
+    }
 
     draw();
 }
