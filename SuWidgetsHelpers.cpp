@@ -93,6 +93,7 @@ SuWidgetsHelpers::formatBinaryQuantity(qint64 quantity, QString units)
 QString
 SuWidgetsHelpers::formatQuantity(
     qreal value,
+    int digits,
     int precision,
     QString const &u,
     bool sign)
