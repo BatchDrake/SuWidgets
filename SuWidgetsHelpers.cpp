@@ -93,93 +93,144 @@ SuWidgetsHelpers::formatBinaryQuantity(qint64 quantity, QString units)
 QString
 SuWidgetsHelpers::formatQuantity(
     qreal value,
-    int digits,
     int precision,
-    QString units)
+    QString const &u,
+    bool sign)
 {
   qreal multiplier = 1;
-  QString subUnits[] = {
-    units,
-    "m" + units,
-    "μ" + units,
-    "n" + units,
-    "p" + units,
-    "f" + units};
-  QString superUnits[] = {
-    units,
-    "k" + units,
-    "M" + units,
-    "G" + units,
-    "T" + units};
-  QString num;
-  int i = 0;
+  QString subUnits[] = { u, "m" + u, "µ" + u, "n" + u, "p" + u, "f" + u};
+  QString superUnits[] = { u, "k" + u, "M" + u, "G" + u, "T" + u};
+  static const qreal subUnitMultipliers[] = { 1, 1e3, 1e6, 1e9, 1e12, 1e15 };
+  static const qreal superUnitMultipliers[] = { 1, 1e-3, 1e-6, 1e-9, 1e-12 };
 
+  QString asString;
+  int pfx;
+  int digits, decimals;
+
+  // Checks for degenerate cases
   if (std::isinf(value))
-    return (value < 0 ? "-∞ " : "∞ ") + units;
+    return (value < 0 ? "-∞ " : "∞ ") + u;
 
   if (std::isnan(value))
-    return "NaN " + units;
+    return "NaN " + u;
 
-  if (units == "dB") {
-    if (digits < 0)
-      digits = -digits;
-    else
-      digits = 0;
+  if (std::fabs(value) < std::numeric_limits<qreal>::epsilon())
+    return "0 " + u;
 
-    return QString::number(value, 'f', digits) + " dB";
+  if (value < 0) {
+    value = -value;
+    asString += "-";
+  } else if (sign) {
+    asString += "+";
   }
 
-  if (digits >= 0) {
-    if (digits > 1 && units == "s") { // This is too long. Format to minutes and seconds
-      char time[64];
-      int seconds = static_cast<int>(value);
-      QString sign;
-      if (seconds < 0) {
-        seconds = 0;
-        sign = "-";
+  // Get digit count.
+  // 1-9:     1 digit
+  // 10-99:   2 digits
+  // 100-999: 3 digits
+  digits = static_cast<int>(std::floor(std::log10(value))) + 1;
+
+  if (digits > 0) {
+    // Check for time units. Values above 60 are converted to hh:mm:ss
+    if (u == "s") {
+      qint64 seconds = static_cast<qint64>(std::floor(value));
+      qreal  frac    = value - seconds;
+      qint64 minutes, hours;
+      int    decimalPart = 0;
+
+      if (precision > 0) {
+        multiplier = std::pow(10., precision - 1);
+        decimalPart = static_cast<int>(std::round(multiplier * frac));
+        if (std::fabs(decimalPart - multiplier) < 1) {
+          decimalPart = 0;
+          ++seconds;
+        }
       }
-      int minutes = seconds / 60;
-      int hours   = seconds / 3600;
+
+      minutes = seconds / 60;
+      hours   = minutes / 3600;
 
       seconds %= 60;
       minutes %= 60;
 
-      if (hours > 0)
-        snprintf(time, sizeof(time), "%02d:%02d:%02d", hours, minutes, seconds);
-      else
-        snprintf(time, sizeof(time), "%02d:%02d", minutes, seconds);
-      num = sign + QString(time);
-    } else {
-      unsigned int pfx = 0;
-
-      while (digits >= 3 && pfx < 4) {
-        multiplier *= 1e-3;
-        digits -= 3;
-        ++pfx;
+      if (hours > 0) {
+        asString += QString::asprintf(
+              "%lld:%02lld:%02lld",
+              hours,
+              minutes,
+              seconds);
+        if (hours >= 10) {
+          precision -= 6;
+          decimalPart /= 100000;
+        } else {
+          precision -= 5;
+          decimalPart /= 10000;
+        }
+      } else if (minutes > 0) {
+        asString += QString::asprintf(
+              "%lld:%02lld",
+              minutes,
+              seconds);
+        if (minutes >= 10) {
+          precision -= 4;
+          decimalPart /= 1000;
+        } else {
+          precision -= 3;
+          decimalPart /= 100;
+        }
+      } else {
+        asString += QString::asprintf("%lld", seconds);
+        precision -= digits;
       }
 
-      if (precision < 0)
-        precision = digits;
+      if (precision > 0) {
+        asString +=
+            QStringLiteral(".%1").arg(
+              decimalPart,
+              precision,
+              10,
+              QLatin1Char('0'));
+      }
 
-      num.setNum(value * multiplier, 'f', precision);
-      num += " " + superUnits[pfx];
+      // No hh:mm:ss or mm::ss, add suffix to make things clear.
+      if (minutes == 0 && hours == 0)
+        asString += " s";
+    } else {
+      multiplier = std::pow(10, precision - 1);
+      value = std::round(value * multiplier) / multiplier;
+
+      pfx = qBound(0, (digits - 1) / 3, u == "dB" ? 0 : 4);
+      digits -= 3 * pfx;
+
+      decimals = precision > digits ? precision - digits : 0;
+
+      asString += QString::number(
+            value * superUnitMultipliers[pfx],
+            'f',
+            decimals);
+
+      asString += " " + superUnits[pfx];
     }
   } else {
-    while (i++ < 6 && digits < -1) {
-      multiplier *= 1e3;
-      digits += 3;
-    }
+    multiplier = std::pow(10, precision - digits);
+    value = std::round(value * multiplier) / multiplier;
+    if (value > 0)
+      digits = static_cast<int>(std::floor(std::log10(value))) + 1;
 
-    if (precision < 0)
-      precision = digits > 0 ? 0 : -digits;
+    pfx = qBound(0, (3 - digits) / 3, u == "dB" ? 0 : 5);
+    digits += 3 * pfx;
 
-    num.setNum(value * multiplier, 'f', precision);
-    num += " " + subUnits[i - 1];
-    if (units != "s" && value > 0)
-      num = "+" + num;
+    decimals = precision > digits ? precision - digits : 0;
+
+    asString += QString::number(
+          value * subUnitMultipliers[pfx],
+          'f',
+          decimals);
+
+    asString += " " + subUnits[pfx];
   }
 
-  return num;
+  return asString;
 }
 
 QLayout *

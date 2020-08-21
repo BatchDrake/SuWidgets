@@ -43,21 +43,12 @@ class SuWidgetsHelpers {
 
     static QString formatQuantity(
         qreal value,
-        int digits,
-        int decimals,
-        QString units = "s");
-
-    static inline
-    QString formatQuantity(
-        qreal value,
-        int digits,
-        QString units = "s")
-    {
-      return formatQuantity(value, digits, -1, units);
-    }
+        int precision,
+        QString const &units = QStringLiteral("s"),
+        bool sign = false);
 
     static inline QString
-    formatQuantity(qreal value, QString units = "s")
+    formatQuantity(qreal value, QString const &units = QStringLiteral("s"))
     {
       int digits = 0;
 
@@ -68,18 +59,21 @@ class SuWidgetsHelpers {
     }
 
     static inline QString
-    formatQuantityNearest(
+    formatQuantityFromDelta(
         qreal value,
-        int decimals,
-        QString units = "s")
+        qreal delta,
+        QString const &units = QStringLiteral("s"),
+        bool sign = false)
     {
-      int digits = 0;
-      qreal absValue = std::fabs(value);
+      int sdigits = 0;
 
-      if (absValue > std::numeric_limits<qreal>::epsilon())
-        digits = 3 * static_cast<int>(std::floor(std::log10(absValue) / 3));
+      if (std::fabs(value / delta) >= 1)
+        sdigits = static_cast<int>(
+              std::ceil(
+                std::log10(
+                  std::fabs(value / delta)))) + 1;
 
-      return formatQuantity(value, digits, decimals, units);
+      return  formatQuantity(value, sdigits, units, sign);
     }
 
     static inline QString

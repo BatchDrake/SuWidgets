@@ -158,9 +158,6 @@ Waveform::recalculateDisplayData(void)
   }
 
   this->hDivSamples = divLen * this->sampleRate;
-  this->hDigits     = static_cast<int>(std::floor(std::log10(divLen)));
-
-
 
   // Same procedure for vertical axis
   range = this->max - this->min;
@@ -177,7 +174,6 @@ Waveform::recalculateDisplayData(void)
 
   // Conversion not necessary.
   this->vDivUnits = divLen;
-  this->vDigits   = static_cast<int>(std::floor(std::log10(divLen)));
 }
 
 void
@@ -833,9 +829,9 @@ Waveform::drawVerticalAxes(void)
         QString label;
         int tw;
 
-        label = SuWidgetsHelpers::formatQuantity(
+        label = SuWidgetsHelpers::formatQuantityFromDelta(
               (this->oX + axis * this->hDivSamples - rem) * this->deltaT,
-              this->hDigits,
+              this->hDivSamples * this->deltaT,
               this->horizontalUnits);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
@@ -895,9 +891,9 @@ Waveform::drawHorizontalAxes(void)
         QString label;
         int tw;
 
-        label = SuWidgetsHelpers::formatQuantity(
+        label = SuWidgetsHelpers::formatQuantityFromDelta(
               axis * this->vDivUnits,
-              this->vDigits,
+              this->vDivUnits,
               this->verticalUnits);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
