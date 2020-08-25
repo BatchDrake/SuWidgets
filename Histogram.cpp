@@ -32,6 +32,8 @@
 #define HORIZONTAL_SCALE   (1 / HORIZONTAL_SCALE_INV)
 #define VERTICAL_SCALE     (1 / (1.f + TOP_MARGIN + BOTTOM_MARGIN))
 
+#define LABEL_PRECISION    3
+
 QPoint
 Histogram::floatToScreenPoint(float x, float y)
 {
@@ -146,7 +148,6 @@ Histogram::recalculateDisplayData(void)
     }
 
     this->hDivDegs = divLen;
-    this->hDigits  = static_cast<int>(std::floor(std::log10(divLen)));
   }
 }
 
@@ -222,7 +223,7 @@ Histogram::drawVerticalAxes(QPainter &p)
 
         label = SuWidgetsHelpers::formatQuantity(
               axis * this->hDivDegs,
-              this->hDigits,
+              LABEL_PRECISION,
               this->getUnits());
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)

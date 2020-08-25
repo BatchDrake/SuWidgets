@@ -118,7 +118,6 @@ class Histogram : public ThrottleableWidget
   int height;
   int legendTextHeight = 0;
   qreal hDivDegs;
-  int   hDigits;
 
   // Private methods
   QPoint floatToScreenPoint(float x, float y);
