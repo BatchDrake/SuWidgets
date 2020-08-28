@@ -110,6 +110,11 @@ static inline quint64 time_ms(void)
     "Drag and scroll X and Y axes for pan and zoom. " \
     "Drag filter edges to adjust filter."
 
+////////////////////////// BookmarkSource //////////////////////////////////////
+BookmarkSource::~BookmarkSource()
+{
+
+}
 
 /////////////////////////// FrequencyBand //////////////////////////////////////
 FrequencyAllocationTable::FrequencyAllocationTable()
@@ -1496,61 +1501,6 @@ void Waterfall::drawOverlay()
     int xAxisTop = h - xAxisHeight;
     int fLabelTop = xAxisTop + VER_MARGIN;
 
-#ifdef Waterfall_BOOKMARKS_SUPPORT
-    if (m_BookmarksEnabled)
-    {
-        m_BookmarkTags.clear();
-        static const QFontMetrics fm(painter.font());
-        static const int fontHeight = fm.ascent() + 1;
-        static const int slant = 5;
-        static const int levelHeight = fontHeight + 5;
-        static const int nLevels = 10;
-        QList<BookmarkInfo> bookmarks = Bookmarks::Get().getBookmarksInRange(m_CenterFreq + m_FftCenter - m_Span / 2,
-                                                                             m_CenterFreq + m_FftCenter + m_Span / 2);
-        int tagEnd[nLevels] = {0};
-        for (int i = 0; i < bookmarks.size(); i++)
-        {
-            x = xFromFreq(bookmarks[i].frequency);
-
-#if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
-            int nameWidth = fm.width(bookmarks[i].name);
-#else
-            int nameWidth = fm.boundingRect(bookmarks[i].name).width();
-#endif
-
-            int level = 0;
-            while(level < nLevels && tagEnd[level] > x)
-                level++;
-
-            if(level == nLevels)
-                level = 0;
-
-            tagEnd[level] = x + nameWidth + slant - 1;
-            m_BookmarkTags.append(qMakePair<QRect, qint64>(QRect(x, level * levelHeight, nameWidth + slant, fontHeight), bookmarks[i].frequency));
-
-            QColor color = QColor(bookmarks[i].GetColor());
-            color.setAlpha(0x60);
-            // Vertical line
-            painter.setPen(QPen(color, 1, Qt::DashLine));
-            painter.drawLine(x, level * levelHeight + fontHeight + slant, x, xAxisTop);
-
-            // Horizontal line
-            painter.setPen(QPen(color, 1, Qt::SolidLine));
-            painter.drawLine(x + slant, level * levelHeight + fontHeight,
-                             x + nameWidth + slant - 1,
-                             level * levelHeight + fontHeight);
-            // Diagonal line
-            painter.drawLine(x + 1, level * levelHeight + fontHeight + slant - 1,
-                             x + slant - 1, level * levelHeight + fontHeight + 1);
-
-            color.setAlpha(0xFF);
-            painter.setPen(QPen(color, 2, Qt::SolidLine));
-            painter.drawText(x + slant, level * levelHeight, nameWidth,
-                             fontHeight, Qt::AlignVCenter | Qt::AlignHCenter,
-                             bookmarks[i].name);
-        }
-    }
-#endif // Waterfall_BOOKMARKS_SUPPORT
     if (m_CenterLineEnabled)
     {
         x = xFromFreq(m_CenterFreq - m_tentativeCenterFreq);
@@ -1715,6 +1665,68 @@ void Waterfall::drawOverlay()
         if (y < h - xAxisHeight)
             painter.drawLine(m_YAxisWidth, y, w, y);
     }
+
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    if (m_BookmarksEnabled && this->m_BookmarkSource != nullptr)
+    {
+        m_BookmarkTags.clear();
+        static const QFontMetrics fm(painter.font());
+        static const int fontHeight = fm.ascent() + 1;
+        static const int slant = 5;
+        static const int levelHeight = fontHeight + 5;
+        static const int nLevels = 10;
+        QList<BookmarkInfo> bookmarks =
+            this->m_BookmarkSource->getBookmarksInRange(
+              m_CenterFreq + m_FftCenter - m_Span / 2,
+              m_CenterFreq + m_FftCenter + m_Span / 2);
+        int tagEnd[nLevels] = {0};
+        for (int i = 0; i < bookmarks.size(); i++)
+        {
+            x = xFromFreq(bookmarks[i].frequency);
+
+#if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
+            int nameWidth = fm.width(bookmarks[i].name);
+#else
+            int nameWidth = fm.boundingRect(bookmarks[i].name).width();
+#endif
+
+            int level = 0;
+            int yMin = static_cast<int>(this->m_FATs.size()) * metrics.height();
+            while(level < nLevels && tagEnd[level] > x)
+                level++;
+
+            if(level == nLevels)
+                level = 0;
+
+            tagEnd[level] = x + nameWidth + slant - 1;
+            m_BookmarkTags.append(
+                  qMakePair<QRect, qint64>(
+                    QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
+                    bookmarks[i].frequency));
+
+            QColor color = QColor(bookmarks[i].color);
+            color.setAlpha(0x60);
+            // Vertical line
+            painter.setPen(QPen(color, 1, Qt::DashLine));
+            painter.drawLine(x, yMin + level * levelHeight + fontHeight + slant, x, xAxisTop);
+
+            // Horizontal line
+            painter.setPen(QPen(color, 1, Qt::SolidLine));
+            painter.drawLine(x + slant, yMin + level * levelHeight + fontHeight,
+                             x + nameWidth + slant - 1,
+                             yMin + level * levelHeight + fontHeight);
+            // Diagonal line
+            painter.drawLine(x + 1, yMin + level * levelHeight + fontHeight + slant - 1,
+                             x + slant - 1, yMin + level * levelHeight + fontHeight + 1);
+
+            color.setAlpha(0xFF);
+            painter.setPen(QPen(color, 2, Qt::SolidLine));
+            painter.drawText(x + slant, yMin + level * levelHeight, nameWidth,
+                             fontHeight, Qt::AlignVCenter | Qt::AlignHCenter,
+                             bookmarks[i].name);
+        }
+    }
+#endif // WATERFALL_BOOKMARKS_SUPPORT
 
     // draw amplitude values (y axis)
     int dB = m_PandMaxdB;

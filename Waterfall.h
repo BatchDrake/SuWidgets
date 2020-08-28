@@ -39,6 +39,8 @@
 #include <vector>
 #include <QMap>
 
+#define WATERFALL_BOOKMARKS_SUPPORT
+
 #define HORZ_DIVS_MAX 12    //50
 #define VERT_DIVS_MIN 5
 #define MAX_SCREENSIZE 16384
@@ -47,6 +49,20 @@
 #define PEAK_CLICK_MAX_V_DISTANCE 20 //Maximum vertical distance of clicked point from peak
 #define PEAK_H_TOLERANCE 2
 #define MINIMUM_REFRESH_RATE      25
+
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+struct BookmarkInfo {
+  QString name;
+  qint64 frequency;
+  QRgb color;
+};
+
+class BookmarkSource {
+  public:
+    virtual ~BookmarkSource();
+    virtual QList<BookmarkInfo> getBookmarksInRange(qint64, qint64) = 0;
+};
+#endif // WATERFALL_BOOKMARKS_SUPPORT
 
 struct FrequencyBand {
   qint64 min;
@@ -115,6 +131,11 @@ public:
     void setTooltipsEnabled(bool enabled) { m_TooltipsEnabled = enabled; }
     void setBookmarksEnabled(bool enabled) { m_BookmarksEnabled = enabled; }
     void setTimeStampsEnabled(bool enabled) { m_TimeStampsEnabled = enabled; }
+
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    void setBookmarkSource(BookmarkSource *src) { m_BookmarkSource = src; }
+
+#endif // WATERFALL_BOOKMARKS_SUPPORT
     bool removeFAT(std::string const &);
     void pushFAT(const FrequencyAllocationTable *);
     void setFATsVisible(bool);
@@ -255,7 +276,7 @@ public:
     bool    saveWaterfall(const QString & filename) const;
 
 signals:
-    void newCenterFreq(qint64 f);
+    void newCenterFreq(qint64 f);WATERFALL_BOOKMARKS_SUPPORT
     void newDemodFreq(qint64 freq, qint64 delta); /* delta is the offset from the center */
     void newLowCutFreq(int f);
     void newHighCutFreq(int f);
@@ -388,6 +409,9 @@ private:
     float       m_WfMindB;
     float       m_WfMaxdB;
 
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    BookmarkSource *m_BookmarkSource = nullptr;
+#endif // WATERFALL_BOOKMARKS_SUPPORT
     qint64      m_Span;
     float       m_SampleFreq;    /*!< Sample rate. */
     qint32      m_FreqUnits;
