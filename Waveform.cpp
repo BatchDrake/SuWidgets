@@ -19,6 +19,7 @@
 
 #include "Waveform.h"
 #include <QPainter>
+#include <QPainterPath>
 #include <QColormap>
 #include <SuWidgetsHelpers.h>
 #include "YIQ.h"
