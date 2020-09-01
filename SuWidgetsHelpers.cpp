@@ -238,7 +238,7 @@ SuWidgetsHelpers::findParentLayout(const QWidget *w)
 {
   if (w->parentWidget() != nullptr)
     if (w->parentWidget()->layout() != nullptr)
-      return findParentLayout(w, w->parentWidget()->layout());
+      return SuWidgetsHelpers::findParentLayout(w, w->parentWidget()->layout());
   return nullptr;
 }
 
