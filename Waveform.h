@@ -37,7 +37,6 @@
 
 class WaveBuffer {
   bool loan = false;
-  char pad[7];
   std::vector<SUCOMPLEX> ownBuffer;
   const std::vector<SUCOMPLEX> *buffer = nullptr;
 
