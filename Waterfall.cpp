@@ -1020,7 +1020,7 @@ void Waterfall::paintTimeStamps(
   painter.setPen(m_ColorPenTbl[255]);
 
   while (y < m_TimeStampMaxHeight + textHeight && it != m_TimeStamps.end()) {
-    textWidth = metrics.width(it->timeStampText);
+    textWidth = metrics.horizontalAdvance(it->timeStampText);
     painter.drawLine(where.x(), y, textWidth + where.x(), y);
 
     painter.drawText(where.x(), y - 2, it->timeStampText);
