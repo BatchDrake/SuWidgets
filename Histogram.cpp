@@ -21,6 +21,7 @@
 #include "SuWidgetsHelpers.h"
 
 #include <QPainter>
+#include <QPainterPath>
 #include <QMouseEvent>
 
 #define CROSS_MARK_REL_DIM .1f

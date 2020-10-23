@@ -19,7 +19,7 @@
 #include "LCD.h"
 
 #include <QPainter>
-
+#include <QPainterPath>
 void
 LCD::recalculateDisplayData(void)
 {
