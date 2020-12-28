@@ -1020,7 +1020,12 @@ void Waterfall::paintTimeStamps(
   painter.setPen(m_ColorPenTbl[255]);
 
   while (y < m_TimeStampMaxHeight + textHeight && it != m_TimeStamps.end()) {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
     textWidth = metrics.horizontalAdvance(it->timeStampText);
+#else
+    textWidth = metrics.width(it->timeStampText);
+#endif // QT_VERSION_CHECK
+
     painter.drawLine(where.x(), y, textWidth + where.x(), y);
 
     painter.drawText(where.x(), y - 2, it->timeStampText);
