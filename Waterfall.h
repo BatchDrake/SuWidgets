@@ -132,6 +132,11 @@ public:
     void setBookmarksEnabled(bool enabled) { m_BookmarksEnabled = enabled; }
     void setTimeStampsEnabled(bool enabled) { m_TimeStampsEnabled = enabled; }
 
+    void setUseLBMdrag(bool enabled)
+    {
+      m_freqDragBtn = (enabled) ? Qt::LeftButton :Qt::MidButton;
+    }
+
 #ifdef WATERFALL_BOOKMARKS_SUPPORT
     void setBookmarkSource(BookmarkSource *src) { m_BookmarkSource = src; }
 
@@ -353,6 +358,7 @@ private:
                                  qint32 *maxbin, qint32 *minbin);
     void calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &adjlow, qint64 &step, int& divs);
 
+    Qt::MouseButton m_freqDragBtn = Qt::MidButton;
     bool        m_PeakHoldActive;
     bool        m_PeakHoldValid;
     qint32      m_fftbuf[MAX_SCREENSIZE];

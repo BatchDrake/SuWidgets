@@ -454,7 +454,7 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
             // pan viewable range or move center frequency
             int delta_px = m_Xzero - pt.x();
             qint64 delta_hz = delta_px * m_Span / m_OverlayPixmap.width();
-            if (event->buttons() & Qt::MidButton)
+            if (event->buttons() & m_freqDragBtn)
             {
               if (!m_Locked) {
                 m_CenterFreq += delta_hz;
