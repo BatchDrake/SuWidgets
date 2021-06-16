@@ -147,8 +147,12 @@ class LCD : public QFrame
   void scrollDigit(int digit, int delta);
 
 public:
-  void
-  setValue(qint64 value) {
+  // Unfortunately, we cannot add a "signal = true" parameter to these functions
+  // as a specific signature is expected by QtCreator. Instead, we offer the
+  // "silent" versions of them.
+
+  bool
+  setValueSilent(qint64 value) {
     if (value > this->max)
       value = this->max;
     else if (value < this->min)
@@ -158,8 +162,16 @@ public:
       this->value = value;
       this->dirty = true;
       this->draw();
-      emit valueChanged();
+      return true;
     }
+
+    return false;
+  }
+
+  void
+  setValue(qint64 value) {
+    if (this->setValueSilent(value))
+      emit valueChanged();
   }
 
 
@@ -173,8 +185,8 @@ public:
     m_value = this->value;
   }
 
-  void
-  setMax(qint64 max) {
+  bool
+  setMaxSilent(qint64 max) {
     auto value = this->value;
     if (max < this->min)
       max = this->min;
@@ -188,8 +200,16 @@ public:
       this->value = value;
       this->dirty = true;
       this->draw();
-      emit valueChanged();
+      return true;
     }
+
+    return false;
+  }
+
+  void
+  setMax(qint64 max) {
+    if (this->setMaxSilent(max))
+      emit valueChanged();
   }
 
   qint64
@@ -202,8 +222,8 @@ public:
     m_max = this->max;
   }
 
-  void
-  setMin(qint64 min) {
+  bool
+  setMinSilent(qint64 min) {
     auto value = this->value;
     if (min > this->max)
       min = this->max;
@@ -217,8 +237,16 @@ public:
       this->value = value;
       this->dirty = true;
       this->draw();
-      emit valueChanged();
+      return true;
     }
+
+    return false;
+  }
+
+  void
+  setMin(qint64 min) {
+    if (this->setMinSilent(min))
+      emit valueChanged();
   }
 
   qint64
