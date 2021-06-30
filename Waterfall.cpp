@@ -1653,9 +1653,9 @@ void Waterfall::drawOverlay()
     // Level grid
     qint64 minUnitAdj64 = 0;
     qint64 unitDivSize = 0;
-
-    qint64 pandMinUnit = static_cast<qint64>(toDisplayUnits(m_PandMindB));
-    qint64 pandMaxUnit = static_cast<qint64>(toDisplayUnits(m_PandMaxdB));
+    qint64 unitSign    = m_dBPerUnit < 0 ? -1 : 1;
+    qint64 pandMinUnit = unitSign * static_cast<qint64>(toDisplayUnits(m_PandMindB));
+    qint64 pandMaxUnit = unitSign * static_cast<qint64>(toDisplayUnits(m_PandMaxdB));
 
     calcDivSize(pandMinUnit, pandMaxUnit,
                 qMax(h/m_VdivDelta, VERT_DIVS_MIN), minUnitAdj64, unitDivSize,
@@ -1768,7 +1768,10 @@ void Waterfall::drawOverlay()
         {
             unit = minUnitAdj + unitStepSize * i;
             rect.setRect(HOR_MARGIN, y - th / 2, m_YAxisWidth, th);
-            painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, QString::number(unit));
+            painter.drawText(
+                  rect,
+                  Qt::AlignRight|Qt::AlignVCenter,
+                  QString::number(unitSign * unit));
         }
     }
 
