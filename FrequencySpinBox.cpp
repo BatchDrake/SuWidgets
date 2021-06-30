@@ -20,12 +20,17 @@
 #include "FrequencySpinBox.h"
 #include "SuWidgetsHelpers.h"
 #include "ui_FrequencySpinBox.h"
+#include <QLineEdit>
 
 FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
   QWidget(parent),
   ui(new Ui::FrequencySpinBox)
 {
+  QLineEdit *lineEdit;
   ui->setupUi(this);
+
+  lineEdit = this->ui->frequencySpin->findChild<QLineEdit *>();
+  lineEdit->installEventFilter(this);
 
   this->refreshUi();
 
@@ -109,6 +114,40 @@ FrequencySpinBox::connectAll(void)
         SIGNAL(valueChanged(double)),
         this,
         SLOT(onValueChanged(double)));
+
+  connect(
+        this->ui->frequencySpin,
+        SIGNAL(editingFinished(void)),
+        this,
+        SLOT(onEditingFinished(void)));
+}
+
+bool
+FrequencySpinBox::eventFilter(QObject *object, QEvent *event)
+{
+  if (object != nullptr) {
+    switch (event->type()) {
+      case QEvent::Enter:
+        this->expectingFirstClick = true;
+        break;
+
+      case QEvent::Leave:
+        this->expectingFirstClick = false;
+        break;
+
+      case QEvent::MouseButtonRelease:
+        if (this->expectingFirstClick) {
+          this->ui->frequencySpin->selectAll();
+          this->expectingFirstClick = false;
+        }
+        break;
+
+      default:
+        ;
+    }
+  }
+
+  return QWidget::eventFilter(object, event);
 }
 
 void
@@ -288,6 +327,15 @@ FrequencySpinBox::onValueChanged(double freq)
 {
   if (!this->refreshing) {
     this->currValue = freq * this->freqMultiplier();
+    this->changed   = true;
+  }
+}
+
+void
+FrequencySpinBox::onEditingFinished(void)
+{
+  if (this->changed) {
+    this->changed = false;
     emit valueChanged(this->currValue);
   }
 }

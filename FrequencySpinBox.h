@@ -46,6 +46,8 @@ private:
   double currValue = 0;
   double max = 18e9;
   double min = 0;
+  bool changed = false;
+  bool expectingFirstClick = false;
   bool refreshing = false;
   unsigned int uExtraDecimals = 0;
 
@@ -55,7 +57,6 @@ private:
   QString freqSuffix(void) const;
 
 public:
-
   explicit FrequencySpinBox(QWidget *parent = nullptr);
   ~FrequencySpinBox();
 
@@ -88,6 +89,8 @@ public:
   void incFrequencyUnitMultiplier(void);
   void decFrequencyUnitMultiplier(void);
 
+  bool eventFilter(QObject *, QEvent *) override;
+
 signals:
   void valueChanged(double freq);
 
@@ -95,6 +98,7 @@ public slots:
   void onValueChanged(double freq);
   void onIncFreqUnitMultiplier(void);
   void onDecFreqUnitMultiplier(void);
+  void onEditingFinished(void);
 
 private:
   Ui::FrequencySpinBox *ui;
