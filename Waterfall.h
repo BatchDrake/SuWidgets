@@ -207,6 +207,18 @@ public:
         drawOverlay();
     }
 
+    void setdBPerUnit(float dBPerUnit)
+    {
+      m_dBPerUnit = dBPerUnit;
+      drawOverlay();
+    }
+
+    void setZeroPoint(float zeroPoint)
+    {
+      m_ZeroPoint = zeroPoint;
+      drawOverlay();
+    }
+
     void getHiLowCutFrequencies(qint64 *LowCut, qint64 *HiCut)
     {
         *LowCut = m_DemodLowCutFreq;
@@ -224,6 +236,26 @@ public:
     getCenterFreq(void) const
     {
       return m_CenterFreq;
+    }
+
+    float toDisplayUnits(float dB)
+    {
+      return dB / this->m_dBPerUnit - this->m_ZeroPoint;
+    }
+
+    void setGain(float gain)
+    {
+      m_gain = gain;
+    }
+
+    void setUnitName(QString const &name)
+    {
+      m_unitName = name;
+    }
+
+    QString getUnitName(void) const
+    {
+      return m_unitName;
     }
 
     /* Shown bandwidth around SetCenterFreq() */
@@ -414,6 +446,11 @@ private:
     float       m_PandMaxdB;
     float       m_WfMindB;
     float       m_WfMaxdB;
+
+    float       m_gain = 0.;
+    float       m_ZeroPoint = 0;
+    float       m_dBPerUnit = 1.;
+    QString     m_unitName = "dBFS";
 
 #ifdef WATERFALL_BOOKMARKS_SUPPORT
     BookmarkSource *m_BookmarkSource = nullptr;

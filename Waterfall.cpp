@@ -265,6 +265,9 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     m_VdivDelta = 30;
     m_HdivDelta = 70;
 
+    m_ZeroPoint = 0;
+    m_dBPerUnit = 1;
+
     m_FreqDigits = 3;
 
     m_Peaks = QMap<int,int>();
@@ -1351,6 +1354,10 @@ void Waterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
     qint32 m_BinMin, m_BinMax;
     qint32 m_FFTSize = m_fftDataSize;
     float *m_pFFTAveBuf = inBuf;
+
+    mindB -= m_gain;
+    maxdB -= m_gain;
+
     float  dBGainFactor = ((float)plotHeight) / fabs(maxdB - mindB);
     qint32* m_pTranslateTbl = new qint32[qMax(m_FFTSize, plotWidth)];
 
@@ -1478,8 +1485,8 @@ void Waterfall::drawOverlay()
     int     x,y;
     float   pixperdiv;
     float   adjoffset;
-    float   dbstepsize;
-    float   mindbadj;
+    float   unitStepSize;
+    float   minUnitAdj;
     QRect   rect;
     QFontMetrics    metrics(m_Font);
     QPainter        painter(&m_OverlayPixmap);
@@ -1644,18 +1651,21 @@ void Waterfall::drawOverlay()
     }
 
     // Level grid
-    qint64 mindBAdj64 = 0;
-    qint64 dbDivSize = 0;
+    qint64 minUnitAdj64 = 0;
+    qint64 unitDivSize = 0;
 
-    calcDivSize((qint64) m_PandMindB, (qint64) m_PandMaxdB,
-                qMax(h/m_VdivDelta, VERT_DIVS_MIN), mindBAdj64, dbDivSize,
+    qint64 pandMinUnit = static_cast<qint64>(toDisplayUnits(m_PandMindB));
+    qint64 pandMaxUnit = static_cast<qint64>(toDisplayUnits(m_PandMaxdB));
+
+    calcDivSize(pandMinUnit, pandMaxUnit,
+                qMax(h/m_VdivDelta, VERT_DIVS_MIN), minUnitAdj64, unitDivSize,
                 m_VerDivs);
 
-    dbstepsize = (float) dbDivSize;
-    mindbadj = mindBAdj64;
+    unitStepSize = (float) unitDivSize;
+    minUnitAdj = minUnitAdj64;
 
-    pixperdiv = (float) h * (float) dbstepsize / (m_PandMaxdB - m_PandMindB);
-    adjoffset = (float) h * (mindbadj - m_PandMindB) / (m_PandMaxdB - m_PandMindB);
+    pixperdiv = (float) h * (float) unitStepSize / (pandMaxUnit - pandMinUnit);
+    adjoffset = (float) h * (minUnitAdj - pandMinUnit) / (pandMaxUnit - pandMinUnit);
 
 #ifdef PLOTTER_DEBUG
     qDebug() << "minDb =" << m_PandMindB << "maxDb =" << m_PandMaxdB
@@ -1734,24 +1744,37 @@ void Waterfall::drawOverlay()
 #endif // WATERFALL_BOOKMARKS_SUPPORT
 
     // draw amplitude values (y axis)
-    int dB = m_PandMaxdB;
+    int unit;
+    int unitWidth;
+
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
     m_YAxisWidth = metrics.horizontalAdvance("-120 ");
+    unitWidth    = metrics.horizontalAdvance(m_unitName);
 #else
     m_YAxisWidth = metrics.width("-120 ");
+    unitWidth    = metrics.width(m_unitName);
 #endif // QT_VERSION_CHECK
+
+    if (unitWidth > m_YAxisWidth)
+      m_YAxisWidth = unitWidth;
+
     painter.setPen(m_FftTextColor);
+    int th = metrics.height();
     for (int i = 0; i < m_VerDivs; i++)
     {
         y = h - (int)((float) i * pixperdiv + adjoffset);
-        int th = metrics.height();
+
         if (y < h -xAxisHeight)
         {
-            dB = mindbadj + dbstepsize * i;
+            unit = minUnitAdj + unitStepSize * i;
             rect.setRect(HOR_MARGIN, y - th / 2, m_YAxisWidth, th);
-            painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, QString::number(dB));
+            painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, QString::number(unit));
         }
     }
+
+    // Draw unit name on top left corner
+    rect.setRect(HOR_MARGIN, 0, unitWidth, th);
+    painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, m_unitName);
 
     // Draw demod filter box
     if (m_FilterBoxEnabled)
