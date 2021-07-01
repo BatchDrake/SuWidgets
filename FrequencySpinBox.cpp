@@ -32,6 +32,8 @@ FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
   lineEdit = this->ui->frequencySpin->findChild<QLineEdit *>();
   lineEdit->installEventFilter(this);
 
+  this->ui->frequencySpin->setKeyboardTracking(false);
+
   this->refreshUi();
 
   this->connectAll();
@@ -114,12 +116,6 @@ FrequencySpinBox::connectAll(void)
         SIGNAL(valueChanged(double)),
         this,
         SLOT(onValueChanged(double)));
-
-  connect(
-        this->ui->frequencySpin,
-        SIGNAL(editingFinished(void)),
-        this,
-        SLOT(onEditingFinished(void)));
 }
 
 bool
@@ -327,15 +323,6 @@ FrequencySpinBox::onValueChanged(double freq)
 {
   if (!this->refreshing) {
     this->currValue = freq * this->freqMultiplier();
-    this->changed   = true;
-  }
-}
-
-void
-FrequencySpinBox::onEditingFinished(void)
-{
-  if (this->changed) {
-    this->changed = false;
     emit valueChanged(this->currValue);
   }
 }
