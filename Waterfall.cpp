@@ -63,6 +63,7 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 #include <QPainter>
 #include <QtGlobal>
 #include <QToolTip>
+#include <QDebug>
 
 #include "Waterfall.h"
 
@@ -806,18 +807,26 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             {
                 if (m_BookmarkTags[i].first.contains(event->pos()))
                 {
-                    BookmarkInfo& info = m_BookmarkTags[i].second;
+                    BookmarkInfo info = m_BookmarkTags[i].second;
 
-                    m_DemodCenterFreq = info.frequency;
-                    if(info.lowFreqCut != 0 && info.highFreqCut != 0) {
-                        // TODO not working
-                        setHiLowCutFrequencies(info.lowFreqCut + info.frequency,
-                                               info.highFreqCut + info.frequency);
-                        emit newHighCutFreq(info.highFreqCut);
-                        emit newLowCutFreq(info.lowFreqCut);
+                    qInfo() << "bookmark '" << info.name
+                        << " ', freq: " << info.frequency
+                        << ", low: " << info.lowFreqCut
+                        << ", high: " << info.highFreqCut
+                        << ", modulation: " << info.modulation;
+
+                    if(!info.modulation.isEmpty()) {
+                        emit newModulation(info.modulation);
                     }
 
+                    m_DemodCenterFreq = info.frequency;
                     emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
+
+                    if(info.lowFreqCut != 0 && info.highFreqCut != 0) {
+                        // setHiLowCutFrequencies(info.lowFreqCut + m_DemodCenterFreq,
+                        //                        info.highFreqCut + m_DemodCenterFreq);
+                        emit newFilterFreq(info.lowFreqCut, info.highFreqCut);
+                    }
 
                     break;
                 }
@@ -1702,6 +1711,7 @@ void Waterfall::drawOverlay()
         static const int slant = 5;
         static const int levelHeight = fontHeight + 5;
         static const int nLevels = 10;
+
         QList<BookmarkInfo> bookmarks =
             this->m_BookmarkSource->getBookmarksInRange(
               m_CenterFreq + m_FftCenter - m_Span / 2,

@@ -309,10 +309,11 @@ public:
     bool    saveWaterfall(const QString & filename) const;
 
 signals:
-    void newCenterFreq(qint64 f);WATERFALL_BOOKMARKS_SUPPORT
+    void newCenterFreq(qint64 f);
     void newDemodFreq(qint64 freq, qint64 delta); /* delta is the offset from the center */
     void newLowCutFreq(int f);
     void newHighCutFreq(int f);
+    void newModulation(QString modulation);
     void newFilterFreq(int low, int high);  /* substitute for NewLow / NewHigh */
     void pandapterRangeChanged(float min, float max);
     void newZoomLevel(float level);
