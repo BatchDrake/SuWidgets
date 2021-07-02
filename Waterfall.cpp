@@ -63,6 +63,7 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 #include <QPainter>
 #include <QtGlobal>
 #include <QToolTip>
+
 #include "Waterfall.h"
 
 // Comment out to enable plotter debug messages
@@ -805,8 +806,19 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             {
                 if (m_BookmarkTags[i].first.contains(event->pos()))
                 {
-                    m_DemodCenterFreq = m_BookmarkTags[i].second;
+                    BookmarkInfo& info = m_BookmarkTags[i].second;
+
+                    m_DemodCenterFreq = info.frequency;
+                    if(info.lowFreqCut != 0 && info.highFreqCut != 0) {
+                        // TODO not working
+                        setHiLowCutFrequencies(info.lowFreqCut + info.frequency,
+                                               info.highFreqCut + info.frequency);
+                        emit newHighCutFreq(info.highFreqCut);
+                        emit newLowCutFreq(info.lowFreqCut);
+                    }
+
                     emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
+
                     break;
                 }
             }
@@ -1715,9 +1727,9 @@ void Waterfall::drawOverlay()
 
             tagEnd[level] = x + nameWidth + slant - 1;
             m_BookmarkTags.append(
-                  qMakePair<QRect, qint64>(
+                  qMakePair<QRect, BookmarkInfo>(
                     QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
-                    bookmarks[i].frequency));
+                    bookmarks[i]));
 
             QColor color = QColor(bookmarks[i].color);
             color.setAlpha(0x60);

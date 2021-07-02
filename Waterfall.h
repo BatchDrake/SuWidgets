@@ -51,11 +51,7 @@
 #define MINIMUM_REFRESH_RATE      25
 
 #ifdef WATERFALL_BOOKMARKS_SUPPORT
-struct BookmarkInfo {
-  QString name;
-  qint64 frequency;
-  QRgb color;
-};
+#include "BookmarkInfo.h"
 
 class BookmarkSource {
   public:
@@ -481,7 +477,9 @@ private:
     float       m_PeakDetection;
     QMap<int,int>   m_Peaks;
 
-    QList< QPair<QRect, qint64> >     m_BookmarkTags;
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    QList< QPair<QRect, BookmarkInfo> >     m_BookmarkTags;
+#endif
 
     QList<TimeStamp> m_TimeStamps;
     bool        m_TimeStampsEnabled = true;
