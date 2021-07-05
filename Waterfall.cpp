@@ -63,6 +63,8 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 #include <QPainter>
 #include <QtGlobal>
 #include <QToolTip>
+#include <QDebug>
+
 #include "Waterfall.h"
 
 // Comment out to enable plotter debug messages
@@ -805,8 +807,19 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             {
                 if (m_BookmarkTags[i].first.contains(event->pos()))
                 {
-                    m_DemodCenterFreq = m_BookmarkTags[i].second;
+                    BookmarkInfo info = m_BookmarkTags[i].second;
+
+                    if (!info.modulation.isEmpty()) {
+                        emit newModulation(info.modulation);
+                    }
+
+                    m_DemodCenterFreq = info.frequency;
                     emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
+
+                    if (info.bandwidth() != 0) {
+                        emit newFilterFreq(info.lowFreqCut, info.highFreqCut);
+                    }
+
                     break;
                 }
             }
@@ -1690,6 +1703,7 @@ void Waterfall::drawOverlay()
         static const int slant = 5;
         static const int levelHeight = fontHeight + 5;
         static const int nLevels = 10;
+
         QList<BookmarkInfo> bookmarks =
             this->m_BookmarkSource->getBookmarksInRange(
               m_CenterFreq + m_FftCenter - m_Span / 2,
@@ -1715,9 +1729,9 @@ void Waterfall::drawOverlay()
 
             tagEnd[level] = x + nameWidth + slant - 1;
             m_BookmarkTags.append(
-                  qMakePair<QRect, qint64>(
+                  qMakePair<QRect, BookmarkInfo>(
                     QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
-                    bookmarks[i].frequency));
+                    bookmarks[i]));
 
             QColor color = QColor(bookmarks[i].color);
             color.setAlpha(0x60);

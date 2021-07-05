@@ -51,11 +51,7 @@
 #define MINIMUM_REFRESH_RATE      25
 
 #ifdef WATERFALL_BOOKMARKS_SUPPORT
-struct BookmarkInfo {
-  QString name;
-  qint64 frequency;
-  QRgb color;
-};
+#include "BookmarkInfo.h"
 
 class BookmarkSource {
   public:
@@ -313,10 +309,11 @@ public:
     bool    saveWaterfall(const QString & filename) const;
 
 signals:
-    void newCenterFreq(qint64 f);WATERFALL_BOOKMARKS_SUPPORT
+    void newCenterFreq(qint64 f);
     void newDemodFreq(qint64 freq, qint64 delta); /* delta is the offset from the center */
     void newLowCutFreq(int f);
     void newHighCutFreq(int f);
+    void newModulation(QString modulation);
     void newFilterFreq(int low, int high);  /* substitute for NewLow / NewHigh */
     void pandapterRangeChanged(float min, float max);
     void newZoomLevel(float level);
@@ -481,7 +478,9 @@ private:
     float       m_PeakDetection;
     QMap<int,int>   m_Peaks;
 
-    QList< QPair<QRect, qint64> >     m_BookmarkTags;
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    QList< QPair<QRect, BookmarkInfo> >     m_BookmarkTags;
+#endif
 
     QList<TimeStamp> m_TimeStamps;
     bool        m_TimeStampsEnabled = true;
