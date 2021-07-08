@@ -25,6 +25,9 @@
 SymView::SymView(QWidget *parent) :
   ThrottleableWidget(parent)
 {
+  this->background = SYMVIEW_DEFAULT_BG_COLOR;
+  this->lowSym     = SYMVIEW_DEFAULT_LO_COLOR;
+  this->highSym    = SYMVIEW_DEFAULT_HI_COLOR;
   this->setFocusPolicy(Qt::StrongFocus);
   this->setMouseTracking(true);
   this->invalidate();
@@ -77,7 +80,11 @@ SymView::drawToImage(
 
       // You like Cobol, right?
       if (x++ >= lineStart)
-        scanLine[x - 1 - lineStart] = qRgb(asInt, asInt, asInt);
+        scanLine[x - 1 - lineStart] = qRgb(
+              (this->lowSym.red()   * (255 - asInt) + this->highSym.red()   * asInt) / 255,
+              (this->lowSym.green() * (255 - asInt) + this->highSym.green() * asInt) / 255,
+              (this->lowSym.blue()  * (255 - asInt) + this->highSym.blue()  * asInt) / 255);
+
 
       if (x >= lineSize) {
         x = 0;
@@ -118,7 +125,11 @@ SymView::drawToImage(
           if (this->reverse)
             asInt = ~asInt;
 
-          scanLine[i] = qRgb(asInt, asInt, asInt);
+          scanLine[i] = qRgb(
+                (this->lowSym.red()   * (255 - asInt) + this->highSym.red()   * asInt) / 255,
+                (this->lowSym.green() * (255 - asInt) + this->highSym.green() * asInt) / 255,
+                (this->lowSym.blue()  * (255 - asInt) + this->highSym.blue()  * asInt) / 255);
+
         }
       }
 
@@ -190,7 +201,7 @@ SymView::draw(void)
       (static_cast<unsigned>(this->height()) + this->zoom - 1) / this->zoom;
   unsigned visible = static_cast<unsigned>(this->stride) * visibleLines;
 
-  this->viewPort.fill(Qt::black); // Fill in black
+  this->viewPort.fill(this->background); // Fill in black
 
   if (this->bps > 0 && this->buffer.size() > this->offset) {
     available = static_cast<unsigned>(this->buffer.size()) - this->offset;

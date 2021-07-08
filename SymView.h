@@ -26,40 +26,65 @@
 #include "ThrottleableWidget.h"
 
 #define SYMVIEW_MAX_ZOOM 50
+#define SYMVIEW_DEFAULT_BG_COLOR QColor(0, 0, 0)
+#define SYMVIEW_DEFAULT_LO_COLOR QColor(0, 0, 0)
+#define SYMVIEW_DEFAULT_HI_COLOR QColor(0xff, 0xff, 0xff)
 
 class SymView : public ThrottleableWidget
 {
   Q_OBJECT
 
-    // Symbol buffer
-    std::vector<Symbol> buffer; // TODO: Allow loans
-    // Behavior
-    bool autoScroll = true;
-    bool autoStride = true;
-    bool reverse    = false;
-    bool pad[6];
+  Q_PROPERTY(
+        QColor backgroundColor
+        READ getBackgroundColor
+        WRITE setBackgroundColor
+        NOTIFY backgroundColorChanged)
 
-    // Representation properties
-    unsigned int bps = 1;     // Bits per symbol.
-    unsigned int zoom = 1;    // Pixels per symbol
-    unsigned int offset = 0;  // Offset (wrt buffer)
-    int hOffset = 0; // Horizontal offset
-    int stride = 1;           // Image stride
-    int hoverX = -1;
-    int hoverY = -1;
-    unsigned int pad2;
-    QImage viewPort;          // Current view. Matches geometry
+  Q_PROPERTY(
+        QColor loColor
+        READ getLoColor
+        WRITE setLoColor
+        NOTIFY loColorChanged)
 
-    // Private methods
-    void assertImage(void);
-    void drawToImage(
-        QImage &image,
-        unsigned int start,
-        unsigned int end,
-        unsigned int zoom = 1,
-        unsigned int stride = 0,
-        unsigned int skip = 0,
-        unsigned int lineStart = 0);
+  Q_PROPERTY(
+        QColor hiColor
+        READ getHiColor
+        WRITE setHiColor
+        NOTIFY hiColorChanged)
+
+  // Symbol buffer
+  std::vector<Symbol> buffer; // TODO: Allow loans
+  // Behavior
+  bool autoScroll = true;
+  bool autoStride = true;
+  bool reverse    = false;
+  bool pad[6];
+
+  // Representation properties
+  unsigned int bps = 1;     // Bits per symbol.
+  unsigned int zoom = 1;    // Pixels per symbol
+  unsigned int offset = 0;  // Offset (wrt buffer)
+  int hOffset = 0; // Horizontal offset
+  int stride = 1;           // Image stride
+  int hoverX = -1;
+  int hoverY = -1;
+  unsigned int pad2;
+  QImage viewPort;          // Current view. Matches geometry
+
+  QColor background;
+  QColor lowSym;
+  QColor highSym;
+
+  // Private methods
+  void assertImage(void);
+  void drawToImage(
+      QImage &image,
+      unsigned int start,
+      unsigned int end,
+      unsigned int zoom = 1,
+      unsigned int stride = 0,
+      unsigned int skip = 0,
+      unsigned int lineStart = 0);
 
 public:
   enum FileFormat {
@@ -212,6 +237,54 @@ public:
     return this->zoom;
   }
 
+  void
+  setBackgroundColor(const QColor &c)
+  {
+    if (c != this->background) {
+      this->background = c;
+      this->invalidate();
+      emit backgroundColorChanged();
+    }
+  }
+
+  const QColor &
+  getBackgroundColor(void) const
+  {
+    return this->background;
+  }
+
+  void
+  setLoColor(const QColor &c)
+  {
+    if (c != this->lowSym) {
+      this->lowSym = c;
+      this->invalidate();
+      emit backgroundColorChanged();
+    }
+  }
+
+  const QColor &
+  getLoColor(void) const
+  {
+    return this->lowSym;
+  }
+
+  void
+  setHiColor(const QColor &c)
+  {
+    if (c != this->highSym) {
+      this->highSym = c;
+      this->invalidate();
+      emit backgroundColorChanged();
+    }
+  }
+
+  const QColor &
+  getHiColor(void) const
+  {
+    return this->highSym;
+  }
+
   SymView(QWidget *parent = nullptr);
 
   void scrollToBottom(void);
@@ -232,7 +305,9 @@ public:
   void strideChanged(unsigned int);
   void zoomChanged(unsigned int);
   void hoverSymbol(unsigned int position);
-
+  void backgroundColorChanged();
+  void loColorChanged();
+  void hiColorChanged();
 };
 
 #endif
