@@ -220,7 +220,10 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     }
 
     for (int i = 0; i < 256; i++)
-        m_ColorPenTbl[i] = QPen(m_ColorTbl[i]);
+      m_UintColorTbl[i] = qRgb(
+            m_ColorTbl[i].red(),
+            m_ColorTbl[i].green(),
+            m_ColorTbl[i].blue());
 
     m_PeakHoldActive = false;
     m_PeakHoldValid = false;
@@ -260,7 +263,7 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     m_DrawOverlay = true;
     m_2DPixmap = QPixmap(0,0);
     m_OverlayPixmap = QPixmap(0,0);
-    m_WaterfallPixmap = QPixmap(0,0);
+    m_WaterfallImage = QImage();
     m_Size = QSize(0,0);
     m_GrabPosition = 0;
     m_Percent2DScreen = 30;	//percent of screen used for 2D display
@@ -619,14 +622,14 @@ int Waterfall::getNearestPeak(QPoint pt)
 void Waterfall::setWaterfallSpan(quint64 span_ms)
 {
     wf_span = span_ms;
-    if (m_WaterfallPixmap.height() > 0)
-      msec_per_wfline = wf_span / m_WaterfallPixmap.height();
+    if (m_WaterfallImage.height() > 0)
+      msec_per_wfline = wf_span / m_WaterfallImage.height();
     clearWaterfall();
 }
 
 void Waterfall::clearWaterfall()
 {
-    m_WaterfallPixmap.fill(Qt::black);
+    m_WaterfallImage.fill(Qt::black);
     memset(m_wfbuf, 255, MAX_SCREENSIZE);
 }
 
@@ -640,7 +643,7 @@ void Waterfall::clearWaterfall()
 bool Waterfall::saveWaterfall(const QString & filename) const
 {
     QBrush          axis_brush(QColor(0x00, 0x00, 0x00, 0x70), Qt::SolidPattern);
-    QPixmap         pixmap(m_WaterfallPixmap);
+    QPixmap         pixmap = QPixmap::fromImage(m_WaterfallImage);
     QPainter        painter(&pixmap);
     QRect           rect;
     QDateTime       tt;
@@ -708,7 +711,7 @@ quint64 Waterfall::getWfTimeRes(void)
     if (msec_per_wfline)
         return msec_per_wfline;
     else
-        return 1000 * fft_rate / m_WaterfallPixmap.height(); // Auto mode
+        return 1000 * fft_rate / m_WaterfallImage.height(); // Auto mode
 }
 
 void Waterfall::setFftRate(int rate_hz)
@@ -975,14 +978,17 @@ void Waterfall::resizeEvent(QResizeEvent* )
         m_2DPixmap.fill(Qt::black);
 
         int height = (100 - m_Percent2DScreen) * m_Size.height() / 100;
-        if (m_WaterfallPixmap.isNull())
+        if (m_WaterfallImage.isNull())
         {
-            m_WaterfallPixmap = QPixmap(m_Size.width(), height);
-            m_WaterfallPixmap.fill(Qt::black);
+            m_WaterfallImage = QImage(
+                  m_Size.width(),
+                  height,
+                  QImage::Format::Format_RGB32);
+            m_WaterfallImage.fill(Qt::black);
         }
         else
         {
-            m_WaterfallPixmap = m_WaterfallPixmap.scaled(m_Size.width(), height,
+            m_WaterfallImage = m_WaterfallImage.scaled(m_Size.width(), height,
                                                          Qt::IgnoreAspectRatio,
                                                          Qt::SmoothTransformation);
         }
@@ -1005,7 +1011,7 @@ void Waterfall::paintEvent(QPaintEvent *)
 
 
     painter.drawPixmap(0, 0, m_2DPixmap);
-    painter.drawPixmap(0, y, m_WaterfallPixmap);
+    painter.drawImage(0, y, m_WaterfallImage);
 
     if (m_TimeStampsEnabled) {
       paintTimeStamps(
@@ -1033,7 +1039,7 @@ void Waterfall::paintTimeStamps(
   if (m_TimeStampMaxHeight < where.height())
     m_TimeStampMaxHeight = where.height();
 
-  painter.setPen(m_ColorPenTbl[255]);
+  painter.setPen(QPen(m_ColorTbl[255]));
 
   while (y < m_TimeStampMaxHeight + textHeight && it != m_TimeStamps.end()) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
@@ -1076,8 +1082,8 @@ void Waterfall::draw(bool everything)
 
 
     // get/draw the waterfall
-    w = m_WaterfallPixmap.width();
-    h = m_WaterfallPixmap.height();
+    w = m_WaterfallImage.width();
+    h = m_WaterfallImage.height();
 
     // no need to draw if pixmap is invisible
     if (w != 0 && h != 0 && everything)
@@ -1120,34 +1126,36 @@ void Waterfall::draw(bool everything)
             ++this->m_TimeStampCounter;
 
             // move current data down one line(must do before attaching a QPainter object)
-            m_WaterfallPixmap.scroll(0, 1, 0, 0, w, h);
+            // m_WaterfallImage.scroll(0, 1, 0, 0, w, h);
 
-            QPainter painter1(&m_WaterfallPixmap);
+            memmove(
+                  m_WaterfallImage.scanLine(1),
+                  m_WaterfallImage.scanLine(0),
+                  static_cast<size_t>(w) * (static_cast<size_t>(h) - 1)
+                  * sizeof(uint32_t));
 
-            // draw new line of fft data at top of waterfall bitmap
-            painter1.setPen(QColor(0, 0, 0));
-            for (i = 0; i < xmin; i++)
-                painter1.drawPoint(i, 0);
-            for (i = xmax; i < w; i++)
-                painter1.drawPoint(i, 0);
+            uint32_t *scanLineData =
+                reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(0));
 
-            if (msec_per_wfline > 0)
-            {
+            memset(
+                  scanLineData,
+                  0,
+                  static_cast<unsigned>(xmin) * sizeof(uint32_t));
+
+            memset(
+                  scanLineData + xmax,
+                  0,
+                  static_cast<unsigned>(w - xmax) * sizeof(uint32_t));
+
+            if (msec_per_wfline > 0) {
                 // user set time span
-                for (i = xmin; i < xmax; i++)
-                {
-                    painter1.setPen(m_ColorPenTbl[255 - m_wfbuf[i]]);
-                    painter1.drawPoint(i, 0);
+                for (i = xmin; i < xmax; i++) {
+                    scanLineData[i] = m_UintColorTbl[255 - m_wfbuf[i]];
                     m_wfbuf[i] = 255;
                 }
-            }
-            else
-            {
+            } else {
                 for (i = xmin; i < xmax; i++)
-                {
-                    painter1.setPen(m_ColorPenTbl[255 - m_fftbuf[i]]);
-                    painter1.drawPoint(i, 0);
-                }
+                  scanLineData[i] = m_UintColorTbl[255 - m_fftbuf[i]];
             }
         }
     }

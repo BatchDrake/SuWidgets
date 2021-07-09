@@ -163,7 +163,10 @@ public:
 
       for (i = 0; i < 256; ++i) {
         this->m_ColorTbl[i] = table[i];
-        this->m_ColorPenTbl[i] = QPen(table[i]);
+        this->m_UintColorTbl[i] = qRgb(
+              table[i].red(),
+              table[i].green(),
+              table[i].blue());
       }
 
       this->update();
@@ -403,9 +406,9 @@ private:
     eCapturetype    m_CursorCaptured;
     QPixmap     m_2DPixmap;
     QPixmap     m_OverlayPixmap;
-    QPixmap     m_WaterfallPixmap;
+    QImage      m_WaterfallImage;
     QColor      m_ColorTbl[256];
-    QPen        m_ColorPenTbl[256];
+    uint32_t    m_UintColorTbl[256];
     QSize       m_Size;
     QString     m_Str;
     QString     m_HDivText[HORZ_DIVS_MAX+1];
