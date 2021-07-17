@@ -1,5 +1,5 @@
 //
-//    LCD.cpp: Liquid Crystal Display widget
+//    filename: description
 //    Copyright (C) 2018 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,6 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-
 #include "LCD.h"
 
 #include <QPainter>

@@ -1,6 +1,7 @@
 CONFIG      += plugin debug_and_release
 TARGET      = $$qtLibraryTarget(suwidgetsplugin)
 TEMPLATE    = lib
+VERSION     = 0.1.0
 
 HEADERS     = BookmarkInfo.h ConstellationPlugin.h TransitionPlugin.h HistogramPlugin.h LCDPlugin.h WaveformPlugin.h SymViewPlugin.h SuWidgets.h \
     FrequencySpinBoxPlugin.h \
