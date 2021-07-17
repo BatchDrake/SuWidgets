@@ -28,6 +28,15 @@ void
 Decider::feed(const SUCOMPLEX *data, size_t len)
 {
   this->buffer.resize(len);
+  this->decide(data, this->buffer.data(), len);
+}
+
+void
+Decider::decide(
+    const SUCOMPLEX *data,
+    Symbol *buffer,
+    size_t len) const
+{
   float arg;
   int sym;
 
@@ -37,13 +46,13 @@ Decider::feed(const SUCOMPLEX *data, size_t len)
         SUWIDGETS_DETECT_ARGUMENT(arg, data[i]);
 
         sym = static_cast<int>(
-              floorf((arg - this->minAngle) / (this->delta)));
+              floorf((arg - this->min) / (this->delta)));
         if (sym < 0)
           sym = 0;
         else if (sym >= this->intervals)
           sym = this->intervals - 1;
 
-        this->buffer[i] = static_cast<Symbol>(sym);
+        buffer[i] = static_cast<Symbol>(sym);
       }
       break;
 
@@ -52,13 +61,13 @@ Decider::feed(const SUCOMPLEX *data, size_t len)
         SUWIDGETS_DETECT_MODULUS(arg, data[i]);
 
         sym = static_cast<int>(
-              floorf((arg - this->minAngle) / (this->delta)));
+              floorf((arg - this->min) / (this->delta)));
         if (sym < 0)
           sym = 0;
         else if (sym >= this->intervals)
           sym = this->intervals - 1;
 
-        this->buffer[i] = static_cast<Symbol>(sym);
+        buffer[i] = static_cast<Symbol>(sym);
       }
       break;
   }

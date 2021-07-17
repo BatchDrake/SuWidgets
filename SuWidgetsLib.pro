@@ -1,18 +1,24 @@
 CONFIG      += debug_and_release
 TARGET      = $$qtLibraryTarget(suwidgets)
 TEMPLATE    = lib
+VERSION     = 0.2.0
+
+darwin: QMAKE_SONAME_PREFIX = @rpath
 
 greaterThan(QT_MAJOR_VERSION, 4) {
     QT += widgets
 }
 
-
-isEmpty(SUWIDGETS_PREFIX) {
+isEmpty(PREFIX) {
   SUWIDGETS_INSTALL_LIBS=$$[QT_INSTALL_LIBS]
   SUWIDGETS_INSTALL_HEADERS=$$[QT_INSTALL_HEADERS]/SuWidgets
 } else {
-  SUWIDGETS_INSTALL_LIBS=$$SUWIDGETS_PREFIX/lib
-  SUWIDGETS_INSTALL_HEADERS=$$SUWIDGETS_PREFIX/include/SuWidgets
+  SUWIDGETS_INSTALL_LIBS=$$PREFIX/lib
+  SUWIDGETS_INSTALL_HEADERS=$$PREFIX/include/SuWidgets
+}
+
+!isEmpty(PKGVERSION) {
+  QMAKE_CXXFLAGS += "-DSUWIDGETS_PKGVERSION='\""$$PKGVERSION"\"'"
 }
 
 

@@ -16,18 +16,18 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#include "LCD.h"
-#include "LCDPlugin.h"
+#include "TVDisplay.h"
+#include "TVDisplayPlugin.h"
 
 #include <QtPlugin>
 
-LCDPlugin::LCDPlugin(QObject *parent)
+TVDisplayPlugin::TVDisplayPlugin(QObject *parent)
   : QObject(parent)
 {
   m_initialized = false;
 }
 
-void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
+void TVDisplayPlugin::initialize(QDesignerFormEditorInterface * /* core */)
 {
   if (m_initialized)
     return;
@@ -37,53 +37,53 @@ void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
   m_initialized = true;
 }
 
-bool LCDPlugin::isInitialized() const
+bool TVDisplayPlugin::isInitialized() const
 {
   return m_initialized;
 }
 
-QWidget *LCDPlugin::createWidget(QWidget *parent)
+QWidget *TVDisplayPlugin::createWidget(QWidget *parent)
 {
-  return new LCD(parent);
+  return new TVDisplay(parent);
 }
 
-QString LCDPlugin::name() const
+QString TVDisplayPlugin::name() const
 {
-  return QLatin1String("LCD");
+  return QLatin1String("TVDisplay");
 }
 
-QString LCDPlugin::group() const
+QString TVDisplayPlugin::group() const
 {
   return QLatin1String("");
 }
 
-QIcon LCDPlugin::icon() const
+QIcon TVDisplayPlugin::icon() const
 {
   return QIcon();
 }
 
-QString LCDPlugin::toolTip() const
+QString TVDisplayPlugin::toolTip() const
 {
   return QLatin1String("");
 }
 
-QString LCDPlugin::whatsThis() const
+QString TVDisplayPlugin::whatsThis() const
 {
   return QLatin1String("");
 }
 
-bool LCDPlugin::isContainer() const
+bool TVDisplayPlugin::isContainer() const
 {
   return false;
 }
 
-QString LCDPlugin::domXml() const
+QString TVDisplayPlugin::domXml() const
 {
-  return QLatin1String("<widget class=\"LCD\" name=\"lcd\">\n</widget>\n");
+  return QLatin1String("<widget class=\"TVDisplay\" name=\"tvDisplay\">\n</widget>\n");
 }
 
-QString LCDPlugin::includeFile() const
+QString TVDisplayPlugin::includeFile() const
 {
-  return QLatin1String("LCD.h");
+  return QLatin1String("TVDisplay.h");
 }
 

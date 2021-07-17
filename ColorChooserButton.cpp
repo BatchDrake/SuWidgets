@@ -44,7 +44,7 @@ ColorChooserButton::resetPixmap(void)
 void
 ColorChooserButton::onClicked(void)
 {
-  QColor color = QColorDialog::getColor(Qt::yellow, this );
+  QColor color = QColorDialog::getColor(this->current, this);
   if (color.isValid())
     this->setColor(color);
 }

@@ -1,4 +1,4 @@
-/* -*- c++ -*- */
+ /* -*- c++ -*- */
 /* + + +   This Software is released under the "Simplified BSD License"  + + +
  * Copyright 2010 Moe Wheatley. All rights reserved.
  * Copyright 2011-2013 Alexandru Csete OZ9AEC
@@ -63,6 +63,8 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 #include <QPainter>
 #include <QtGlobal>
 #include <QToolTip>
+#include <QDebug>
+
 #include "Waterfall.h"
 
 // Comment out to enable plotter debug messages
@@ -71,8 +73,8 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 
 #define CUR_CUT_DELTA 5		//cursor capture delta in pixels
 
-#define FFT_MIN_DB     -160.f
-#define FFT_MAX_DB      0.f
+#define FFT_MIN_DB     -120.f
+#define FFT_MAX_DB      40.f
 
 // Colors of type QRgb in 0xAARRGGBB format (unsigned int)
 #define PLOTTER_BGD_COLOR           0xFF1F1D1D
@@ -110,6 +112,77 @@ static inline quint64 time_ms(void)
     "Drag and scroll X and Y axes for pan and zoom. " \
     "Drag filter edges to adjust filter."
 
+////////////////////////// BookmarkSource //////////////////////////////////////
+BookmarkSource::~BookmarkSource()
+{
+
+}
+
+/////////////////////////// FrequencyBand //////////////////////////////////////
+FrequencyAllocationTable::FrequencyAllocationTable()
+{
+
+}
+
+FrequencyAllocationTable::FrequencyAllocationTable(std::string const &name)
+{
+  this->name = name;
+}
+
+void
+FrequencyAllocationTable::pushBand(FrequencyBand const &band)
+{
+  this->allocation[band.min] = band;
+}
+
+void
+FrequencyAllocationTable::pushBand(qint64 min, qint64 max, std::string const &desc)
+{
+  FrequencyBand band;
+
+  band.min = min;
+  band.max = max;
+  band.primary = desc;
+  band.color = QColor::fromRgb(255, 0, 0);
+
+  this->pushBand(band);
+}
+
+FrequencyBandIterator
+FrequencyAllocationTable::cbegin(void) const
+{
+  return this->allocation.cbegin();
+}
+
+FrequencyBandIterator
+FrequencyAllocationTable::cend(void) const
+{
+  return this->allocation.cend();
+}
+
+FrequencyBandIterator
+FrequencyAllocationTable::find(qint64 freq) const
+{
+  if (this->allocation.size() == 0)
+    return this->allocation.cend();
+
+  auto lower = this->allocation.lower_bound(freq);
+
+  if (lower == this->cend()) // If none found, return the last one.
+      return std::prev(lower);
+
+  if (lower == this->cbegin())
+      return lower;
+
+  // Check which one is closest.
+  auto previous = std::prev(lower);
+  if ((freq - previous->first) < (lower->first - freq))
+      return previous;
+
+  return lower;
+}
+
+///////////////////////////// Waterfall ////////////////////////////////////////
 Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -145,6 +218,12 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
         else if (i >= 250)
             m_ColorTbl[i].setRgb(255, 255*(i-250)/5, 255*(i-250)/5);
     }
+
+    for (int i = 0; i < 256; i++)
+      m_UintColorTbl[i] = qRgb(
+            m_ColorTbl[i].red(),
+            m_ColorTbl[i].green(),
+            m_ColorTbl[i].blue());
 
     m_PeakHoldActive = false;
     m_PeakHoldValid = false;
@@ -184,12 +263,15 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     m_DrawOverlay = true;
     m_2DPixmap = QPixmap(0,0);
     m_OverlayPixmap = QPixmap(0,0);
-    m_WaterfallPixmap = QPixmap(0,0);
+    m_WaterfallImage = QImage();
     m_Size = QSize(0,0);
     m_GrabPosition = 0;
     m_Percent2DScreen = 30;	//percent of screen used for 2D display
     m_VdivDelta = 30;
     m_HdivDelta = 70;
+
+    m_ZeroPoint = 0;
+    m_dBPerUnit = 1;
 
     m_FreqDigits = 3;
 
@@ -200,6 +282,7 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     setFftPlotColor(QColor(0xFF,0xFF,0xFF,0xFF));
     setFftBgColor(QColor(PLOTTER_BGD_COLOR));
     setFftAxesColor(QColor(PLOTTER_GRID_COLOR));
+    setFilterBoxColor(QColor(PLOTTER_FILTER_BOX_COLOR));
 
     setFftFill(false);
 
@@ -363,10 +446,7 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
             {
                 emit pandapterRangeChanged(m_PandMindB, m_PandMaxdB);
 
-                if (m_Running)
-                    m_DrawOverlay = true;
-                else
-                    drawOverlay();
+                updateOverlay();
 
                 m_PeakHoldValid = false;
 
@@ -382,18 +462,23 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
             // pan viewable range or move center frequency
             int delta_px = m_Xzero - pt.x();
             qint64 delta_hz = delta_px * m_Span / m_OverlayPixmap.width();
-            if (event->buttons() & Qt::MidButton)
+            if (event->buttons() & m_freqDragBtn)
             {
               if (!m_Locked) {
                 m_CenterFreq += delta_hz;
                 m_DemodCenterFreq += delta_hz;
+
+                ////////////// TODO: Edit this to fake spectrum scroll /////////
+                ////////////// DONE: Something like this:
+                ///
+                m_tentativeCenterFreq += delta_hz;
+
                 emit newCenterFreq(m_CenterFreq);
               }
+            } else {
+              setFftCenterFreq(m_FftCenter + delta_hz);
             }
-            else
-            {
-                setFftCenterFreq(m_FftCenter + delta_hz);
-            }
+
             updateOverlay();
 
             m_PeakHoldValid = false;
@@ -419,10 +504,7 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
                 clampDemodParameters();
 
                 emit newFilterFreq(m_DemodLowCutFreq, m_DemodHiCutFreq);
-                if (m_Running)
-                    m_DrawOverlay = true;
-                else
-                    drawOverlay();
+                updateOverlay();
             }
             else
             {
@@ -540,13 +622,14 @@ int Waterfall::getNearestPeak(QPoint pt)
 void Waterfall::setWaterfallSpan(quint64 span_ms)
 {
     wf_span = span_ms;
-    msec_per_wfline = wf_span / m_WaterfallPixmap.height();
+    if (m_WaterfallImage.height() > 0)
+      msec_per_wfline = wf_span / m_WaterfallImage.height();
     clearWaterfall();
 }
 
 void Waterfall::clearWaterfall()
 {
-    m_WaterfallPixmap.fill(Qt::black);
+    m_WaterfallImage.fill(Qt::black);
     memset(m_wfbuf, 255, MAX_SCREENSIZE);
 }
 
@@ -560,7 +643,7 @@ void Waterfall::clearWaterfall()
 bool Waterfall::saveWaterfall(const QString & filename) const
 {
     QBrush          axis_brush(QColor(0x00, 0x00, 0x00, 0x70), Qt::SolidPattern);
-    QPixmap         pixmap(m_WaterfallPixmap);
+    QPixmap         pixmap = QPixmap::fromImage(m_WaterfallImage);
     QPainter        painter(&pixmap);
     QRect           rect;
     QDateTime       tt;
@@ -628,7 +711,7 @@ quint64 Waterfall::getWfTimeRes(void)
     if (msec_per_wfline)
         return msec_per_wfline;
     else
-        return 1000 * fft_rate / m_WaterfallPixmap.height(); // Auto mode
+        return 1000 * fft_rate / m_WaterfallImage.height(); // Auto mode
 }
 
 void Waterfall::setFftRate(int rate_hz)
@@ -683,7 +766,7 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
                 // setCursor(QCursor(Qt::CrossCursor));
                 m_CursorCaptured = CENTER;
                 m_GrabPosition = 1;
-                drawOverlay();
+                updateOverlay();
               }
             }
             else if (event->buttons() == Qt::MidButton)
@@ -694,13 +777,14 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
                 m_DemodCenterFreq = m_CenterFreq;
                 emit newCenterFreq(m_CenterFreq);
                 emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
-                drawOverlay();
+                updateOverlay();
               }
             }
             else if (event->buttons() == Qt::RightButton)
             {
                 // reset frequency zoom
                 resetHorizontalZoom();
+                updateOverlay();
             }
         }
     }
@@ -716,6 +800,7 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             {
                 // reset frequency zoom
                 resetHorizontalZoom();
+                updateOverlay();
             }
         }
         else if (m_CursorCaptured == BOOKMARK)
@@ -725,8 +810,19 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             {
                 if (m_BookmarkTags[i].first.contains(event->pos()))
                 {
-                    m_DemodCenterFreq = m_BookmarkTags[i].second;
+                    BookmarkInfo info = m_BookmarkTags[i].second;
+
+                    if (!info.modulation.isEmpty()) {
+                        emit newModulation(info.modulation);
+                    }
+
+                    m_DemodCenterFreq = info.frequency;
                     emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
+
+                    if (info.bandwidth() != 0) {
+                        emit newFilterFreq(info.lowFreqCut, info.highFreqCut);
+                    }
+
                     break;
                 }
             }
@@ -781,7 +877,7 @@ void Waterfall::zoomStepX(float step, int x)
     qint64 fc = (qint64)(f_min + (f_max - f_min) / 2.0);
 
     setFftCenterFreq(fc - m_CenterFreq);
-    setSpanFreq((quint32)new_range);
+    setSpanFreq(new_range);
 
     float factor = (float)m_SampleFreq / (float)m_Span;
     emit newZoomLevel(factor);
@@ -882,14 +978,17 @@ void Waterfall::resizeEvent(QResizeEvent* )
         m_2DPixmap.fill(Qt::black);
 
         int height = (100 - m_Percent2DScreen) * m_Size.height() / 100;
-        if (m_WaterfallPixmap.isNull())
+        if (m_WaterfallImage.isNull())
         {
-            m_WaterfallPixmap = QPixmap(m_Size.width(), height);
-            m_WaterfallPixmap.fill(Qt::black);
+            m_WaterfallImage = QImage(
+                  m_Size.width(),
+                  height,
+                  QImage::Format::Format_RGB32);
+            m_WaterfallImage.fill(Qt::black);
         }
         else
         {
-            m_WaterfallPixmap = m_WaterfallPixmap.scaled(m_Size.width(), height,
+            m_WaterfallImage = m_WaterfallImage.scaled(m_Size.width(), height,
                                                          Qt::IgnoreAspectRatio,
                                                          Qt::SmoothTransformation);
         }
@@ -901,52 +1000,107 @@ void Waterfall::resizeEvent(QResizeEvent* )
         memset(m_wfbuf, 255, MAX_SCREENSIZE);
     }
 
-    drawOverlay();
+    updateOverlay();
 }
 
 // Called by QT when screen needs to be redrawn
 void Waterfall::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
+    int y = m_Percent2DScreen * m_Size.height() / 100;
+
 
     painter.drawPixmap(0, 0, m_2DPixmap);
-    painter.drawPixmap(0, m_Percent2DScreen * m_Size.height() / 100,
-                       m_WaterfallPixmap);
+    painter.drawImage(0, y, m_WaterfallImage);
+
+    if (m_TimeStampsEnabled) {
+      paintTimeStamps(
+            painter,
+            QRect(2, y, this->width(), this->height()));
+    }
+}
+
+void Waterfall::paintTimeStamps(
+    QPainter &painter,
+    QRect const &where)
+{
+  QFontMetrics metrics(m_Font);
+  int y = where.y();
+  int textWidth;
+  int textHeight = metrics.height();
+  int items = 0;
+  QBrush brush(m_ColorTbl[0]);
+  auto it = m_TimeStamps.begin();
+
+  painter.setFont(m_Font);
+
+  y += m_TimeStampCounter;
+
+  if (m_TimeStampMaxHeight < where.height())
+    m_TimeStampMaxHeight = where.height();
+
+  painter.setPen(QPen(m_ColorTbl[255]));
+
+  while (y < m_TimeStampMaxHeight + textHeight && it != m_TimeStamps.end()) {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    textWidth = metrics.horizontalAdvance(it->timeStampText);
+#else
+    textWidth = metrics.width(it->timeStampText);
+#endif // QT_VERSION_CHECK
+
+    painter.drawLine(where.x(), y, textWidth + where.x(), y);
+
+    painter.drawText(where.x(), y - 2, it->timeStampText);
+
+    y += it->counter;
+    ++it;
+    ++items;
+  }
+
+  // TimeStamps from here could not be painted due to geometry restrictions.
+  // we silently discard them.
+
+  while (items < m_TimeStamps.size())
+    m_TimeStamps.removeLast();
 }
 
 // Called to update spectrum data for displaying on the screen
-void Waterfall::draw()
+void Waterfall::draw(bool everything)
 {
     int     i, n;
     int     w;
     int     h;
     int     xmin, xmax;
+    qint64 limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
 
-    if (m_DrawOverlay)
-    {
+    if (m_DrawOverlay) {
         drawOverlay();
         m_DrawOverlay = false;
     }
 
     QPoint LineBuf[MAX_SCREENSIZE];
 
-    if (!m_Running)
-        return;
 
     // get/draw the waterfall
-    w = m_WaterfallPixmap.width();
-    h = m_WaterfallPixmap.height();
+    w = m_WaterfallImage.width();
+    h = m_WaterfallImage.height();
 
     // no need to draw if pixmap is invisible
-    if (w != 0 && h != 0)
+    if (w != 0 && h != 0 && everything)
     {
         quint64     tnow_ms = time_ms();
 
         // get scaled FFT data
         n = qMin(w, MAX_SCREENSIZE);
         getScreenIntegerFFTData(255, n, m_WfMaxdB, m_WfMindB,
-                                m_FftCenter - (qint64)m_Span / 2,
-                                m_FftCenter + (qint64)m_Span / 2,
+                                qBound(
+                                  -limit,
+                                  m_tentativeCenterFreq + m_FftCenter,
+                                  limit) - (qint64)m_Span/2,
+                                qBound(
+                                  -limit,
+                                  m_tentativeCenterFreq + m_FftCenter,
+                                  limit) + (qint64)m_Span/2,
                                 m_wfData, m_fftbuf,
                                 &xmin, &xmax);
 
@@ -969,35 +1123,39 @@ void Waterfall::draw()
         {
             tlast_wf_ms = tnow_ms;
 
+            ++this->m_TimeStampCounter;
+
             // move current data down one line(must do before attaching a QPainter object)
-            m_WaterfallPixmap.scroll(0, 1, 0, 0, w, h);
+            // m_WaterfallImage.scroll(0, 1, 0, 0, w, h);
 
-            QPainter painter1(&m_WaterfallPixmap);
+            memmove(
+                  m_WaterfallImage.scanLine(1),
+                  m_WaterfallImage.scanLine(0),
+                  static_cast<size_t>(w) * (static_cast<size_t>(h) - 1)
+                  * sizeof(uint32_t));
 
-            // draw new line of fft data at top of waterfall bitmap
-            painter1.setPen(QColor(0, 0, 0));
-            for (i = 0; i < xmin; i++)
-                painter1.drawPoint(i, 0);
-            for (i = xmax; i < w; i++)
-                painter1.drawPoint(i, 0);
+            uint32_t *scanLineData =
+                reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(0));
 
-            if (msec_per_wfline > 0)
-            {
+            memset(
+                  scanLineData,
+                  0,
+                  static_cast<unsigned>(xmin) * sizeof(uint32_t));
+
+            memset(
+                  scanLineData + xmax,
+                  0,
+                  static_cast<unsigned>(w - xmax) * sizeof(uint32_t));
+
+            if (msec_per_wfline > 0) {
                 // user set time span
-                for (i = xmin; i < xmax; i++)
-                {
-                    painter1.setPen(m_ColorTbl[255 - m_wfbuf[i]]);
-                    painter1.drawPoint(i, 0);
+                for (i = xmin; i < xmax; i++) {
+                    scanLineData[i] = m_UintColorTbl[255 - m_wfbuf[i]];
                     m_wfbuf[i] = 255;
                 }
-            }
-            else
-            {
+            } else {
                 for (i = xmin; i < xmax; i++)
-                {
-                    painter1.setPen(m_ColorTbl[255 - m_fftbuf[i]]);
-                    painter1.drawPoint(i, 0);
-                }
+                  scanLineData[i] = m_UintColorTbl[255 - m_fftbuf[i]];
             }
         }
     }
@@ -1022,8 +1180,14 @@ void Waterfall::draw()
         // get new scaled fft data
         getScreenIntegerFFTData(h, qMin(w, MAX_SCREENSIZE),
                                 m_PandMaxdB, m_PandMindB,
-                                m_FftCenter - (qint64)m_Span/2,
-                                m_FftCenter + (qint64)m_Span/2,
+                                qBound(
+                                  -limit,
+                                  m_tentativeCenterFreq + m_FftCenter,
+                                  limit) - (qint64)m_Span/2,
+                                qBound(
+                                  -limit,
+                                  m_tentativeCenterFreq + m_FftCenter,
+                                  limit) + (qint64)m_Span/2,
                                 m_fftData, m_fftbuf,
                                 &xmin, &xmax);
 
@@ -1130,7 +1294,7 @@ void Waterfall::draw()
  * When FFT data is set using this method, the same data will be used for both the
  * pandapter and the waterfall.
  */
-void Waterfall::setNewFftData(float *fftData, int size)
+void Waterfall::setNewFftData(float *fftData, int size, QDateTime const &t)
 {
     /** FIXME **/
     if (!m_Running)
@@ -1139,6 +1303,21 @@ void Waterfall::setNewFftData(float *fftData, int size)
     m_wfData = fftData;
     m_fftData = fftData;
     m_fftDataSize = size;
+
+    if (m_tentativeCenterFreq != 0) {
+      m_tentativeCenterFreq = 0;
+      m_DrawOverlay = true;
+    }
+
+    if (m_TimeStampCounter >= m_TimeStampSpacing) {
+      TimeStamp ts;
+
+      ts.counter = m_TimeStampCounter;
+      ts.timeStampText = t.toString("hh:mm:ss.zzz");
+
+      m_TimeStamps.push_front(ts);
+      m_TimeStampCounter = 0;
+    }
 
     draw();
 }
@@ -1153,7 +1332,11 @@ void Waterfall::setNewFftData(float *fftData, int size)
  * waterfall.
  */
 
-void Waterfall::setNewFftData(float *fftData, float *wfData, int size)
+void Waterfall::setNewFftData(
+    float *fftData,
+    float *wfData,
+    int size,
+    QDateTime const &t)
 {
     /** FIXME **/
     if (!m_Running)
@@ -1162,6 +1345,17 @@ void Waterfall::setNewFftData(float *fftData, float *wfData, int size)
     m_wfData = wfData;
     m_fftData = fftData;
     m_fftDataSize = size;
+    m_tentativeCenterFreq = 0;
+
+    if (m_TimeStampCounter >= m_TimeStampSpacing) {
+      TimeStamp ts;
+
+      ts.counter = m_TimeStampCounter;
+      ts.timeStampText = t.toString();
+
+      m_TimeStamps.push_front(ts);
+      m_TimeStampCounter = 0;
+    }
 
     draw();
 }
@@ -1181,6 +1375,10 @@ void Waterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
     qint32 m_BinMin, m_BinMax;
     qint32 m_FFTSize = m_fftDataSize;
     float *m_pFFTAveBuf = inBuf;
+
+    mindB -= m_gain;
+    maxdB -= m_gain;
+
     float  dBGainFactor = ((float)plotHeight) / fabs(maxdB - mindB);
     qint32* m_pTranslateTbl = new qint32[qMax(m_FFTSize, plotWidth)];
 
@@ -1308,13 +1506,12 @@ void Waterfall::drawOverlay()
     int     x,y;
     float   pixperdiv;
     float   adjoffset;
-    float   dbstepsize;
-    float   mindbadj;
+    float   unitStepSize;
+    float   minUnitAdj;
     QRect   rect;
     QFontMetrics    metrics(m_Font);
     QPainter        painter(&m_OverlayPixmap);
 
-    painter.initFrom(this);
     painter.setFont(m_Font);
 
     // solid background
@@ -1325,70 +1522,21 @@ void Waterfall::drawOverlay()
 #define VER_MARGIN 5
 
     // X and Y axis areas
-    m_YAxisWidth = metrics.width("XXXX") + 2 * HOR_MARGIN;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+   int tw = metrics.horizontalAdvance("XXXX");
+#else
+   int tw = metrics.width("XXXX");
+#endif // QT_VERSION_CHECK
+
+    m_YAxisWidth = tw + 2 * HOR_MARGIN;
     m_XAxisYCenter = h - metrics.height()/2;
     int xAxisHeight = metrics.height() + 2 * VER_MARGIN;
     int xAxisTop = h - xAxisHeight;
     int fLabelTop = xAxisTop + VER_MARGIN;
 
-#ifdef Waterfall_BOOKMARKS_SUPPORT
-    if (m_BookmarksEnabled)
-    {
-        m_BookmarkTags.clear();
-        static const QFontMetrics fm(painter.font());
-        static const int fontHeight = fm.ascent() + 1;
-        static const int slant = 5;
-        static const int levelHeight = fontHeight + 5;
-        static const int nLevels = 10;
-        QList<BookmarkInfo> bookmarks = Bookmarks::Get().getBookmarksInRange(m_CenterFreq + m_FftCenter - m_Span / 2,
-                                                                             m_CenterFreq + m_FftCenter + m_Span / 2);
-        int tagEnd[nLevels] = {0};
-        for (int i = 0; i < bookmarks.size(); i++)
-        {
-            x = xFromFreq(bookmarks[i].frequency);
-
-#if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
-            int nameWidth = fm.width(bookmarks[i].name);
-#else
-            int nameWidth = fm.boundingRect(bookmarks[i].name).width();
-#endif
-
-            int level = 0;
-            while(level < nLevels && tagEnd[level] > x)
-                level++;
-
-            if(level == nLevels)
-                level = 0;
-
-            tagEnd[level] = x + nameWidth + slant - 1;
-            m_BookmarkTags.append(qMakePair<QRect, qint64>(QRect(x, level * levelHeight, nameWidth + slant, fontHeight), bookmarks[i].frequency));
-
-            QColor color = QColor(bookmarks[i].GetColor());
-            color.setAlpha(0x60);
-            // Vertical line
-            painter.setPen(QPen(color, 1, Qt::DashLine));
-            painter.drawLine(x, level * levelHeight + fontHeight + slant, x, xAxisTop);
-
-            // Horizontal line
-            painter.setPen(QPen(color, 1, Qt::SolidLine));
-            painter.drawLine(x + slant, level * levelHeight + fontHeight,
-                             x + nameWidth + slant - 1,
-                             level * levelHeight + fontHeight);
-            // Diagonal line
-            painter.drawLine(x + 1, level * levelHeight + fontHeight + slant - 1,
-                             x + slant - 1, level * levelHeight + fontHeight + 1);
-
-            color.setAlpha(0xFF);
-            painter.setPen(QPen(color, 2, Qt::SolidLine));
-            painter.drawText(x + slant, level * levelHeight, nameWidth,
-                             fontHeight, Qt::AlignVCenter | Qt::AlignHCenter,
-                             bookmarks[i].name);
-        }
-    }
-#endif // Waterfall_BOOKMARKS_SUPPORT
     if (m_CenterLineEnabled)
     {
-        x = xFromFreq(m_CenterFreq);
+        x = xFromFreq(m_CenterFreq - m_tentativeCenterFreq);
         if (x > 0 && x < w)
         {
             painter.setPen(m_FftCenterAxisColor);
@@ -1398,11 +1546,20 @@ void Waterfall::drawOverlay()
 
     // Frequency grid
     qint64  StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
+    qint64  EndFreq = StartFreq + m_Span;
     QString label;
-    label.setNum(float((StartFreq + m_Span) / m_FreqUnits), 'f', m_FreqDigits);
-    calcDivSize(StartFreq, StartFreq + m_Span,
-                qMin(w/(metrics.width(label) + metrics.width("O")), HORZ_DIVS_MAX),
+    label.setNum(float(EndFreq / m_FreqUnits), 'f', m_FreqDigits);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+   tw = metrics.horizontalAdvance(label) + metrics.horizontalAdvance("O");
+#else
+   tw = metrics.width(label) + metrics.width("O");
+#endif // QT_VERSION_CHECK
+
+    calcDivSize(StartFreq, EndFreq,
+                qMin(w/tw, HORZ_DIVS_MAX),
                 m_StartFreqAdj, m_FreqPerDiv, m_HorDivs);
+
     pixperdiv = (float)w * (float) m_FreqPerDiv / (float) m_Span;
     adjoffset = pixperdiv * float (m_StartFreqAdj - StartFreq) / (float) m_FreqPerDiv;
 
@@ -1419,7 +1576,11 @@ void Waterfall::drawOverlay()
     painter.setPen(m_FftTextColor);
     for (int i = 0; i <= m_HorDivs; i++)
     {
-        int tw = metrics.width(m_HDivText[i]);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+   int tw = metrics.horizontalAdvance(m_HDivText[i]);
+#else
+   int tw = metrics.width(m_HDivText[i]);
+#endif // QT_VERSION_CHECK
         x = (int)((float)i*pixperdiv + adjoffset);
         if (x > m_YAxisWidth)
         {
@@ -1428,19 +1589,104 @@ void Waterfall::drawOverlay()
         }
     }
 
-    // Level grid
-    qint64 mindBAdj64 = 0;
-    qint64 dbDivSize = 0;
+    // Draw frequency allocation tables
+    if (this->m_ShowFATs) {
+      int count = 0;
+      for (auto fat : this->m_FATs)
+        if (fat.second != nullptr) {
+          FrequencyBandIterator p = fat.second->find(StartFreq);
 
-    calcDivSize((qint64) m_PandMindB, (qint64) m_PandMaxdB,
-                qMax(h/m_VdivDelta, VERT_DIVS_MIN), mindBAdj64, dbDivSize,
+          while (p != fat.second->cbegin() && p->second.max > StartFreq)
+            --p;
+
+          for (; p != fat.second->cend() && p->second.min < EndFreq; ++p) {
+            int x0 = xFromFreq(p->second.min);
+            int x1 = xFromFreq(p->second.max);
+            bool leftborder = true;
+            bool rightborder = true;
+            int tw, boxw;
+
+
+            if (x0 < m_YAxisWidth) {
+              leftborder = false;
+              x0 = m_YAxisWidth;
+            }
+
+            if (x1 >= w) {
+              rightborder = false;
+              x1 = w - 1;
+            }
+
+            if (x1 < m_YAxisWidth)
+              continue;
+
+            boxw = x1 - x0;
+
+            painter.setBrush(QBrush(p->second.color));
+            painter.setPen(p->second.color);
+
+            painter.drawRect(
+                  x0,
+                  count * metrics.height(),
+                  x1 - x0 + 1,
+                  metrics.height());
+
+            if (leftborder)
+              painter.drawLine(
+                    x0,
+                    count * metrics.height(),
+                    x0,
+                    h);
+
+            if (rightborder)
+              painter.drawLine(
+                    x1,
+                    count * metrics.height(),
+                    x1,
+                    h);
+
+            label = metrics.elidedText(
+                  QString::fromStdString(p->second.primary),
+                  Qt::ElideRight,
+                  boxw);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+            tw = metrics.horizontalAdvance(label);
+#else
+            tw = metrics.width(label);
+#endif // QT_VERSION_CHECK
+
+            if (tw < boxw) {
+              painter.setPen(m_FftTextColor);
+              rect.setRect(
+                    x0 + (x1 - x0) / 2 - tw / 2,
+                    count * metrics.height(),
+                    tw,
+                    metrics.height());
+              painter.drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, label);
+            }
+          }
+
+          ++count;
+        }
+    }
+
+    // Level grid
+    qint64 minUnitAdj64 = 0;
+    qint64 unitDivSize = 0;
+    qint64 unitSign    = m_dBPerUnit < 0 ? -1 : 1;
+    qint64 pandMinUnit = unitSign * static_cast<qint64>(toDisplayUnits(m_PandMindB));
+    qint64 pandMaxUnit = unitSign * static_cast<qint64>(toDisplayUnits(m_PandMaxdB));
+
+    calcDivSize(pandMinUnit, pandMaxUnit,
+                qMax(h/m_VdivDelta, VERT_DIVS_MIN), minUnitAdj64, unitDivSize,
                 m_VerDivs);
 
-    dbstepsize = (float) dbDivSize;
-    mindbadj = mindBAdj64;
+    unitStepSize = (float) unitDivSize;
+    minUnitAdj = minUnitAdj64;
 
-    pixperdiv = (float) h * (float) dbstepsize / (m_PandMaxdB - m_PandMindB);
-    adjoffset = (float) h * (mindbadj - m_PandMindB) / (m_PandMaxdB - m_PandMindB);
+    pixperdiv = (float) h * (float) unitStepSize / (pandMaxUnit - pandMinUnit);
+    adjoffset = (float) h * (minUnitAdj - pandMinUnit) / (pandMaxUnit - pandMinUnit);
 
 #ifdef PLOTTER_DEBUG
     qDebug() << "minDb =" << m_PandMindB << "maxDb =" << m_PandMaxdB
@@ -1456,21 +1702,104 @@ void Waterfall::drawOverlay()
             painter.drawLine(m_YAxisWidth, y, w, y);
     }
 
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    if (m_BookmarksEnabled && this->m_BookmarkSource != nullptr)
+    {
+        m_BookmarkTags.clear();
+        static const QFontMetrics fm(painter.font());
+        static const int fontHeight = fm.ascent() + 1;
+        static const int slant = 5;
+        static const int levelHeight = fontHeight + 5;
+        static const int nLevels = 10;
+
+        QList<BookmarkInfo> bookmarks =
+            this->m_BookmarkSource->getBookmarksInRange(
+              m_CenterFreq + m_FftCenter - m_Span / 2,
+              m_CenterFreq + m_FftCenter + m_Span / 2);
+        int tagEnd[nLevels] = {0};
+        for (int i = 0; i < bookmarks.size(); i++)
+        {
+            x = xFromFreq(bookmarks[i].frequency);
+
+#if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
+            int nameWidth = fm.width(bookmarks[i].name);
+#else
+            int nameWidth = fm.boundingRect(bookmarks[i].name).width();
+#endif
+
+            int level = 0;
+            int yMin = static_cast<int>(this->m_FATs.size()) * metrics.height();
+            while(level < nLevels && tagEnd[level] > x)
+                level++;
+
+            if(level == nLevels)
+                level = 0;
+
+            tagEnd[level] = x + nameWidth + slant - 1;
+            m_BookmarkTags.append(
+                  qMakePair<QRect, BookmarkInfo>(
+                    QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
+                    bookmarks[i]));
+
+            QColor color = QColor(bookmarks[i].color);
+            color.setAlpha(0x60);
+            // Vertical line
+            painter.setPen(QPen(color, 1, Qt::DashLine));
+            painter.drawLine(x, yMin + level * levelHeight + fontHeight + slant, x, xAxisTop);
+
+            // Horizontal line
+            painter.setPen(QPen(color, 1, Qt::SolidLine));
+            painter.drawLine(x + slant, yMin + level * levelHeight + fontHeight,
+                             x + nameWidth + slant - 1,
+                             yMin + level * levelHeight + fontHeight);
+            // Diagonal line
+            painter.drawLine(x + 1, yMin + level * levelHeight + fontHeight + slant - 1,
+                             x + slant - 1, yMin + level * levelHeight + fontHeight + 1);
+
+            color.setAlpha(0xFF);
+            painter.setPen(QPen(color, 2, Qt::SolidLine));
+            painter.drawText(x + slant, yMin + level * levelHeight, nameWidth,
+                             fontHeight, Qt::AlignVCenter | Qt::AlignHCenter,
+                             bookmarks[i].name);
+        }
+    }
+#endif // WATERFALL_BOOKMARKS_SUPPORT
+
     // draw amplitude values (y axis)
-    int dB = m_PandMaxdB;
+    int unit;
+    int unitWidth;
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    m_YAxisWidth = metrics.horizontalAdvance("-120 ");
+    unitWidth    = metrics.horizontalAdvance(m_unitName);
+#else
     m_YAxisWidth = metrics.width("-120 ");
+    unitWidth    = metrics.width(m_unitName);
+#endif // QT_VERSION_CHECK
+
+    if (unitWidth > m_YAxisWidth)
+      m_YAxisWidth = unitWidth;
+
     painter.setPen(m_FftTextColor);
+    int th = metrics.height();
     for (int i = 0; i < m_VerDivs; i++)
     {
         y = h - (int)((float) i * pixperdiv + adjoffset);
-        int th = metrics.height();
+
         if (y < h -xAxisHeight)
         {
-            dB = mindbadj + dbstepsize * i;
+            unit = minUnitAdj + unitStepSize * i;
             rect.setRect(HOR_MARGIN, y - th / 2, m_YAxisWidth, th);
-            painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, QString::number(dB));
+            painter.drawText(
+                  rect,
+                  Qt::AlignRight|Qt::AlignVCenter,
+                  QString::number(unitSign * unit));
         }
     }
+
+    // Draw unit name on top left corner
+    rect.setRect(HOR_MARGIN, 0, unitWidth, th);
+    painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, m_unitName);
 
     // Draw demod filter box
     if (m_FilterBoxEnabled)
@@ -1482,8 +1811,7 @@ void Waterfall::drawOverlay()
         int dw = m_DemodHiCutFreqX - m_DemodLowCutFreqX;
 
         painter.setOpacity(0.3);
-        painter.fillRect(m_DemodLowCutFreqX, 0, dw, h,
-                         QColor(PLOTTER_FILTER_BOX_COLOR));
+        painter.fillRect(m_DemodLowCutFreqX, 0, dw, h, m_FilterBoxColor);
 
         painter.setOpacity(1.0);
         painter.setPen(QColor(PLOTTER_FILTER_LINE_COLOR));
@@ -1584,7 +1912,7 @@ int Waterfall::xFromFreq(qint64 freq)
 {
     int w = m_OverlayPixmap.width();
     qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span/2;
-    int x = (int) w * ((float)freq - StartFreq)/(float)m_Span;
+    int x = (int) w * ((qreal)freq - StartFreq)/(qreal)m_Span;
     if (x < 0)
         return 0;
     if (x > (int)w)
@@ -1597,7 +1925,7 @@ qint64 Waterfall::freqFromX(int x)
 {
     int w = m_OverlayPixmap.width();
     qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
-    qint64 f = (qint64)(StartFreq + (float)m_Span * (float)x / (float)w);
+    qint64 f = (qint64)(StartFreq + (qreal)m_Span * (qreal)x / (qreal)w);
     return f;
 }
 
@@ -1641,8 +1969,8 @@ void Waterfall::clampDemodParameters()
         m_DemodHiCutFreq = m_FHiCmax;
 }
 
-void Waterfall::setDemodRanges(int FLowCmin, int FLowCmax,
-                              int FHiCmin, int FHiCmax,
+void Waterfall::setDemodRanges(qint64 FLowCmin, qint64 FLowCmax,
+                              qint64 FHiCmin, qint64 FHiCmax,
                               bool symetric)
 {
     m_FLowCmin=FLowCmin;
@@ -1654,15 +1982,13 @@ void Waterfall::setDemodRanges(int FLowCmin, int FLowCmax,
     updateOverlay();
 }
 
-void Waterfall::setCenterFreq(quint64 f)
+void Waterfall::setCenterFreq(qint64 f)
 {
-    if((quint64)m_CenterFreq == f)
+    if(m_CenterFreq == f)
         return;
 
-    qint64 offset = m_CenterFreq - m_DemodCenterFreq;
-
+    m_tentativeCenterFreq += f - m_CenterFreq;
     m_CenterFreq = f;
-    m_DemodCenterFreq = m_CenterFreq - offset;
 
     updateOverlay();
 
@@ -1672,17 +1998,22 @@ void Waterfall::setCenterFreq(quint64 f)
 // Ensure overlay is updated by either scheduling or forcing a redraw
 void Waterfall::updateOverlay()
 {
-    if (m_Running)
-        m_DrawOverlay = true;
-    else
-        drawOverlay();
+  if (m_Running) {
+    m_DrawOverlay = true;
+    // If the update rate is slow, draw now.
+    if (this->slow())
+      draw(false);
+  } else {
+    // Not the case. Draw now.
+    drawOverlay();
+  }
 }
 
 /** Reset horizontal zoom to 100% and centered around 0. */
 void Waterfall::resetHorizontalZoom(void)
 {
     setFftCenterFreq(0);
-    setSpanFreq((qint32)m_SampleFreq);
+    setSpanFreq(static_cast<qint64>(m_SampleFreq));
     emit newZoomLevel(1);
 }
 
@@ -1711,12 +2042,21 @@ void Waterfall::setFftPlotColor(const QColor color)
     m_FftFillCol.setAlpha(0x1A);
     m_PeakHoldColor = color;
     m_PeakHoldColor.setAlpha(60);
+    updateOverlay();
+}
+
+/** Set filter box color */
+void Waterfall::setFilterBoxColor(const QColor color)
+{
+  m_FilterBoxColor = color;
+  updateOverlay();
 }
 
 /** Set FFT bg color. */
 void Waterfall::setFftBgColor(const QColor color)
 {
     m_FftBgColor = color;
+    updateOverlay();
 }
 
 /** Set FFT axes color. */
@@ -1724,13 +2064,13 @@ void Waterfall::setFftAxesColor(const QColor color)
 {
     m_FftCenterAxisColor = color;
     m_FftAxesColor = color;
-    m_FftAxesColor.setAlpha(60);
 }
 
 /** Set FFT text color. */
 void Waterfall::setFftTextColor(const QColor color)
 {
     m_FftTextColor = color;
+    updateOverlay();
 }
 
 /** Enable/disable filling the area below the FFT plot. */
@@ -1774,14 +2114,14 @@ void Waterfall::calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &ad
     static const int stepTableSize = sizeof (stepTable) / sizeof (stepTable[0]);
     qint64 multiplier = 1;
     step = 1;
-    divs = high - low;
+    qint64 divsLong = high - low;
     int index = 0;
     adjlow = (low / step) * step;
 
-    while (divs > divswanted)
+    while (divsLong > divswanted)
     {
         step = stepTable[index] * multiplier;
-        divs = int ((high - low) / step);
+        divsLong = (high - low) / step;
         adjlow = (low / step) * step;
         index = index + 1;
         if (index == stepTableSize)
@@ -1793,9 +2133,41 @@ void Waterfall::calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &ad
     if (adjlow < low)
         adjlow += step;
 
+
+    divs = static_cast<int>(divsLong);
+
 #ifdef PLOTTER_DEBUG
     qDebug() << "adjlow: "  << adjlow;
     qDebug() << "step: " << step;
     qDebug() << "divs: " << divs;
 #endif
+}
+
+void Waterfall::pushFAT(const FrequencyAllocationTable *fat)
+{
+  this->m_FATs[fat->getName()] = fat;
+
+  if (this->m_ShowFATs)
+    this->updateOverlay();
+}
+
+bool Waterfall::removeFAT(std::string const &name)
+{
+  auto p = this->m_FATs.find(name);
+
+  if (p == this->m_FATs.end())
+    return false;
+
+  this->m_FATs.erase(p);
+
+  if (this->m_ShowFATs)
+    this->updateOverlay();
+
+  return true;
+}
+
+void Waterfall::setFATsVisible(bool visible)
+{
+  this->m_ShowFATs = visible;
+  this->updateOverlay();
 }

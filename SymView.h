@@ -25,32 +25,76 @@
 #include <QResizeEvent>
 #include "ThrottleableWidget.h"
 
+#define SYMVIEW_MAX_ZOOM 50
+#define SYMVIEW_DEFAULT_BG_COLOR QColor(0, 0, 0)
+#define SYMVIEW_DEFAULT_LO_COLOR QColor(0, 0, 0)
+#define SYMVIEW_DEFAULT_HI_COLOR QColor(0xff, 0xff, 0xff)
+
 class SymView : public ThrottleableWidget
 {
   Q_OBJECT
 
-    // Symbol buffer
-    std::vector<Symbol> buffer; // TODO: Allow loans
-    // Behavior
-    bool autoScroll = true;
-    bool autoStride = true;
-    bool pad[6];
+  Q_PROPERTY(
+        QColor backgroundColor
+        READ getBackgroundColor
+        WRITE setBackgroundColor
+        NOTIFY backgroundColorChanged)
 
-    // Representation properties
-    unsigned int bps = 1;     // Bits per symbol.
-    unsigned int offset = 0;  // Offset (wrt buffer)
-    int stride = 1;           // Image stride
-    unsigned int pad2;
-    QImage viewPort;          // Current view. Matches geometry
+  Q_PROPERTY(
+        QColor loColor
+        READ getLoColor
+        WRITE setLoColor
+        NOTIFY loColorChanged)
 
-    // Private methods
-    void assertImage(void);
+  Q_PROPERTY(
+        QColor hiColor
+        READ getHiColor
+        WRITE setHiColor
+        NOTIFY hiColorChanged)
+
+  // Symbol buffer
+  std::vector<Symbol> buffer; // TODO: Allow loans
+  // Behavior
+  bool autoScroll = true;
+  bool autoStride = true;
+  bool reverse    = false;
+  bool pad[6];
+
+  // Representation properties
+  unsigned int bps = 1;     // Bits per symbol.
+  unsigned int zoom = 1;    // Pixels per symbol
+  unsigned int offset = 0;  // Offset (wrt buffer)
+  int hOffset = 0; // Horizontal offset
+  int stride = 1;           // Image stride
+  int hoverX = -1;
+  int hoverY = -1;
+  unsigned int pad2;
+  QImage viewPort;          // Current view. Matches geometry
+
+  QColor background;
+  QColor lowSym;
+  QColor highSym;
+
+  // Private methods
+  void assertImage(void);
+  void drawToImage(
+      QImage &image,
+      unsigned int start,
+      unsigned int end,
+      unsigned int zoom = 1,
+      unsigned int stride = 0,
+      unsigned int skip = 0,
+      unsigned int lineStart = 0);
 
 public:
   enum FileFormat {
     FILE_FORMAT_TEXT,
     FILE_FORMAT_RAW,
-    FILE_FORMAT_C_ARRAY
+    FILE_FORMAT_C_ARRAY,
+    FILE_FORMAT_BMP,
+    FILE_FORMAT_PNG,
+    FILE_FORMAT_JPEG,
+    FILE_FORMAT_PPM
   };
 
   void clear(void);
@@ -77,7 +121,21 @@ public:
     this->autoStride = val;
 
     if (val)
-      this->setStride(static_cast<unsigned int>(this->width()));
+      this->setStride(static_cast<unsigned int>(this->width() / this->zoom));
+  }
+
+  bool
+  getReverse(void) const
+  {
+    return this->reverse;
+  }
+
+  void
+  setReverse(bool rev)
+  {
+    this->reverse = rev;
+    if (this->buffer.size() > 0)
+      this->invalidate();
   }
 
   bool
@@ -149,6 +207,84 @@ public:
     }
   }
 
+  void
+  setHOffset(int offset)
+  {
+    if (offset >= this->stride)
+      offset = this->stride - 1;
+
+    if (offset != this->hOffset) {
+      this->hOffset = offset;
+      this->invalidate();
+      emit hOffsetChanged(offset);
+    }
+  }
+
+  void
+  setZoom(unsigned int zoom)
+  {
+    if (zoom > 0 && zoom != this->zoom && zoom <= SYMVIEW_MAX_ZOOM) {
+      this->zoom = zoom;
+      this->setAutoStride(this->autoStride);
+      this->invalidate();
+      emit zoomChanged(zoom);
+    }
+  }
+
+  unsigned int
+  getZoom(void) const
+  {
+    return this->zoom;
+  }
+
+  void
+  setBackgroundColor(const QColor &c)
+  {
+    if (c != this->background) {
+      this->background = c;
+      this->invalidate();
+      emit backgroundColorChanged();
+    }
+  }
+
+  const QColor &
+  getBackgroundColor(void) const
+  {
+    return this->background;
+  }
+
+  void
+  setLoColor(const QColor &c)
+  {
+    if (c != this->lowSym) {
+      this->lowSym = c;
+      this->invalidate();
+      emit backgroundColorChanged();
+    }
+  }
+
+  const QColor &
+  getLoColor(void) const
+  {
+    return this->lowSym;
+  }
+
+  void
+  setHiColor(const QColor &c)
+  {
+    if (c != this->highSym) {
+      this->highSym = c;
+      this->invalidate();
+      emit backgroundColorChanged();
+    }
+  }
+
+  const QColor &
+  getHiColor(void) const
+  {
+    return this->highSym;
+  }
+
   SymView(QWidget *parent = nullptr);
 
   void scrollToBottom(void);
@@ -159,13 +295,19 @@ public:
   void draw(void);
   void paint(void);
   void mousePressEvent(QMouseEvent *event);
+  void mouseMoveEvent(QMouseEvent *event);
   void keyPressEvent(QKeyEvent *event);
   void wheelEvent(QWheelEvent *event);
 
   signals:
   void offsetChanged(unsigned int);
+  void hOffsetChanged(int);
   void strideChanged(unsigned int);
-
+  void zoomChanged(unsigned int);
+  void hoverSymbol(unsigned int position);
+  void backgroundColorChanged();
+  void loColorChanged();
+  void hiColorChanged();
 };
 
 #endif

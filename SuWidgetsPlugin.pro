@@ -2,10 +2,18 @@ CONFIG      += plugin debug_and_release
 TARGET      = $$qtLibraryTarget(suwidgetsplugin)
 TEMPLATE    = lib
 
-HEADERS     = ConstellationPlugin.h TransitionPlugin.h HistogramPlugin.h LCDPlugin.h WaveformPlugin.h SymViewPlugin.h SuWidgets.h \
+HEADERS     = BookmarkInfo.h ConstellationPlugin.h TransitionPlugin.h HistogramPlugin.h LCDPlugin.h WaveformPlugin.h SymViewPlugin.h SuWidgets.h \
+    FrequencySpinBoxPlugin.h \
+    QVerticalLabelPlugin.h \
+    TVDisplayPlugin.h \
+    TimeSpinBoxPlugin.h \
     WaterfallPlugin.h ctkRangeSliderPlugin.h \
     ColorChooserButtonPlugin.h
 SOURCES     = ConstellationPlugin.cpp TransitionPlugin.cpp HistogramPlugin.cpp LCDPlugin.cpp WaveformPlugin.cpp SymViewPlugin.cpp SuWidgets.cpp \
+    FrequencySpinBoxPlugin.cpp \
+    QVerticalLabelPlugin.cpp \
+    TVDisplayPlugin.cpp \
+    TimeSpinBoxPlugin.cpp \
     WaterfallPlugin.cpp ctkRangeSliderPlugin.cpp \
     ColorChooserButtonPlugin.cpp
 RESOURCES   = icons.qrc

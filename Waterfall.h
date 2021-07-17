@@ -35,8 +35,11 @@
 #include <QFont>
 #include <QFrame>
 #include <QImage>
+#include <QList>
 #include <vector>
 #include <QMap>
+
+#define WATERFALL_BOOKMARKS_SUPPORT
 
 #define HORZ_DIVS_MAX 12    //50
 #define VERT_DIVS_MIN 5
@@ -45,7 +48,61 @@
 #define PEAK_CLICK_MAX_H_DISTANCE 10 //Maximum horizontal distance of clicked point from peak
 #define PEAK_CLICK_MAX_V_DISTANCE 20 //Maximum vertical distance of clicked point from peak
 #define PEAK_H_TOLERANCE 2
+#define MINIMUM_REFRESH_RATE      25
 
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+#include "BookmarkInfo.h"
+
+class BookmarkSource {
+  public:
+    virtual ~BookmarkSource();
+    virtual QList<BookmarkInfo> getBookmarksInRange(qint64, qint64) = 0;
+};
+#endif // WATERFALL_BOOKMARKS_SUPPORT
+
+struct FrequencyBand {
+  qint64 min;
+  qint64 max;
+  std::string primary;
+  std::string secondary;
+  std::string footnotes;
+  QColor color;
+};
+
+struct TimeStamp {
+  int counter;
+  QString timeStampText;
+};
+
+typedef std::map<qint64, FrequencyBand>::const_iterator FrequencyBandIterator;
+
+class FrequencyAllocationTable {
+  std::string name;
+  std::map<qint64, FrequencyBand> allocation;
+
+public:
+  FrequencyAllocationTable();
+  FrequencyAllocationTable(std::string const &name);
+
+  void
+  setName(std::string const &name)
+  {
+    this->name = name;
+  }
+  std::string const &
+  getName(void) const
+  {
+    return this->name;
+  }
+
+  void pushBand(FrequencyBand const &);
+  void pushBand(qint64, qint64, std::string const &);
+
+  FrequencyBandIterator cbegin(void) const;
+  FrequencyBandIterator cend(void) const;
+
+  FrequencyBandIterator find(qint64 freq) const;
+};
 
 class Waterfall : public QFrame
 {
@@ -59,34 +116,73 @@ public:
     QSize sizeHint() const;
 
     //void SetSdrInterface(CSdrInterface* ptr){m_pSdrInterface = ptr;}
-    void draw();		//call to draw new fft data onto screen plot
+    void draw(bool everything = true);		//call to draw new fft data onto screen plot
     void setLocked(bool locked) { m_Locked = locked; }
     void setRunningState(bool running) { m_Running = running; }
     void setClickResolution(int clickres) { m_ClickResolution = clickres; }
+    void setExpectedRate(int rate) { m_expectedRate = rate; }
     void setFilterClickResolution(int clickres) { m_FilterClickResolution = clickres; }
     void setFilterBoxEnabled(bool enabled) { m_FilterBoxEnabled = enabled; }
     void setCenterLineEnabled(bool enabled) { m_CenterLineEnabled = enabled; }
     void setTooltipsEnabled(bool enabled) { m_TooltipsEnabled = enabled; }
     void setBookmarksEnabled(bool enabled) { m_BookmarksEnabled = enabled; }
+    void setTimeStampsEnabled(bool enabled) { m_TimeStampsEnabled = enabled; }
 
-    void setNewFftData(float *fftData, int size);
-    void setNewFftData(float *fftData, float *wfData, int size);
+    void setUseLBMdrag(bool enabled)
+    {
+      m_freqDragBtn = (enabled) ? Qt::LeftButton :Qt::MidButton;
+    }
 
-    void setCenterFreq(quint64 f);
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    void setBookmarkSource(BookmarkSource *src) { m_BookmarkSource = src; }
+
+#endif // WATERFALL_BOOKMARKS_SUPPORT
+    bool removeFAT(std::string const &);
+    void pushFAT(const FrequencyAllocationTable *);
+    void setFATsVisible(bool);
+
+    void setNewFftData(
+        float *fftData,
+        int size,
+        QDateTime const &stamp = QDateTime::currentDateTime());
+
+    void setNewFftData(
+        float *fftData,
+        float *wfData,
+        int size,
+        QDateTime const &stamp = QDateTime::currentDateTime());
+
+    void setCenterFreq(qint64 f);
     void setFreqUnits(qint32 unit) { m_FreqUnits = unit; }
 
-    void setDemodCenterFreq(quint64 f) { m_DemodCenterFreq = f; }
+    void setDemodCenterFreq(qint64 f) { m_DemodCenterFreq = f; }
 
     void setPalette(const QColor *table)
     {
       unsigned int i;
 
-      for (i = 0; i < 256; ++i)
+      for (i = 0; i < 256; ++i) {
         this->m_ColorTbl[i] = table[i];
+        this->m_UintColorTbl[i] = qRgb(
+              table[i].red(),
+              table[i].green(),
+              table[i].blue());
+      }
 
       this->update();
     }
 
+    bool
+    slow(void) const
+    {
+      if (m_fftDataSize == 0)
+        return true;
+
+      if (m_expectedRate != 0 && m_expectedRate < MINIMUM_REFRESH_RATE)
+        return true;
+
+      return m_SampleFreq / m_fftDataSize < MINIMUM_REFRESH_RATE;
+    }
     /*! \brief Move the filter to freq_hz from center. */
     void setFilterOffset(qint64 freq_hz)
     {
@@ -98,25 +194,42 @@ public:
         return m_DemodCenterFreq - m_CenterFreq;
     }
 
-    int getFilterBw()
+    qint64 getFilterBw()
     {
         return m_DemodHiCutFreq - m_DemodLowCutFreq;
     }
 
-    void setHiLowCutFrequencies(int LowCut, int HiCut)
+    void setHiLowCutFrequencies(qint64 LowCut, qint64 HiCut)
     {
         m_DemodLowCutFreq = LowCut;
         m_DemodHiCutFreq = HiCut;
         drawOverlay();
     }
 
-    void getHiLowCutFrequencies(int *LowCut, int *HiCut)
+    void setdBPerUnit(float dBPerUnit)
+    {
+      m_dBPerUnit = dBPerUnit;
+      drawOverlay();
+    }
+
+    void setZeroPoint(float zeroPoint)
+    {
+      m_ZeroPoint = zeroPoint;
+      drawOverlay();
+    }
+
+    void getHiLowCutFrequencies(qint64 *LowCut, qint64 *HiCut)
     {
         *LowCut = m_DemodLowCutFreq;
         *HiCut = m_DemodHiCutFreq;
     }
 
-    void setDemodRanges(int FLowCmin, int FLowCmax, int FHiCmin, int FHiCmax, bool symetric);
+    void setDemodRanges(
+        qint64 FLowCmin,
+        qint64 FLowCmax,
+        qint64 FHiCmin,
+        qint64 FHiCmax,
+        bool symetric);
 
     qint64
     getCenterFreq(void) const
@@ -124,11 +237,31 @@ public:
       return m_CenterFreq;
     }
 
-    /* Shown bandwidth around SetCenterFreq() */
-    void setSpanFreq(quint32 s)
+    float toDisplayUnits(float dB)
     {
-        if (s > 0 && s < INT_MAX) {
-            m_Span = (qint32)s;
+      return dB / this->m_dBPerUnit - this->m_ZeroPoint;
+    }
+
+    void setGain(float gain)
+    {
+      m_gain = gain;
+    }
+
+    void setUnitName(QString const &name)
+    {
+      m_unitName = name;
+    }
+
+    QString getUnitName(void) const
+    {
+      return m_unitName;
+    }
+
+    /* Shown bandwidth around SetCenterFreq() */
+    void setSpanFreq(qint64 s)
+    {
+        if (s > 0) {
+            m_Span = s;
             setFftCenterFreq(m_FftCenter);
         }
         drawOverlay();
@@ -183,6 +316,7 @@ signals:
     void newDemodFreq(qint64 freq, qint64 delta); /* delta is the offset from the center */
     void newLowCutFreq(int f);
     void newHighCutFreq(int f);
+    void newModulation(QString modulation);
     void newFilterFreq(int low, int high);  /* substitute for NewLow / NewHigh */
     void pandapterRangeChanged(float min, float max);
     void newZoomLevel(float level);
@@ -199,6 +333,8 @@ public slots:
     void setFftBgColor(const QColor color);
     void setFftAxesColor(const QColor color);
     void setFftTextColor(const QColor color);
+    void setFilterBoxColor(const QColor color);
+
     void setFftFill(bool enabled);
     void setPeakHold(bool enabled);
     void setFftRange(float min, float max);
@@ -234,6 +370,7 @@ private:
         BOOKMARK
     };
 
+    void        paintTimeStamps(QPainter &, QRect const &);
     void        drawOverlay();
     void        makeFrequencyStrs();
     int         xFromFreq(qint64 freq);
@@ -253,6 +390,7 @@ private:
                                  qint32 *maxbin, qint32 *minbin);
     void calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &adjlow, qint64 &step, int& divs);
 
+    Qt::MouseButton m_freqDragBtn = Qt::MidButton;
     bool        m_PeakHoldActive;
     bool        m_PeakHoldValid;
     qint32      m_fftbuf[MAX_SCREENSIZE];
@@ -268,8 +406,9 @@ private:
     eCapturetype    m_CursorCaptured;
     QPixmap     m_2DPixmap;
     QPixmap     m_OverlayPixmap;
-    QPixmap     m_WaterfallPixmap;
-    QColor              m_ColorTbl[256];
+    QImage      m_WaterfallImage;
+    QColor      m_ColorTbl[256];
+    uint32_t    m_UintColorTbl[256];
     QSize       m_Size;
     QString     m_Str;
     QString     m_HDivText[HORZ_DIVS_MAX+1];
@@ -285,8 +424,8 @@ private:
     bool        m_TooltipsEnabled;     /*!< Tooltips enabled */
     bool        m_BookmarksEnabled;   /*!< Show/hide bookmarks on spectrum */
     bool        m_Locked; /* Prevent manual adjust of center frequency */
-    int         m_DemodHiCutFreq;
-    int         m_DemodLowCutFreq;
+    qint64      m_DemodHiCutFreq;
+    qint64      m_DemodLowCutFreq;
     int         m_DemodFreqX;		//screen coordinate x position
     int         m_DemodHiCutFreqX;	//screen coordinate x position
     int         m_DemodLowCutFreqX;	//screen coordinate x position
@@ -294,10 +433,10 @@ private:
     int         m_GrabPosition;
     int         m_Percent2DScreen;
 
-    int         m_FLowCmin;
-    int         m_FLowCmax;
-    int         m_FHiCmin;
-    int         m_FHiCmax;
+    qint64      m_FLowCmin;
+    qint64      m_FLowCmax;
+    qint64      m_FHiCmin;
+    qint64      m_FHiCmax;
     bool        m_symetric;
 
     int         m_HorDivs;   /*!< Current number of horizontal divisions. Calculated from width. */
@@ -308,6 +447,14 @@ private:
     float       m_WfMindB;
     float       m_WfMaxdB;
 
+    float       m_gain = 0.;
+    float       m_ZeroPoint = 0;
+    float       m_dBPerUnit = 1.;
+    QString     m_unitName = "dBFS";
+
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    BookmarkSource *m_BookmarkSource = nullptr;
+#endif // WATERFALL_BOOKMARKS_SUPPORT
     qint64      m_Span;
     float       m_SampleFreq;    /*!< Sample rate. */
     qint32      m_FreqUnits;
@@ -322,23 +469,37 @@ private:
     int         m_HdivDelta; /*!< Minimum distance in pixels between two horizontal grid lines (vertical division). */
     int         m_VdivDelta; /*!< Minimum distance in pixels between two vertical grid lines (horizontal division). */
 
-    quint32     m_LastSampleRate;
+    quint64     m_LastSampleRate;
 
     QColor      m_FftColor, m_FftFillCol, m_PeakHoldColor;
     QColor      m_FftBgColor, m_FftCenterAxisColor, m_FftAxesColor;
     QColor      m_FftTextColor;
+    QColor      m_FilterBoxColor;
     bool        m_FftFill;
 
+    qint64      m_tentativeCenterFreq = 0;
     float       m_PeakDetection;
     QMap<int,int>   m_Peaks;
 
-    QList< QPair<QRect, qint64> >     m_BookmarkTags;
+#ifdef WATERFALL_BOOKMARKS_SUPPORT
+    QList< QPair<QRect, BookmarkInfo> >     m_BookmarkTags;
+#endif
+
+    QList<TimeStamp> m_TimeStamps;
+    bool        m_TimeStampsEnabled = true;
+    int         m_TimeStampSpacing = 64;
+    int         m_TimeStampCounter = 64;
+    int         m_TimeStampMaxHeight = 0;
 
     // Waterfall averaging
     quint64     tlast_wf_ms;        // last time waterfall has been updated
     quint64     msec_per_wfline;    // milliseconds between waterfall updates
     quint64     wf_span;            // waterfall span in milliseconds (0 = auto)
     int         fft_rate;           // expected FFT rate (needed when WF span is auto)
+    int         m_expectedRate;
+    // Frequency allocations
+    bool m_ShowFATs = false;
+    std::map<std::string, const FrequencyAllocationTable *> m_FATs;
 };
 
 #endif // PLOTTER_H

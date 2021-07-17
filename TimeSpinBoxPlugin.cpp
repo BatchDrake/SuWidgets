@@ -16,18 +16,18 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#include "LCD.h"
-#include "LCDPlugin.h"
+#include "TimeSpinBox.h"
+#include "TimeSpinBoxPlugin.h"
 
 #include <QtPlugin>
 
-LCDPlugin::LCDPlugin(QObject *parent)
+TimeSpinBoxPlugin::TimeSpinBoxPlugin(QObject *parent)
   : QObject(parent)
 {
   m_initialized = false;
 }
 
-void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
+void TimeSpinBoxPlugin::initialize(QDesignerFormEditorInterface * /* core */)
 {
   if (m_initialized)
     return;
@@ -37,53 +37,53 @@ void LCDPlugin::initialize(QDesignerFormEditorInterface * /* core */)
   m_initialized = true;
 }
 
-bool LCDPlugin::isInitialized() const
+bool TimeSpinBoxPlugin::isInitialized() const
 {
   return m_initialized;
 }
 
-QWidget *LCDPlugin::createWidget(QWidget *parent)
+QWidget *TimeSpinBoxPlugin::createWidget(QWidget *parent)
 {
-  return new LCD(parent);
+  return new TimeSpinBox(parent);
 }
 
-QString LCDPlugin::name() const
+QString TimeSpinBoxPlugin::name() const
 {
-  return QLatin1String("LCD");
+  return QLatin1String("TimeSpinBox");
 }
 
-QString LCDPlugin::group() const
+QString TimeSpinBoxPlugin::group() const
 {
   return QLatin1String("");
 }
 
-QIcon LCDPlugin::icon() const
+QIcon TimeSpinBoxPlugin::icon() const
 {
   return QIcon();
 }
 
-QString LCDPlugin::toolTip() const
+QString TimeSpinBoxPlugin::toolTip() const
 {
   return QLatin1String("");
 }
 
-QString LCDPlugin::whatsThis() const
+QString TimeSpinBoxPlugin::whatsThis() const
 {
   return QLatin1String("");
 }
 
-bool LCDPlugin::isContainer() const
+bool TimeSpinBoxPlugin::isContainer() const
 {
   return false;
 }
 
-QString LCDPlugin::domXml() const
+QString TimeSpinBoxPlugin::domXml() const
 {
-  return QLatin1String("<widget class=\"LCD\" name=\"lcd\">\n</widget>\n");
+  return QLatin1String("<widget class=\"TimeSpinBox\" name=\"timeSpinBox\">\n</widget>\n");
 }
 
-QString LCDPlugin::includeFile() const
+QString TimeSpinBoxPlugin::includeFile() const
 {
-  return QLatin1String("LCD.h");
+  return QLatin1String("TimeSpinBox.h");
 }
 
