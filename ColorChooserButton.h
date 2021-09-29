@@ -45,7 +45,11 @@ class ColorChooserButton : public QWidget
     void
     setColor(QColor color)
     {
-      this->current = color;
+      if (this->current != color) {
+        this->current = color;
+        emit colorChanged(color);
+      }
+
       this->resetPixmap();
     }
 
