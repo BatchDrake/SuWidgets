@@ -117,11 +117,23 @@ SuWidgetsHelpers::formatQuantity(
   if (std::fabs(value) < std::numeric_limits<qreal>::epsilon())
     return "0 " + u;
 
-  if (value < 0) {
-    value = -value;
-    asString += "-";
-  } else if (sign) {
-    asString += "+";
+  if (u == "º") {
+    if (value < 0 && !sign)
+      value += 360;
+    else if (value > 180 && sign)
+      value -= 360;
+
+    if (value < 0) {
+      value = -value;
+      asString += "-";
+    }
+  } else {
+    if (value < 0) {
+      value = -value;
+      asString += "-";
+    } else if (sign) {
+      asString += "+";
+    }
   }
 
   // Get digit count.
@@ -148,7 +160,7 @@ SuWidgetsHelpers::formatQuantity(
       }
 
       minutes = seconds / 60;
-      hours   = minutes / 3600;
+      hours   = minutes / 60;
 
       seconds %= 60;
       minutes %= 60;
@@ -195,6 +207,23 @@ SuWidgetsHelpers::formatQuantity(
       // No hh:mm:ss or mm::ss, add suffix to make things clear.
       if (minutes == 0 && hours == 0)
         asString += " s";
+    } else if (u == "º") {
+      unsigned int deg, min, seconds;
+
+      deg = static_cast<unsigned int>(value);
+      value -= deg;
+
+      min = static_cast<unsigned int>(value * 60);
+      value -= min / 60.;
+
+      seconds = static_cast<unsigned int>(value * 3600);
+      value -= seconds / 3600.;
+
+      asString += QString::asprintf("%02uº ", deg);
+      asString += QString::asprintf("%02u' ", min);
+      asString += QString::asprintf("%02u\"", seconds);
+
+      // TODO: Add milliseconds?
     } else {
       multiplier = std::pow(10, precision - 1);
       value = std::round(value * multiplier) / multiplier;
