@@ -1029,7 +1029,9 @@ void Waterfall::paintTimeStamps(
   int textWidth;
   int textHeight = metrics.height();
   int items = 0;
+  int leftSpacing = 0;
   QBrush brush(m_ColorTbl[0]);
+
   auto it = m_TimeStamps.begin();
 
   painter.setFont(m_Font);
@@ -1041,6 +1043,12 @@ void Waterfall::paintTimeStamps(
 
   painter.setPen(QPen(m_ColorTbl[255]));
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+  leftSpacing = metrics.horizontalAdvance("00:00:00.000");
+#else
+  leftSpacing = metrics.width("00:00:00.000");
+#endif // QT_VERSION_CHECK
+
   while (y < m_TimeStampMaxHeight + textHeight && it != m_TimeStamps.end()) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
     textWidth = metrics.horizontalAdvance(it->timeStampText);
@@ -1048,9 +1056,16 @@ void Waterfall::paintTimeStamps(
     textWidth = metrics.width(it->timeStampText);
 #endif // QT_VERSION_CHECK
 
-    painter.drawLine(where.x(), y, textWidth + where.x(), y);
-
-    painter.drawText(where.x(), y - 2, it->timeStampText);
+    if (it->marker) {
+      painter.drawText(
+            where.x() + where.width() - textWidth - 2,
+            y - 2,
+            it->timeStampText);
+      painter.drawLine(where.x() + leftSpacing, y, where.width() - 1, y);
+    } else {
+      painter.drawText(where.x(), y - 2, it->timeStampText);
+      painter.drawLine(where.x(), y, textWidth + where.x(), y);
+    }
 
     y += it->counter;
     ++it;
@@ -1300,9 +1315,24 @@ void Waterfall::setNewFftData(float *fftData, int size, QDateTime const &t)
     if (!m_Running)
         m_Running = true;
 
+    if (t < this->m_lastFft) {
+      TimeStamp ts;
+
+      ts.counter = m_TimeStampCounter;
+      ts.timeStampText =
+          this->m_lastFft.toString("hh:mm:ss.zzz")
+          + " - "
+          + t.toString("hh:mm:ss.zzz");
+      ts.marker = true;
+
+      m_TimeStamps.push_front(ts);
+      m_TimeStampCounter = 0;
+    }
+
     m_wfData = fftData;
     m_fftData = fftData;
     m_fftDataSize = size;
+    m_lastFft = t;
 
     if (m_tentativeCenterFreq != 0) {
       m_tentativeCenterFreq = 0;
@@ -1342,10 +1372,25 @@ void Waterfall::setNewFftData(
     if (!m_Running)
         m_Running = true;
 
+    if (t < this->m_lastFft) {
+      TimeStamp ts;
+
+      ts.counter = m_TimeStampCounter;
+      ts.timeStampText =
+          this->m_lastFft.toString("hh:mm:ss.zzz")
+          + " - "
+          + t.toString("hh:mm:ss.zzz");
+      ts.marker = true;
+
+      m_TimeStamps.push_front(ts);
+      m_TimeStampCounter = 0;
+    }
+
     m_wfData = wfData;
     m_fftData = fftData;
     m_fftDataSize = size;
     m_tentativeCenterFreq = 0;
+    m_lastFft = t;
 
     if (m_TimeStampCounter >= m_TimeStampSpacing) {
       TimeStamp ts;

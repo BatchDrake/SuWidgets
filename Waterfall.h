@@ -72,6 +72,7 @@ struct FrequencyBand {
 struct TimeStamp {
   int counter;
   QString timeStampText;
+  bool marker = false;
 };
 
 typedef std::map<qint64, FrequencyBand>::const_iterator FrequencyBandIterator;
@@ -485,6 +486,7 @@ private:
     QList< QPair<QRect, BookmarkInfo> >     m_BookmarkTags;
 #endif
 
+    QDateTime   m_lastFft;
     QList<TimeStamp> m_TimeStamps;
     bool        m_TimeStampsEnabled = true;
     int         m_TimeStampSpacing = 64;
