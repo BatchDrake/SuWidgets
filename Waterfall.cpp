@@ -1309,13 +1309,17 @@ void Waterfall::draw(bool everything)
  * When FFT data is set using this method, the same data will be used for both the
  * pandapter and the waterfall.
  */
-void Waterfall::setNewFftData(float *fftData, int size, QDateTime const &t)
+void Waterfall::setNewFftData(
+    float *fftData,
+    int size,
+    QDateTime const &t,
+    bool looped)
 {
     /** FIXME **/
     if (!m_Running)
         m_Running = true;
 
-    if (t < this->m_lastFft) {
+    if (looped) {
       TimeStamp ts;
 
       ts.counter = m_TimeStampCounter;
@@ -1366,13 +1370,14 @@ void Waterfall::setNewFftData(
     float *fftData,
     float *wfData,
     int size,
-    QDateTime const &t)
+    QDateTime const &t,
+    bool looped)
 {
     /** FIXME **/
     if (!m_Running)
         m_Running = true;
 
-    if (t < this->m_lastFft) {
+    if (looped) {
       TimeStamp ts;
 
       ts.counter = m_TimeStampCounter;

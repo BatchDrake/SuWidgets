@@ -145,13 +145,15 @@ public:
     void setNewFftData(
         float *fftData,
         int size,
-        QDateTime const &stamp = QDateTime::currentDateTime());
+        QDateTime const &stamp = QDateTime::currentDateTime(),
+        bool looped = false);
 
     void setNewFftData(
         float *fftData,
         float *wfData,
         int size,
-        QDateTime const &stamp = QDateTime::currentDateTime());
+        QDateTime const &stamp = QDateTime::currentDateTime(),
+        bool looped = false);
 
     void setCenterFreq(qint64 f);
     void setFreqUnits(qint32 unit) { m_FreqUnits = unit; }
