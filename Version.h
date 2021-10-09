@@ -23,7 +23,7 @@
 #include <sigutils/version.h>
 
 #define SUWIDGETS_VERSION_MAJOR 0
-#define SUWIDGETS_VERSION_MINOR 2
+#define SUWIDGETS_VERSION_MINOR 3
 #define SUWIDGETS_VERSION_PATCH 0
 
 #define SUWIDGETS_ABI_VERSION   2
