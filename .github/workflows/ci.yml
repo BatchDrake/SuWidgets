@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        description: 'Build and run interactive shell'
+        required: false
+        default: false
+    
+env:
+  BUILD_TYPE:    Release
+  QT_BUILD_TYPE: release
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v2
+
+    - name: Install sndfile
+      run: sudo apt-get install libsndfile1-dev
+
+    - name: Install Volk
+      run: sudo apt-get install libvolk2-dev
+
+    - name: Install FFTW3
+      run: sudo apt-get install libfftw3-dev
+
+    - name: Checkout (sigutils)
+      uses: actions/checkout@v2
+      with:
+        repository: BatchDrake/sigutils
+        ref: refs/heads/develop
+        path: sigutils
+
+    - name: Configure CMake (sigutils)
+      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+
+    - name: Build (sigutils)
+      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
+
+    - name: Install system-wide (sigutils)
+      run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Checkout (SuWidgets)
+      uses: actions/checkout@v2
+      with:
+        repository: BatchDrake/SuWidgets
+        ref: refs/heads/develop
+        path: SuWidgets
+
+    - name: QMake (SuWidgets)
+      run: |
+        export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+        cd SuWidgets
+        qmake SuWidgets.pro "CONFIG += ${{env.QT_BUILD_TYPE}}"
+        cd ..
+
+    - name: Build (SuWidgets)
+      run: make -j 2 -C SuWidgets
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v2
+
+    - name: Install sndfile
+      run: brew install libsndfile
+
+    - name: Install Volk
+      run: brew install volk
+
+    - name: Install FFTW3
+      run: brew install fftw
+
+    - name: Checkout (sigutils)
+      uses: actions/checkout@v2
+      with:
+        repository: BatchDrake/sigutils
+        ref: refs/heads/develop
+        path: sigutils
+
+    - name: Configure CMake (sigutils)
+      run: cmake -DCMAKE_INSTALL_PREFIX=/usr -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
+
+    - name: Build (sigutils)
+      run: cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}}
+
+    - name: Install system-wide (sigutils)
+      run: sudo cmake --build ${{github.workspace}}/sigutils/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Checkout (SuWidgets)
+      uses: actions/checkout@v2
+      with:
+        repository: BatchDrake/SuWidgets
+        ref: refs/heads/develop
+        path: SuWidgets
+
+    - name: QMake (SuWidgets)
+      run: |
+        export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+        cd SuWidgets
+        qmake SuWidgets.pro "CONFIG += ${{env.QT_BUILD_TYPE}}"
+        cd ..
+
+    - name: Build (SuWidgets)
+      run: make -j 3 -C SuWidgets
