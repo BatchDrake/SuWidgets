@@ -579,6 +579,8 @@ Waveform::drawWave(void)
 
   waveform.fill(Qt::transparent);
 
+  QPainter p(&this->waveform);
+
   if (this->sampPerPx > 1) {
     std::vector<int> history(static_cast<size_t>(this->geometry.height()));
     int iters = static_cast<int>(std::floor(this->sampPerPx));
@@ -588,7 +590,6 @@ Waveform::drawWave(void)
     int y = 0;
     int pxHigh, pxLow;
     int prev_y;
-    QPainter p(&this->waveform);
 
     p.setPen(this->foreground);
 
@@ -704,7 +705,6 @@ Waveform::drawWave(void)
     int prevPxLow = 0;
     int prevX = 0, currX;
     SUCOMPLEX prevMp = 0;
-    QPainter p(&this->waveform);
     QPen pen(this->foreground);
     // Two cases: if sampPerPx > 1: create small history of samples. Otherwise,
     // just interpolate
@@ -783,9 +783,49 @@ Waveform::drawWave(void)
       prevX = currX;
       havePrev = true;
     }
-
-    p.end();
   }
+
+  if (this->markerList.size() > 0) {
+    QFont font;
+    QFontMetrics metrics(font);
+    QPen pen(this->text);
+    QRect rect;
+
+    p.setPen(pen);
+
+    for (auto m = this->markerList.begin();
+         m != this->markerList.end();
+         ++m)
+    {
+      int tw;
+      qint64 px = static_cast<qint64>(this->samp2px(m->x));
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      tw = metrics.horizontalAdvance(m->string);
+#else
+      tw = metrics.width(label);
+#endif // QT_VERSION_CHECK
+
+      if (px >= 0 && px < this->geometry.width() - px/ 2) {
+        qreal y = m->x < this->getDataLength()
+            ? this->cast(this->getData()[m->x])
+            : 0;
+        int ypx = this->value2px(y) +
+            (m->below ? 2 : - metrics.height() - 2);
+
+        ypx = qBound(0, ypx, this->geometry.height() - metrics.height());
+
+        rect.setRect(
+              px - tw / 2,
+              ypx,
+              tw,
+              metrics.height());
+        p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom,m->string);
+      }
+    }
+  }
+
+  p.end();
 }
 
 void
