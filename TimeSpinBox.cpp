@@ -33,17 +33,15 @@ TimeSpinBoxUnit::TimeSpinBoxUnit(
 
 TimeSpinBoxUnit::TimeSpinBoxUnit()
 {
-
+  this->name = "(no units)";
+  this->timeRelative = false;
+  this->multiplier = 1;
 }
 
 TimeSpinBox::TimeSpinBox(QWidget *parent) :
   QWidget(parent),
   ui(new Ui::TimeSpinBox)
 {
-  defaultUnit.name = "(no units)";
-  defaultUnit.timeRelative = false;
-  defaultUnit.multiplier = 1;
-
   ui->setupUi(this);
 
   this->clearUnits();
