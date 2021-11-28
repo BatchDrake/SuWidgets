@@ -20,12 +20,51 @@
 #define MULTITOOLBOXPLUGIN_H
 
 #include <QtUiPlugin/QDesignerCustomWidgetInterface>
+#include <QExtensionManager>
+#include <QDesignerPropertySheetExtension>
+#include <QDesignerFormEditorInterface>
+#include <QExtensionFactory>
+#include <QDesignerContainerExtension>
+
+class MultiToolBox;
+
+class MultiToolBoxContainerExtension: public QObject,
+                                         public QDesignerContainerExtension
+{
+    Q_OBJECT
+    Q_INTERFACES(QDesignerContainerExtension)
+
+public:
+    explicit MultiToolBoxContainerExtension(MultiToolBox *widget, QObject *parent);
+
+    void addWidget(QWidget *widget) override;
+    int count() const override;
+    int currentIndex() const override;
+    void insertWidget(int index, QWidget *widget) override;
+    void remove(int index) override;
+    void setCurrentIndex(int index) override;
+    QWidget *widget(int index) const override;
+
+private:
+    MultiToolBox *myWidget;
+};
+
+class MultiToolBoxExtensionFactory: public QExtensionFactory
+{
+    Q_OBJECT
+
+public:
+    explicit MultiToolBoxExtensionFactory(QExtensionManager *parent = nullptr);
+
+protected:
+    QObject *createExtension(QObject *object, const QString &iid, QObject *parent) const override;
+};
+
 
 class MultiToolBoxPlugin : public QObject, public QDesignerCustomWidgetInterface
 {
   Q_OBJECT
   Q_INTERFACES(QDesignerCustomWidgetInterface)
-
 
 public:
   MultiToolBoxPlugin(QObject *parent = 0);
@@ -41,6 +80,11 @@ public:
   QString whatsThis() const;
   QWidget *createWidget(QWidget *parent);
   void initialize(QDesignerFormEditorInterface *core);
+
+  public slots:
+    void currentIndexChanged(int index);
+    void pageTitleChanged(QString);
+
 
 private:
   bool m_initialized;

@@ -48,6 +48,7 @@ class MultiToolBoxItem : public QObject
     bool isVisible(void) const;
     QWidget *getChild(void) const;
     QString getName(void) const;
+    void setName(QString const &name);
 
   signals:
     void stateChanged(void);
@@ -57,10 +58,16 @@ class MultiToolBox : public QWidget
 {
     Q_OBJECT
 
+    Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex)
+    Q_PROPERTY(QString pageTitle READ pageTitle WRITE setPageTitle STORED false)
+
     QList<MultiToolBoxItem *> itemList;
     QList<QPushButton *> buttonList;
 
     QLayout *itemLayout = nullptr;
+
+    // Fake index
+    int index = -1;
 
     void refreshVisibility(void);
 
@@ -73,12 +80,24 @@ class MultiToolBox : public QWidget
     bool showItem(int);
     bool hideItem(int);
 
+    QString pageTitle(void) const;
+    int currentIndex(void) const;
+
     int count(void) const;
     MultiToolBoxItem *itemAt(int) const;
+
+  signals:
+      void currentIndexChanged(int index);
+      void pageTitleChanged(QString);
 
   public slots:
     void onToggleVisibility(void);
     void onStateChanged(void);
+
+    void addPage(QWidget *page);
+    void setCurrentIndex(int);
+    void setPageTitle(QString);
+    void pageWindowTitleChanged();
 
   private:
     Ui::MultiToolBox *ui;

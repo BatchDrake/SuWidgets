@@ -32,13 +32,18 @@ MultiToolBoxItem::MultiToolBoxItem(
   child(child),
   visible(visible)
 {
+  this->setName(name);
+}
 
+void
+MultiToolBoxItem::setName(QString const &name)
+{
+  this->child->setProperty("windowTitle", QVariant::fromValue(name));
+  this->name = name;
 }
 
 MultiToolBoxItem::~MultiToolBoxItem(void)
 {
-  if (this->child->parent() == nullptr)
-    this->child->deleteLater();
 }
 
 void
@@ -92,9 +97,9 @@ MultiToolBox::refreshVisibility(void)
     MultiToolBoxItem *p = this->itemList[i];
 
     if (p->isVisible())
-      button->setText(" ▼ " + p->getName());
+      button->setText(" ▼ " + p->getChild()->windowTitle());
     else
-      button->setText(" ▶ " + p->getName());
+      button->setText(" ▶ " + p->getChild()->windowTitle());
 
     p->getChild()->setVisible(p->isVisible());
   }
@@ -137,9 +142,73 @@ MultiToolBox::addItem(MultiToolBoxItem *item)
         this,
         SLOT(onStateChanged(void)));
 
+  connect(
+        item->getChild(),
+        &QWidget::windowTitleChanged,
+        this,
+        &MultiToolBox::pageWindowTitleChanged);
+
   this->refreshVisibility();
 
   return this->itemList.size() - 1;
+}
+
+void
+MultiToolBox::addPage(QWidget *page)
+{
+  int index;
+
+  index = this->addItem(new MultiToolBoxItem("New page", page));
+
+  this->setCurrentIndex(index);
+}
+
+
+int
+MultiToolBox::currentIndex(void) const
+{
+  return this->index;
+}
+
+void
+MultiToolBox::setCurrentIndex(int index)
+{
+  int i;
+
+  if (index != this->index) {
+    this->index = index;
+
+    for (i = 0; i < this->itemList.size(); ++i)
+      this->itemList[i]->getChild()->setVisible(i == index);
+
+    if (index != -1)
+      emit currentIndexChanged(index);
+  }
+}
+
+QString
+MultiToolBox::pageTitle(void) const
+{
+  MultiToolBoxItem *item;
+
+  if ((item = this->itemAt(this->index)) == nullptr)
+    return "(no page)";
+
+  return item->getName();
+}
+
+void
+MultiToolBox::setPageTitle(QString name)
+{
+  MultiToolBoxItem *item;
+
+  if ((item = this->itemAt(this->index)) == nullptr)
+    return;
+
+  item->setName(name);
+  this->refreshVisibility();
+
+  emit pageTitleChanged(name);
 }
 
 bool
@@ -191,12 +260,25 @@ MultiToolBox::onToggleVisibility(void)
   QVariant index = button->property("index");
   MultiToolBoxItem *item = this->itemAt(index.value<int>());
 
-  if (item != nullptr)
+  if (item != nullptr) {
     item->setVisible(!item->isVisible());
+
+    if (item->isVisible())
+      this->index = index.value<int>();
+  }
 }
 
 void
 MultiToolBox::onStateChanged(void)
 {
   this->refreshVisibility();
+}
+
+void MultiToolBox::pageWindowTitleChanged()
+{
+    MultiToolBoxItem *item = this->itemAt(this->index);
+
+    if (item != nullptr)
+      this->setPageTitle(item->getChild()->windowTitle());
+
 }
