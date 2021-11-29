@@ -31,33 +31,33 @@ class MultiToolBox;
 class MultiToolBoxContainerExtension: public QObject,
                                          public QDesignerContainerExtension
 {
-    Q_OBJECT
-    Q_INTERFACES(QDesignerContainerExtension)
+  Q_OBJECT
+  Q_INTERFACES(QDesignerContainerExtension)
 
 public:
-    explicit MultiToolBoxContainerExtension(MultiToolBox *widget, QObject *parent);
+  explicit MultiToolBoxContainerExtension(MultiToolBox *widget, QObject *parent);
 
-    void addWidget(QWidget *widget) override;
-    int count() const override;
-    int currentIndex() const override;
-    void insertWidget(int index, QWidget *widget) override;
-    void remove(int index) override;
-    void setCurrentIndex(int index) override;
-    QWidget *widget(int index) const override;
+  void addWidget(QWidget *widget) override;
+  int count() const override;
+  int currentIndex() const override;
+  void insertWidget(int index, QWidget *widget) override;
+  void remove(int index) override;
+  void setCurrentIndex(int index) override;
+  QWidget *widget(int index) const override;
 
 private:
-    MultiToolBox *myWidget;
+  MultiToolBox *myWidget;
 };
 
 class MultiToolBoxExtensionFactory: public QExtensionFactory
 {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    explicit MultiToolBoxExtensionFactory(QExtensionManager *parent = nullptr);
+  explicit MultiToolBoxExtensionFactory(QExtensionManager *parent = nullptr);
 
 protected:
-    QObject *createExtension(QObject *object, const QString &iid, QObject *parent) const override;
+  QObject *createExtension(QObject *object, const QString &iid, QObject *parent) const override;
 };
 
 

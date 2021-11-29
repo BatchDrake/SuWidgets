@@ -30,22 +30,26 @@ MultiToolBoxContainerExtension::MultiToolBoxContainerExtension(MultiToolBox *wid
 {
 }
 
-void MultiToolBoxContainerExtension::addWidget(QWidget *widget)
+void
+MultiToolBoxContainerExtension::addWidget(QWidget *widget)
 {
-    myWidget->addPage(widget);
+  myWidget->addPage(widget);
 }
 
-int MultiToolBoxContainerExtension::count() const
+int
+MultiToolBoxContainerExtension::count() const
 {
-    return myWidget->count();
+  return myWidget->count();
 }
 
-int MultiToolBoxContainerExtension::currentIndex() const
+int
+MultiToolBoxContainerExtension::currentIndex() const
 {
-    return myWidget->currentIndex();
+  return myWidget->currentIndex();
 }
 
-void MultiToolBoxContainerExtension::insertWidget(int index, QWidget *widget)
+void
+MultiToolBoxContainerExtension::insertWidget(int index, QWidget *widget)
 {
   if (index == myWidget->count())
     this->addWidget(widget);
@@ -53,17 +57,20 @@ void MultiToolBoxContainerExtension::insertWidget(int index, QWidget *widget)
     fprintf(stderr, "Adding pages in the middle not yet supported\n");
 }
 
-void MultiToolBoxContainerExtension::remove(int)
+void
+MultiToolBoxContainerExtension::remove(int)
 {
-    fprintf(stderr, "Removing pages not yet supported\n");
+  fprintf(stderr, "Removing pages not yet supported\n");
 }
 
-void MultiToolBoxContainerExtension::setCurrentIndex(int index)
+void
+MultiToolBoxContainerExtension::setCurrentIndex(int index)
 {
-    myWidget->setCurrentIndex(index);
+  myWidget->setCurrentIndex(index);
 }
 
-QWidget* MultiToolBoxContainerExtension::widget(int index) const
+QWidget *
+MultiToolBoxContainerExtension::widget(int index) const
 {
   auto p = myWidget->itemAt(index);
 
@@ -71,7 +78,6 @@ QWidget* MultiToolBoxContainerExtension::widget(int index) const
     return p->getChild();
 
   return nullptr;
-
 }
 
 /////////////////////// Container extension factory impl ///////////////////////
@@ -79,18 +85,17 @@ QWidget* MultiToolBoxContainerExtension::widget(int index) const
 MultiToolBoxExtensionFactory::MultiToolBoxExtensionFactory(QExtensionManager *parent)
     : QExtensionFactory(parent)
 {
-
 }
 
 QObject *MultiToolBoxExtensionFactory::createExtension(QObject *object,
                                                           const QString &iid,
                                                           QObject *parent) const
 {
-    MultiToolBox *widget = qobject_cast<MultiToolBox*>(object);
+  MultiToolBox *widget = qobject_cast<MultiToolBox*>(object);
 
-    if (widget && (iid == Q_TYPEID(QDesignerContainerExtension)))
-        return new MultiToolBoxContainerExtension(widget, parent);
-    return nullptr;
+  if (widget && (iid == Q_TYPEID(QDesignerContainerExtension)))
+    return new MultiToolBoxContainerExtension(widget, parent);
+  return nullptr;
 }
 
 MultiToolBoxPlugin::MultiToolBoxPlugin(QObject *parent)
@@ -99,7 +104,8 @@ MultiToolBoxPlugin::MultiToolBoxPlugin(QObject *parent)
   m_initialized = false;
 }
 
-void MultiToolBoxPlugin::initialize(QDesignerFormEditorInterface *formEditor)
+void
+MultiToolBoxPlugin::initialize(QDesignerFormEditorInterface *formEditor)
 {
   if (m_initialized)
     return;
@@ -114,12 +120,14 @@ void MultiToolBoxPlugin::initialize(QDesignerFormEditorInterface *formEditor)
   m_initialized = true;
 }
 
-bool MultiToolBoxPlugin::isInitialized() const
+bool
+MultiToolBoxPlugin::isInitialized() const
 {
   return m_initialized;
 }
 
-QWidget *MultiToolBoxPlugin::createWidget(QWidget *parent)
+QWidget *
+MultiToolBoxPlugin::createWidget(QWidget *parent)
 {
   QWidget *widget = new MultiToolBox(parent);
 
@@ -138,37 +146,44 @@ QWidget *MultiToolBoxPlugin::createWidget(QWidget *parent)
   return widget;
 }
 
-QString MultiToolBoxPlugin::name() const
+QString
+MultiToolBoxPlugin::name() const
 {
   return QLatin1String("MultiToolBox");
 }
 
-QString MultiToolBoxPlugin::group() const
+QString
+MultiToolBoxPlugin::group() const
 {
   return QLatin1String("");
 }
 
-QIcon MultiToolBoxPlugin::icon() const
+QIcon
+MultiToolBoxPlugin::icon() const
 {
   return QIcon();
 }
 
-QString MultiToolBoxPlugin::toolTip() const
+QString
+MultiToolBoxPlugin::toolTip() const
 {
   return QLatin1String("");
 }
 
-QString MultiToolBoxPlugin::whatsThis() const
+QString
+MultiToolBoxPlugin::whatsThis() const
 {
   return QLatin1String("");
 }
 
-bool MultiToolBoxPlugin::isContainer() const
+bool
+MultiToolBoxPlugin::isContainer() const
 {
   return true;
 }
 
-QString MultiToolBoxPlugin::domXml() const
+QString
+MultiToolBoxPlugin::domXml() const
 {
   return QLatin1String("\
 <ui language=\"c++\">\
@@ -185,45 +200,44 @@ QString MultiToolBoxPlugin::domXml() const
 </ui>");
 }
 
-QString MultiToolBoxPlugin::includeFile() const
+QString
+MultiToolBoxPlugin::includeFile() const
 {
   return QLatin1String("MultiToolBox.h");
 }
 
-void MultiToolBoxPlugin::currentIndexChanged(int index)
+void
+MultiToolBoxPlugin::currentIndexChanged(int)
 {
-    Q_UNUSED(index);
+  MultiToolBox *widget = qobject_cast<MultiToolBox*>(sender());
 
-    MultiToolBox *widget = qobject_cast<MultiToolBox*>(sender());
-
-    if (widget) {
-        QDesignerFormWindowInterface *form = QDesignerFormWindowInterface::findFormWindow(widget);
-        if (form)
-            form->emitSelectionChanged();
-    }
+  if (widget != nullptr) {
+    QDesignerFormWindowInterface *form = QDesignerFormWindowInterface::findFormWindow(widget);
+    if (form != nullptr)
+      form->emitSelectionChanged();
+  }
 }
 
 void
 MultiToolBoxPlugin::pageTitleChanged(QString)
 {
-    MultiToolBox *widget = qobject_cast<MultiToolBox*>(sender());
+  MultiToolBox *widget = qobject_cast<MultiToolBox*>(sender());
 
+  if (widget != nullptr) {
+    MultiToolBoxItem *item = widget->itemAt(widget->currentIndex());
+    if (item != nullptr) {
+      QWidget *page = item->getChild();
+      QDesignerFormWindowInterface *form;
+      form = QDesignerFormWindowInterface::findFormWindow(widget);
 
-    if (widget) {
-      MultiToolBoxItem *item = widget->itemAt(widget->currentIndex());
-      if (item != nullptr) {
-        QWidget *page = item->getChild();
-        QDesignerFormWindowInterface *form;
-        form = QDesignerFormWindowInterface::findFormWindow(widget);
-
-        if (form != nullptr) {
-          QDesignerFormEditorInterface *editor = form->core();
-          QExtensionManager *manager = editor->extensionManager();
-          QDesignerPropertySheetExtension *sheet;
-          sheet = qt_extension<QDesignerPropertySheetExtension*>(manager, page);
-          const int propertyIndex = sheet->indexOf(QLatin1String("windowTitle"));
-          sheet->setChanged(propertyIndex, true);
-        }
+      if (form != nullptr) {
+        QDesignerFormEditorInterface *editor = form->core();
+        QExtensionManager *manager = editor->extensionManager();
+        QDesignerPropertySheetExtension *sheet;
+        sheet = qt_extension<QDesignerPropertySheetExtension*>(manager, page);
+        const int propertyIndex = sheet->indexOf(QLatin1String("windowTitle"));
+        sheet->setChanged(propertyIndex, true);
       }
-   }
+    }
+  }
 }

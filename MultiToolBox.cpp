@@ -29,16 +29,18 @@ MultiToolBoxItem::MultiToolBoxItem(
     bool visible,
     QObject *parent) : QObject(parent),
   name(name),
-  child(child),
-  visible(visible)
+  child(child)
 {
+  this->child->setProperty("collapsed", QVariant::fromValue<bool>(!visible));
   this->setName(name);
 }
 
 void
 MultiToolBoxItem::setName(QString const &name)
 {
-  this->child->setProperty("windowTitle", QVariant::fromValue(name));
+  if (name != this->child->windowTitle())
+    this->child->setProperty("windowTitle", QVariant::fromValue(name));
+
   this->name = name;
 }
 
@@ -49,8 +51,10 @@ MultiToolBoxItem::~MultiToolBoxItem(void)
 void
 MultiToolBoxItem::setVisible(bool visible)
 {
-  if (this->visible != visible) {
-    this->visible = visible;
+  bool propVisible = this->isVisible();
+
+  if (propVisible != visible) {
+    this->child->setProperty("collapsed", QVariant::fromValue<bool>(!visible));
     emit stateChanged();
   }
 }
@@ -58,7 +62,7 @@ MultiToolBoxItem::setVisible(bool visible)
 bool
 MultiToolBoxItem::isVisible(void) const
 {
-  return this->visible;
+  return !this->child->property("collapsed").value<bool>();
 }
 
 QWidget *
@@ -118,7 +122,16 @@ MultiToolBox::addItem(MultiToolBoxItem *item)
   }
 
   button = new QPushButton();
-  button->setProperty("index", QVariant::fromValue<int>(this->itemList.size()));
+  button->setProperty(
+        "multiIndex",
+        QVariant::fromValue<int>(this->itemList.size()));
+
+  item->getChild()->setProperty(
+        "multiIndex",
+        QVariant::fromValue<int>(this->itemList.size()));
+
+  item->getChild()->installEventFilter(this);
+
   button->setStyleSheet("text-align: left; font-weight: bold");
   button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
@@ -158,7 +171,7 @@ MultiToolBox::addPage(QWidget *page)
 {
   int index;
 
-  index = this->addItem(new MultiToolBoxItem("New page", page));
+  index = this->addItem(new MultiToolBoxItem(page->windowTitle(), page));
 
   this->setCurrentIndex(index);
 }
@@ -179,7 +192,7 @@ MultiToolBox::setCurrentIndex(int index)
     this->index = index;
 
     for (i = 0; i < this->itemList.size(); ++i)
-      this->itemList[i]->getChild()->setVisible(i == index);
+      this->itemList[i]->setVisible(i == index);
 
     if (index != -1)
       emit currentIndexChanged(index);
@@ -257,7 +270,7 @@ void
 MultiToolBox::onToggleVisibility(void)
 {
   QPushButton *button = static_cast<QPushButton *>(QObject::sender());
-  QVariant index = button->property("index");
+  QVariant index = button->property("multiIndex");
   MultiToolBoxItem *item = this->itemAt(index.value<int>());
 
   if (item != nullptr) {
@@ -276,9 +289,30 @@ MultiToolBox::onStateChanged(void)
 
 void MultiToolBox::pageWindowTitleChanged()
 {
-    MultiToolBoxItem *item = this->itemAt(this->index);
+  MultiToolBoxItem *item = this->itemAt(this->index);
 
-    if (item != nullptr)
-      this->setPageTitle(item->getChild()->windowTitle());
+  if (item != nullptr)
+    this->setPageTitle(item->getChild()->windowTitle());
 
 }
+
+bool
+MultiToolBox::eventFilter(QObject *obj, QEvent *event)
+{
+  if (event->type() == QEvent::DynamicPropertyChange) {
+    QDynamicPropertyChangeEvent *const propEvent = static_cast<QDynamicPropertyChangeEvent*>(event);
+    QString propName = propEvent->propertyName();
+    if (propName == "collapsed") {
+      int index    = obj->property("multiIndex").value<int>();
+      bool visible = !obj->property("collapsed").value<bool>();
+
+      if (visible)
+        this->showItem(index);
+      else
+        this->hideItem(index);
+    }
+  }
+
+  return QObject::eventFilter(obj, event);
+}
+

@@ -34,7 +34,6 @@ class MultiToolBoxItem : public QObject
 
     QString name;
     QWidget *child = nullptr;
-    bool visible = true;
 
   public:
     explicit MultiToolBoxItem(
@@ -87,8 +86,8 @@ class MultiToolBox : public QWidget
     MultiToolBoxItem *itemAt(int) const;
 
   signals:
-      void currentIndexChanged(int index);
-      void pageTitleChanged(QString);
+    void currentIndexChanged(int index);
+    void pageTitleChanged(QString);
 
   public slots:
     void onToggleVisibility(void);
@@ -98,6 +97,9 @@ class MultiToolBox : public QWidget
     void setCurrentIndex(int);
     void setPageTitle(QString);
     void pageWindowTitleChanged();
+
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
 
   private:
     Ui::MultiToolBox *ui;

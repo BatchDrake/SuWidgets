@@ -470,11 +470,14 @@ public:
     if (rate <= 0)
       rate = static_cast<qreal>(std::numeric_limits<SUFLOAT>::epsilon());
 
-    this->sampleRate = rate;
-    this->deltaT = 1. / rate;
-    this->axesDrawn = false;
-    this->invalidate();
-    emit sampleRateChanged();
+    if (rate != this->sampleRate) {
+      this->sampleRate = rate;
+      this->deltaT = 1. / rate;
+      this->axesDrawn = false;
+      this->recalculateDisplayData();
+      this->invalidate();
+      emit sampleRateChanged();
+    }
   }
 
   QString
