@@ -45,7 +45,7 @@ class TimeSpinBox : public QWidget
   qreal currSampleRate = 1;
   qreal minTime = 0;
   qreal maxTime = 60;
-  qreal time;
+  qreal time = 0;
 
   void adjustLimits(void);
 
