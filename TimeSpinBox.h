@@ -28,8 +28,8 @@ namespace Ui {
 
 struct TimeSpinBoxUnit {
   QString name;
-  bool timeRelative;
-  qreal multiplier;
+  bool timeRelative = false;
+  qreal multiplier = 1;
 
   TimeSpinBoxUnit();
   TimeSpinBoxUnit(QString name, bool timeRelative, qreal multiplier);

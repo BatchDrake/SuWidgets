@@ -9,14 +9,16 @@ HEADERS     = BookmarkInfo.h ConstellationPlugin.h TransitionPlugin.h HistogramP
     TVDisplayPlugin.h \
     TimeSpinBoxPlugin.h \
     WaterfallPlugin.h ctkRangeSliderPlugin.h \
-    ColorChooserButtonPlugin.h
+    ColorChooserButtonPlugin.h \
+    MultiToolBoxPlugin.h
 SOURCES     = ConstellationPlugin.cpp TransitionPlugin.cpp HistogramPlugin.cpp LCDPlugin.cpp WaveformPlugin.cpp SymViewPlugin.cpp SuWidgets.cpp \
     FrequencySpinBoxPlugin.cpp \
     QVerticalLabelPlugin.cpp \
     TVDisplayPlugin.cpp \
     TimeSpinBoxPlugin.cpp \
     WaterfallPlugin.cpp ctkRangeSliderPlugin.cpp \
-    ColorChooserButtonPlugin.cpp
+    ColorChooserButtonPlugin.cpp \
+    MultiToolBoxPlugin.cpp
 RESOURCES   = icons.qrc
 LIBS        += -L.
 

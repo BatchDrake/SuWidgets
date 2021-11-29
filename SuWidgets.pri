@@ -18,6 +18,7 @@ include(colorchooserbutton.pri)
 include(frequencyspinbox.pri)
 include(tvdisplay.pri)
 include(timespinbox.pri)
+include(multitoolbox.pri)
 
 HEADERS += ThrottleableWidget.h \
     Version.h \
