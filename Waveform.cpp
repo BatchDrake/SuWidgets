@@ -803,7 +803,7 @@ Waveform::drawWave(void)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
       tw = metrics.horizontalAdvance(m->string);
 #else
-      tw = metrics.width(label);
+      tw = metrics.width(m->string);
 #endif // QT_VERSION_CHECK
 
       if (px >= 0 && px < this->geometry.width() - px/ 2) {
