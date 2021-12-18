@@ -117,7 +117,7 @@ SuWidgetsHelpers::formatQuantity(
   if (std::fabs(value) < std::numeric_limits<qreal>::epsilon())
     return "0 " + u;
 
-  if (u == "º") {
+  if (u == "º" || u == "deg") {
     if (value < 0 && !sign)
       value += 360;
     else if (value > 180 && sign)
@@ -207,7 +207,7 @@ SuWidgetsHelpers::formatQuantity(
       // No hh:mm:ss or mm::ss, add suffix to make things clear.
       if (minutes == 0 && hours == 0)
         asString += " s";
-    } else if (u == "º") {
+    } else if (u == "deg") {
       unsigned int deg, min, seconds;
 
       deg = static_cast<unsigned int>(value);
