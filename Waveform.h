@@ -22,6 +22,8 @@
 #include <QFrame>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QList>
+
 #include <sigutils/types.h>
 #include "ThrottleableWidget.h"
 
@@ -34,6 +36,12 @@
 #define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0x7f, 0x08, 0x08)
 #define WAVEFORM_MAX_ITERS                20
 #define WAVEFORM_DELTA_LIMIT              9000
+
+struct WaveMarker {
+  QString string;
+  quint64 x;
+  bool below = false;
+};
 
 class WaveBuffer {
   bool loan = false;
@@ -126,6 +134,8 @@ class Waveform : public ThrottleableWidget
   QColor text;
   QString horizontalUnits = "s";
   QString verticalUnits = "";
+
+  QList<WaveMarker> markerList;
 
   qreal sampleRate = 1;
   qreal deltaT = 1;
@@ -260,6 +270,13 @@ public:
       return this->sampPerPx;
     }
 
+    inline void
+    setMarkerList(const QList<WaveMarker> &list)
+    {
+      this->markerList = list;
+      this->waveDrawn = false;
+      this->invalidate();
+    }
 
     inline qreal
     samp2t(qreal samp) const
@@ -453,11 +470,14 @@ public:
     if (rate <= 0)
       rate = static_cast<qreal>(std::numeric_limits<SUFLOAT>::epsilon());
 
-    this->sampleRate = rate;
-    this->deltaT = 1. / rate;
-    this->axesDrawn = false;
-    this->invalidate();
-    emit sampleRateChanged();
+    if (rate != this->sampleRate) {
+      this->sampleRate = rate;
+      this->deltaT = 1. / rate;
+      this->axesDrawn = false;
+      this->recalculateDisplayData();
+      this->invalidate();
+      emit sampleRateChanged();
+    }
   }
 
   QString

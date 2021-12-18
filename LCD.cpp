@@ -332,6 +332,7 @@ LCD::wheelEvent(QWheelEvent *ev)
     int amount = ev->delta() > 0 ? 1 : -1;
     int digit = (this->width - ev->x()) / this->glyphWidth;
     this->scrollDigit(digit, amount);
+    ev->accept();
   }
 }
 

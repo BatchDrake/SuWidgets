@@ -29,6 +29,7 @@
 #include "QVerticalLabelPlugin.h"
 #include "TVDisplayPlugin.h"
 #include "TimeSpinBoxPlugin.h"
+#include "MultiToolBoxPlugin.h"
 #include "SuWidgets.h"
 
 SuWidgets::SuWidgets(QObject *parent)
@@ -47,6 +48,7 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new FrequencySpinBoxPlugin(this));
   m_widgets.append(new TVDisplayPlugin(this));
   m_widgets.append(new TimeSpinBoxPlugin(this));
+  m_widgets.append(new MultiToolBoxPlugin(this));
 }
 
 QList<QDesignerCustomWidgetInterface*> SuWidgets::customWidgets() const
