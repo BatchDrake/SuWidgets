@@ -1438,13 +1438,10 @@ void Waterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
     m_BinMax = (qint32)((float)stopFreq * (float)m_FFTSize / m_SampleFreq);
     m_BinMax += (m_FFTSize/2);
 
-    minbin = m_BinMin < 0 ? 0 : m_BinMin;
-    if (m_BinMin > m_FFTSize)
-        m_BinMin = m_FFTSize - 1;
-    if (m_BinMax <= m_BinMin)
-        m_BinMax = m_BinMin + 1;
-    maxbin = m_BinMax < m_FFTSize ? m_BinMax : m_FFTSize;
-    bool largeFft = (m_BinMax-m_BinMin) > plotWidth; // true if more fft point than plot points
+    minbin = qBound(0, m_BinMin, m_FFTSize - 1);
+    maxbin = qBound(0, m_BinMax, m_FFTSize - 1);
+
+    bool largeFft = (maxbin - minbin) > plotWidth; // true if more fft point than plot points
 
     if (largeFft)
     {

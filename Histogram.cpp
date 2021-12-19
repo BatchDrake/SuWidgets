@@ -225,7 +225,8 @@ Histogram::drawVerticalAxes(QPainter &p)
         label = SuWidgetsHelpers::formatQuantity(
               axis * this->hDivDegs,
               LABEL_PRECISION,
-              this->getUnits());
+              this->getUnits(),
+              this->getUnits() == "º");
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
         tw = metrics.horizontalAdvance(label);
