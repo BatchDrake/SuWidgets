@@ -28,34 +28,6 @@
  * or implied, of Moe Wheatley.
  */
 #include <cmath>
-
-#ifndef _MSC_VER
-#include <sys/time.h>
-#else
-#include <Windows.h>
-#include <cstdint>
-
-int gettimeofday(struct timeval * tp, struct timezone * tzp)
-{
-    // Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
-    static const uint64_t EPOCH = ((uint64_t) 116444736000000000ULL);
-
-    SYSTEMTIME  system_time;
-    FILETIME    file_time;
-    uint64_t    time;
-
-    GetSystemTime( &system_time );
-    SystemTimeToFileTime( &system_time, &file_time );
-    time =  ((uint64_t)file_time.dwLowDateTime )      ;
-    time += ((uint64_t)file_time.dwHighDateTime) << 32;
-
-    tp->tv_sec  = (long) ((time - EPOCH) / 10000000L);
-    tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
-    return 0;
-}
-
-#endif
-
 #include <QColor>
 #include <QDateTime>
 #include <QDebug>
@@ -70,117 +42,10 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 // Comment out to enable plotter debug messages
 //#define PLOTTER_DEBUG
 
-
-#define CUR_CUT_DELTA 5		//cursor capture delta in pixels
-
-#define FFT_MIN_DB     -120.f
-#define FFT_MAX_DB      40.f
-
-// Colors of type QRgb in 0xAARRGGBB format (unsigned int)
-#define PLOTTER_BGD_COLOR           0xFF1F1D1D
-#define PLOTTER_GRID_COLOR          0xFF444242
-#define PLOTTER_TEXT_COLOR          0xFFDADADA
-#define PLOTTER_CENTER_LINE_COLOR   0xFF788296
-#define PLOTTER_FILTER_LINE_COLOR   0xFFFF7171
-#define PLOTTER_FILTER_BOX_COLOR    0xFFA0A0A4
-// FIXME: Should cache the QColors also
-
-static inline bool val_is_out_of_range(float val, float min, float max)
-{
-    return (val < min || val > max);
-}
-
-static inline bool out_of_range(float min, float max)
-{
-    return (val_is_out_of_range(min, FFT_MIN_DB, FFT_MAX_DB) ||
-            val_is_out_of_range(max, FFT_MIN_DB, FFT_MAX_DB) ||
-            max < min + 10.f);
-}
-
-/** Current time in milliseconds since Epoch */
-static inline quint64 time_ms(void)
-{
-    struct timeval  tval;
-
-    gettimeofday(&tval, NULL);
-
-    return 1e3 * tval.tv_sec + 1e-3 * tval.tv_usec;
-}
-
 #define STATUS_TIP \
     "Click, drag or scroll on spectrum to tune. " \
     "Drag and scroll X and Y axes for pan and zoom. " \
     "Drag filter edges to adjust filter."
-
-////////////////////////// BookmarkSource //////////////////////////////////////
-BookmarkSource::~BookmarkSource()
-{
-
-}
-
-/////////////////////////// FrequencyBand //////////////////////////////////////
-FrequencyAllocationTable::FrequencyAllocationTable()
-{
-
-}
-
-FrequencyAllocationTable::FrequencyAllocationTable(std::string const &name)
-{
-  this->name = name;
-}
-
-void
-FrequencyAllocationTable::pushBand(FrequencyBand const &band)
-{
-  this->allocation[band.min] = band;
-}
-
-void
-FrequencyAllocationTable::pushBand(qint64 min, qint64 max, std::string const &desc)
-{
-  FrequencyBand band;
-
-  band.min = min;
-  band.max = max;
-  band.primary = desc;
-  band.color = QColor::fromRgb(255, 0, 0);
-
-  this->pushBand(band);
-}
-
-FrequencyBandIterator
-FrequencyAllocationTable::cbegin(void) const
-{
-  return this->allocation.cbegin();
-}
-
-FrequencyBandIterator
-FrequencyAllocationTable::cend(void) const
-{
-  return this->allocation.cend();
-}
-
-FrequencyBandIterator
-FrequencyAllocationTable::find(qint64 freq) const
-{
-  if (this->allocation.size() == 0)
-    return this->allocation.cend();
-
-  auto lower = this->allocation.lower_bound(freq);
-
-  if (lower == this->cend()) // If none found, return the last one.
-      return std::prev(lower);
-
-  if (lower == this->cbegin())
-      return lower;
-
-  // Check which one is closest.
-  auto previous = std::prev(lower);
-  if ((freq - previous->first) < (lower->first - freq))
-      return previous;
-
-  return lower;
-}
 
 ///////////////////////////// Waterfall ////////////////////////////////////////
 Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
@@ -1018,6 +883,7 @@ void Waterfall::paintEvent(QPaintEvent *)
             painter,
             QRect(2, y, this->width(), this->height()));
     }
+
 }
 
 void Waterfall::paintTimeStamps(

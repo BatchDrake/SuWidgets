@@ -19,15 +19,18 @@ include(frequencyspinbox.pri)
 include(tvdisplay.pri)
 include(timespinbox.pri)
 include(multitoolbox.pri)
+include(glwaterfall.pri)
 
 HEADERS += ThrottleableWidget.h \
     Version.h \
-    SuWidgetsHelpers.h
+    SuWidgetsHelpers.h \
+    WFHelpers.h
 
 SOURCES += ThrottleableWidget.cpp \
-    SuWidgetsHelpers.cpp
+    SuWidgetsHelpers.cpp \
+    WFHelpers.cpp
 
-WIDGET_HEADERS += ThrottleableWidget.h SuWidgetsHelpers.h Version.h
+WIDGET_HEADERS += ThrottleableWidget.h SuWidgetsHelpers.h Version.h WFHelpers.h
 
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG += sigutils fftw3

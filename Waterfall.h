@@ -38,72 +38,11 @@
 #include <QList>
 #include <vector>
 #include <QMap>
+#include <QOpenGLWidget>
 
 #define WATERFALL_BOOKMARKS_SUPPORT
 
-#define HORZ_DIVS_MAX 12    //50
-#define VERT_DIVS_MIN 5
-#define MAX_SCREENSIZE 16384
-
-#define PEAK_CLICK_MAX_H_DISTANCE 10 //Maximum horizontal distance of clicked point from peak
-#define PEAK_CLICK_MAX_V_DISTANCE 20 //Maximum vertical distance of clicked point from peak
-#define PEAK_H_TOLERANCE 2
-#define MINIMUM_REFRESH_RATE      25
-
-#ifdef WATERFALL_BOOKMARKS_SUPPORT
-#include "BookmarkInfo.h"
-
-class BookmarkSource {
-  public:
-    virtual ~BookmarkSource();
-    virtual QList<BookmarkInfo> getBookmarksInRange(qint64, qint64) = 0;
-};
-#endif // WATERFALL_BOOKMARKS_SUPPORT
-
-struct FrequencyBand {
-  qint64 min;
-  qint64 max;
-  std::string primary;
-  std::string secondary;
-  std::string footnotes;
-  QColor color;
-};
-
-struct TimeStamp {
-  int counter;
-  QString timeStampText;
-  bool marker = false;
-};
-
-typedef std::map<qint64, FrequencyBand>::const_iterator FrequencyBandIterator;
-
-class FrequencyAllocationTable {
-  std::string name;
-  std::map<qint64, FrequencyBand> allocation;
-
-public:
-  FrequencyAllocationTable();
-  FrequencyAllocationTable(std::string const &name);
-
-  void
-  setName(std::string const &name)
-  {
-    this->name = name;
-  }
-  std::string const &
-  getName(void) const
-  {
-    return this->name;
-  }
-
-  void pushBand(FrequencyBand const &);
-  void pushBand(qint64, qint64, std::string const &);
-
-  FrequencyBandIterator cbegin(void) const;
-  FrequencyBandIterator cend(void) const;
-
-  FrequencyBandIterator find(qint64 freq) const;
-};
+#include "WFHelpers.h"
 
 class Waterfall : public QFrame
 {
