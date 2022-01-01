@@ -23,6 +23,7 @@
 #include <QList>
 #include <QString>
 #include <QColor>
+#include <map>
 
 #define CUR_CUT_DELTA 5		//cursor capture delta in pixels
 
