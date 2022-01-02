@@ -52,7 +52,99 @@ struct GLDrawingContext {
 
 };
 
-typedef std::vector<float> GLLine;
+//
+// CX:       1 bin,  1 level
+// BBCX:     2 bins, 2 levels
+// AAAABBCX: 4 bins, 3 levels
+//
+
+class GLLine : public std::vector<float>
+{
+  int levels = 0;
+
+public:
+  inline void
+  initialize(void)
+  {
+    assign(size(), 0);
+  }
+
+  static inline int
+  allocationFor(int res)
+  {
+    return res << 1;
+  }
+
+  static inline int
+  resolutionFor(int alloc)
+  {
+    return alloc >> 1;
+  }
+
+  inline void
+  setResolution(int res)
+  {
+    levels = static_cast<int>(ceil(log2(res))) + 1;
+    resize(static_cast<size_t>(allocationFor(res)));
+    initialize();
+  }
+
+  inline int
+  allocation(void) const
+  {
+    return static_cast<int>(this->size());
+  }
+
+  inline int
+  resolution(void) const
+  {
+    return resolutionFor(allocation());
+  }
+
+  inline void
+  setValueMax(int index, float val)
+  {
+    int p = 0;
+    int res = resolution();
+    int l = this->levels;
+    float *data = this->data();
+    size_t i;
+
+#pragma GCC unroll 4
+    while (l-- > 0) {
+      i = static_cast<size_t>(p + index);
+      data[i] = fmaxf(val, data[i]);
+
+      p += res;
+
+      index >>= 1;
+      res   >>= 1;
+    }
+  }
+
+  inline void
+  setValueMean(int index, float val)
+  {
+    int p = 0;
+    int res = resolution();
+    int l = this->levels;
+    float *data = this->data();
+    float k = 1.;
+    size_t i;
+
+#pragma GCC unroll 4
+    while (l-- > 0) {
+      i = static_cast<size_t>(p + index);
+      data[i] += k * val;
+
+      p += res;
+
+      index >>= 1;
+      res   >>= 1;
+      k     *= .5f;
+    }
+  }
+};
 
 typedef std::list<GLLine> GLLineHistory;
 
@@ -75,6 +167,7 @@ struct GLWaterfallOpenGLContext {
   int                      m_rowSize    = 8192;
   int                      m_rowCount   = 2048;
   int                      m_maxRowSize = 0;
+  bool                     m_useMaxBlending = false;
 
   // Level adjustment
   float                    m            = 1.f;
@@ -95,7 +188,7 @@ struct GLWaterfallOpenGLContext {
   void                     flushLinePool(void);
   void                     flushPalette(void);
   void                     setDynamicRange(float, float);
-  void                     reset();
+  void                     resetWaterfall();
   void                     render(int, int, int, int, float, float);
 };
 
@@ -227,6 +320,8 @@ public:
         *LowCut = m_DemodLowCutFreq;
         *HiCut = m_DemodHiCutFreq;
     }
+
+    void setMaxBlending(bool val) { this->glCtx.m_useMaxBlending = val; }
 
     void setDemodRanges(
         qint64 FLowCmin,
@@ -379,6 +474,7 @@ private:
     void        makeFrequencyStrs();
     int         xFromFreq(qint64 freq);
     qint64      freqFromX(int x);
+    qint64      fftFreqFromX(int x);
     void        zoomStepX(float factor, int x);
     qint64      roundFreq(qint64 freq, int resolution);
     quint64     msecFromY(int y);

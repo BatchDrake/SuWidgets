@@ -82,23 +82,23 @@ static const char *wfFragmentShader = "                                        \
     uniform float     t;                                                       \
     uniform float     x0;                                                      \
     uniform float     m;                                                       \
+    uniform float     c_x0;                                                    \
+    uniform float     c_m;                                                     \
                                                                                \
     void                                                                       \
     main(void)                                                                 \
     {                                                                          \
-      vec2 coord = vec2(                                                       \
-            f_texture_coords.x,                                                \
-            f_texture_coords.y + t - floor(f_texture_coords.y + t));           \
+      float x = f_texture_coords.x * c_m + c_x0;                               \
+      float y = f_texture_coords.y + t - floor(f_texture_coords.y + t);        \
+      vec2 coord = vec2(x, y);                                                 \
                                                                                \
       vec4 psd = texture2D(m_texture, coord);                                  \
       float paletteIndex = (psd.r - x0) / m;                                   \
-      vec4 palColor     = texture2D(m_palette, vec2(paletteIndex, 0));         \
+      vec4 palColor       = texture2D(m_palette, vec2(paletteIndex, 0));       \
                                                                                \
       gl_FragColor = palColor;                                                 \
     }                                                                          \
 ";
-
-    // gl_FragColor = texture2D(m_palette, vec2(paletteIndex.r, 0));
 
 GLWaterfallOpenGLContext::GLWaterfallOpenGLContext() :
   m_vbo(QOpenGLBuffer::VertexBuffer),
@@ -136,7 +136,7 @@ GLWaterfallOpenGLContext::initialize(void)
 
   // Retrieve limits
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
-  m_maxRowSize = texSize;
+  m_maxRowSize = GLLine::resolutionFor(texSize);
 
   if (m_rowCount > m_maxRowSize)
     m_rowCount = m_maxRowSize;
@@ -168,20 +168,7 @@ GLWaterfallOpenGLContext::initialize(void)
   m_ibo.allocate(vertex_indices, sizeof(vertex_indices));
 
   m_waterfall = new QOpenGLTexture(QOpenGLTexture::Target2D);
-  // set bilinear filtering mode for texture magnification and minification
-  m_waterfall->setMinificationFilter(QOpenGLTexture::Linear);
-  m_waterfall->setMagnificationFilter(QOpenGLTexture::Linear);
-
-  // set the wrap mode
-  m_waterfall->setWrapMode(QOpenGLTexture::ClampToEdge);
-  m_waterfall->setSize(m_rowSize, m_rowCount);
-  m_waterfall->setFormat(QOpenGLTexture::TextureFormat::R32F);
-
-  m_waterfall->allocateStorage(
-        QOpenGLTexture::PixelFormat::Red,
-        QOpenGLTexture::PixelType::UInt32);
-
-  m_waterfall->create();
+  this->resetWaterfall();
 
   m_palette = new QOpenGLTexture(QOpenGLTexture::Target2D);
   m_palette->setWrapMode(QOpenGLTexture::ClampToEdge);
@@ -203,12 +190,16 @@ GLWaterfallOpenGLContext::initialize(void)
 }
 
 void
-GLWaterfallOpenGLContext::reset(void)
+GLWaterfallOpenGLContext::resetWaterfall(void)
 {
-  m_waterfall->destroy();
-  m_waterfall->setSize(m_rowSize, m_rowCount);
-  m_waterfall->setFormat(QOpenGLTexture::TextureFormat::R32F);
+  if (m_waterfall->isCreated())
+    m_waterfall->destroy();
 
+  m_waterfall->setAutoMipMapGenerationEnabled(true);
+  m_waterfall->setSize(GLLine::allocationFor(m_rowSize), m_rowCount);
+  m_waterfall->setFormat(QOpenGLTexture::TextureFormat::R16F);
+  m_waterfall->setMinificationFilter(QOpenGLTexture::Linear);
+  m_waterfall->setMagnificationFilter(QOpenGLTexture::Linear);
   m_waterfall->allocateStorage(
         QOpenGLTexture::PixelFormat::Red,
         QOpenGLTexture::PixelType::UInt32);
@@ -238,17 +229,18 @@ GLWaterfallOpenGLContext::flushLines(void)
     GLLine &line = m_history.back();
     int row = m_rowCount - (m_row % m_rowCount) - 1;
 
-    if (m_rowSize == static_cast<int>(line.size())) {
+    if (m_rowSize == line.resolution()) {
       glTexSubImage2D(
             GL_TEXTURE_2D,
             0,
             0,
             row,
-            m_rowSize,
+            line.allocation(),
             1,
             GL_RED,
             GL_FLOAT,
             line.data());
+
       auto last = m_history.end();
       --last;
       m_pool.splice(m_pool.begin(), m_history, last);
@@ -283,21 +275,20 @@ GLWaterfallOpenGLContext::setPalette(const QColor *table)
 }
 
 void
-GLWaterfallOpenGLContext::pushFFTData(const float *fftData, int size)
+GLWaterfallOpenGLContext::pushFFTData(
+    const float *__restrict__ fftData,
+    int size)
 {
   int dataSize = size;
-  float k = 1;
 
-  if (dataSize > m_maxRowSize) {
+  if (dataSize > m_maxRowSize)
     size = m_maxRowSize;
-    k    = (float) size / (float) dataSize;
-  }
 
   if (size != m_rowSize) {
     this->flushLinePool();
 
     m_rowSize = size;
-    this->reset();
+    this->resetWaterfall();
   }
 
   if (!m_pool.empty()) {
@@ -309,28 +300,51 @@ GLWaterfallOpenGLContext::pushFFTData(const float *fftData, int size)
   }
 
   GLLine &line = m_history.front();
-  line.resize(static_cast<size_t>(size));
+  line.setResolution(size);
 
-  // If data size matches line size, good! It means it fits directly in the
-  // texture buffer without further transforms.
-  // If not, we have to accumulate data in each bin.
+  /////////////////// Set line data ////////////////////
   if (size == dataSize) {
-    for (int i = 0; i < size; ++i)
-      line[static_cast<size_t>(i)] = // So Cobol
-          static_cast<float>(
-            qBound(
-              0.f,
-              (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
-              1.f));
+    if (this->m_useMaxBlending) {
+      for (int i = 0; i < size; ++i)
+        line.setValueMax(
+              i,
+              qBound(
+                0.f,
+                (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
+                1.f));
+    } else {
+      for (int i = 0; i < size; ++i)
+        line.setValueMean(
+              i,
+              qBound(
+                0.f,
+                (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
+                1.f));
+    }
   } else {
-    line.assign(line.size(), 0);
+    float v;
+    int d = floor(log2(dataSize / size));
+    float k = (float) size / (float) dataSize;
 
-    for (int i = 0; i < dataSize; ++i)
-      line[static_cast<size_t>(floor(i * k))] += k * static_cast<float>(
-            qBound(
+    if (this->m_useMaxBlending) {
+      for (int i = 0; i < dataSize; ++i) {
+        v = qBound(
               0.f,
               (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
-              1.f));
+              1.f);
+
+        line.setValueMax(static_cast<int>(i >> d), v);
+      }
+    } else {
+      for (int i = 0; i < dataSize; ++i) {
+        v = k * qBound(
+              0.f,
+              (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
+              1.f);
+
+        line.setValueMean(static_cast<int>(i >> d), v);
+      }
+    }
   }
 }
 
@@ -387,6 +401,17 @@ GLWaterfallOpenGLContext::render(
     float right)
 {
   QMatrix4x4 ortho;
+  float zoom = right - left;
+  int d = static_cast<int>(floor(log2(m_rowSize / (width * zoom))));
+  float c_x0, c_x1;
+
+  if (d < 0)
+    d = 0;
+
+  // Define the texture coordinates where the best mipmap can be found
+  c_x0 = 1.f - 1.f / static_cast<float>(1 << d);
+  c_x1 = 1.f - 1.f / static_cast<float>(1 << (d + 1));
+
 
   glPushAttrib(GL_ALL_ATTRIB_BITS); // IMPORTANT TO PREVENT CONFLICTS WITH QPAINTER
 
@@ -423,7 +448,8 @@ GLWaterfallOpenGLContext::render(
   m_program.setUniformValue("t", -m_row / (float) m_rowCount);
   m_program.setUniformValue("x0", this->x0);
   m_program.setUniformValue("m",  this->m);
-
+  m_program.setUniformValue("c_x0", c_x0);
+  m_program.setUniformValue("c_m",  c_x1 - c_x0);
   m_vao.release();
   m_vao.bind();
 
@@ -468,8 +494,6 @@ GLWaterfallOpenGLContext::render(
 void
 GLWaterfall::initLayout(void)
 {
-  QSurfaceFormat fmt;
-
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setFocusPolicy(Qt::StrongFocus);
   setAttribute(Qt::WA_PaintOnScreen,false);
@@ -477,12 +501,13 @@ GLWaterfall::initLayout(void)
   setAttribute(Qt::WA_OpaquePaintEvent, false);
   setAttribute(Qt::WA_NoSystemBackground, true);
   setMouseTracking(true);
-
   setTooltipsEnabled(false);
   setStatusTip(tr(STATUS_TIP));
-
-  fmt.setSamples(4);
-  setFormat(fmt);
+/*
+  QSurfaceFormat format;
+  format.setSamples(16);    // Set the number of samples used for multisampling
+  format.setDepthBufferSize(24);
+  setFormat(format);*/
 }
 
 void
@@ -1057,23 +1082,22 @@ void
 GLWaterfall::zoomStepX(float step, int x)
 {
   // calculate new range shown on FFT
-  float new_range = qBound(
-        10.0f,
-        (float)(m_Span) * step,
-        (float)(m_SampleFreq) * 10.0f);
+  qreal new_range = qBound(10.0,
+                           (qreal)(m_Span) * step,
+                           (qreal)(m_SampleFreq) * 10.0);
 
   // Frequency where event occured is kept fixed under mouse
-  float ratio = (float)x / (float)m_OverlayPixmap.width();
-  float fixed_hz = freqFromX(x);
-  float f_max = fixed_hz + (1.0 - ratio) * new_range;
-  float f_min = f_max - new_range;
+  qreal ratio = (qreal)x / (qreal)m_OverlayPixmap.width();
+  qreal fixed_hz = fftFreqFromX(x);
+  qreal f_max = fixed_hz + (1.0 - ratio) * new_range;
+  qreal f_min = f_max - new_range;
 
   qint64 fc = (qint64)(f_min + (f_max - f_min) / 2.0);
 
-  setFftCenterFreq(fc - m_CenterFreq);
+  setFftCenterFreq(fc);
   setSpanFreq(new_range);
 
-  float factor = (float)m_SampleFreq / (float)m_Span;
+  qreal factor = (qreal)m_SampleFreq / (qreal)m_Span;
   emit newZoomLevel(factor);
 
   m_PeakHoldValid = false;
@@ -1092,6 +1116,7 @@ GLWaterfall::zoomOnXAxis(float level)
 void
 GLWaterfall::wheelEvent(QWheelEvent * event)
 {
+  QOpenGLWidget::wheelEvent(event);
   QPoint pt = event->pos();
   int numDegrees = event->delta() / 8;
   int numSteps = numDegrees / 15;  /** FIXME: Only used for direction **/
@@ -1100,7 +1125,7 @@ GLWaterfall::wheelEvent(QWheelEvent * event)
   if (m_CursorCaptured == YAXIS) {
     // Vertical zoom. Wheel down: zoom out, wheel up: zoom in
     // During zoom we try to keep the point (dB or kHz) under the cursor fixed
-    float zoom_fac = event->delta() < 0 ? 1.1 : 0.9;
+    float zoom_fac = event->delta() < 0 ? 1. / .9 : 0.9;
     float ratio = (float)pt.y() / (float)m_OverlayPixmap.height();
     float db_range = m_PandMaxdB - m_PandMindB;
     float y_range = (float)m_OverlayPixmap.height();
@@ -2146,10 +2171,19 @@ int GLWaterfall::xFromFreq(qint64 freq)
     return x;
 }
 
+// Convert from screen coordinate to Fft frequency
+qint64 GLWaterfall::fftFreqFromX(int x)
+{
+    int w = width();
+    qreal f0 = m_FftCenter - m_Span / 2;
+    qint64 f = (qint64) (f0 + (qreal) m_Span * (qreal) x / (qreal) w);
+    return f;
+}
+
 // Convert from frequency to screen coordinate
 qint64 GLWaterfall::freqFromX(int x)
 {
-    int w = m_OverlayPixmap.width();
+    int w = width();
     qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
     qint64 f = (qint64)(StartFreq + (qreal)m_Span * (qreal)x / (qreal)w);
     return f;
