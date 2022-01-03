@@ -36,8 +36,11 @@
 #include <QtGlobal>
 #include <QToolTip>
 #include <QDebug>
+#include <QApplication>
+#include <QDesktopWidget>
 
 #include "GLWaterfall.h"
+#include "gradient.h"
 
 #define GL_WATERFALL_TEX_MIN_DB  (-300.f)
 #define GL_WATERFALL_TEX_MAX_DB  (200.f)
@@ -104,10 +107,16 @@ GLWaterfallOpenGLContext::GLWaterfallOpenGLContext() :
   m_vbo(QOpenGLBuffer::VertexBuffer),
   m_ibo(QOpenGLBuffer::IndexBuffer)
 {
-  this->m_paletBuf.resize(256 * 4);
-}
+  auto screens = QGuiApplication::screens();
+  int maxHeight = 0;
 
-#include "gradient.h"
+  for (auto p : screens)
+    if (p->geometry().height() > maxHeight)
+      maxHeight = p->geometry().height();
+
+  this->m_paletBuf.resize(256 * 4);
+  this->m_rowCount = maxHeight;
+}
 
 GLWaterfallOpenGLContext::~GLWaterfallOpenGLContext(void)
 {
@@ -192,11 +201,15 @@ GLWaterfallOpenGLContext::initialize(void)
 void
 GLWaterfallOpenGLContext::resetWaterfall(void)
 {
+  GLLine nullLine;
+
+  nullLine.setResolution(m_rowSize);
+
   if (m_waterfall->isCreated())
     m_waterfall->destroy();
 
   m_waterfall->setAutoMipMapGenerationEnabled(true);
-  m_waterfall->setSize(GLLine::allocationFor(m_rowSize), m_rowCount);
+  m_waterfall->setSize(nullLine.allocation(), m_rowCount);
   m_waterfall->setFormat(QOpenGLTexture::TextureFormat::R16F);
   m_waterfall->setMinificationFilter(QOpenGLTexture::Linear);
   m_waterfall->setMagnificationFilter(QOpenGLTexture::Linear);
@@ -204,6 +217,21 @@ GLWaterfallOpenGLContext::resetWaterfall(void)
         QOpenGLTexture::PixelFormat::Red,
         QOpenGLTexture::PixelType::UInt32);
   m_waterfall->create();
+  m_waterfall->bind(0);
+
+  // Clear waterfall
+  for (int i = 0; i < m_rowCount; ++i)
+    glTexSubImage2D(
+          GL_TEXTURE_2D,
+          0,
+          0,
+          i,
+          nullLine.allocation(),
+          1,
+          GL_RED,
+          GL_FLOAT,
+          nullLine.data());
+
   m_row = 0;
 }
 
@@ -503,11 +531,6 @@ GLWaterfall::initLayout(void)
   setMouseTracking(true);
   setTooltipsEnabled(false);
   setStatusTip(tr(STATUS_TIP));
-/*
-  QSurfaceFormat format;
-  format.setSamples(16);    // Set the number of samples used for multisampling
-  format.setDepthBufferSize(24);
-  setFormat(format);*/
 }
 
 void
@@ -2274,6 +2297,7 @@ void GLWaterfall::resetHorizontalZoom(void)
 {
     setFftCenterFreq(0);
     setSpanFreq(static_cast<qint64>(m_SampleFreq));
+    m_PeakHoldValid = false;
     emit newZoomLevel(1);
 }
 
