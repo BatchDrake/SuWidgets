@@ -174,12 +174,20 @@ struct GLWaterfallOpenGLContext {
   float                    x0           = 0.f;
   bool                     m_updatePalette = false;
 
+  // Geometric parameters
+  float                    c_x0     = 0;
+  float                    c_x1     = 0;
+  float                    m_zoom   = 1;
+  int                      m_width  = 0;
+  int                      m_height = 0;
+
   GLWaterfallOpenGLContext();
   ~GLWaterfallOpenGLContext();
 
   void                     initialize();
   void                     finalize();
 
+  void                     recalcGeometric(int, int, float);
   void                     setPalette(const QColor *table);
   void                     pushFFTData(const float *fftData, int size);
   void                     averageFFTData(const float *fftData, int size);
@@ -201,7 +209,6 @@ class GLWaterfall : public QOpenGLWidget
 
     void initLayout(void);
     void initDefaults(void);
-    void initColorTable(void);
 
 public:
     explicit GLWaterfall(QWidget *parent = 0);
@@ -265,6 +272,7 @@ public:
 
     void setPalette(const QColor *table)
     {
+      m_timeStampColor = table[255];
       this->glCtx.setPalette(table);
       this->update();
     }
@@ -386,8 +394,7 @@ public:
     /* Determines full bandwidth. */
     void setSampleRate(float rate)
     {
-        if (rate > 0.0)
-        {
+        if (rate > 0.0) {
             m_SampleFreq = rate;
             drawOverlay();
         }
@@ -506,8 +513,7 @@ private:
     QPixmap     m_2DPixmap;
     QPixmap     m_OverlayPixmap;
     QImage      m_GLWaterfallImage;
-    QColor      m_ColorTbl[256];
-    uint32_t    m_UintColorTbl[256];
+    QColor      m_timeStampColor = QColor(0xff, 0xff, 0xff);
     QSize       m_Size;
     QString     m_Str;
     QString     m_HDivText[HORZ_DIVS_MAX+1];

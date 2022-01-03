@@ -420,6 +420,23 @@ GLWaterfallOpenGLContext::finalize()
 }
 
 void
+GLWaterfallOpenGLContext::recalcGeometric(int width, int height, float zoom)
+{
+  int d = static_cast<int>(floor(log2(m_rowSize / (width * zoom))));
+
+  if (d < 0)
+    d = 0;
+
+  // Define the texture coordinates where the best mipmap can be found
+  this->c_x0 = 1.f - 1.f / static_cast<float>(1 << d);
+  this->c_x1 = 1.f - 1.f / static_cast<float>(1 << (d + 1));
+
+  m_width  = width;
+  m_height = height;
+  m_zoom   = zoom;
+}
+
+void
 GLWaterfallOpenGLContext::render(
     int x,
     int y,
@@ -430,16 +447,10 @@ GLWaterfallOpenGLContext::render(
 {
   QMatrix4x4 ortho;
   float zoom = right - left;
-  int d = static_cast<int>(floor(log2(m_rowSize / (width * zoom))));
-  float c_x0, c_x1;
 
-  if (d < 0)
-    d = 0;
-
-  // Define the texture coordinates where the best mipmap can be found
-  c_x0 = 1.f - 1.f / static_cast<float>(1 << d);
-  c_x1 = 1.f - 1.f / static_cast<float>(1 << (d + 1));
-
+  // We only care about horizontal zoom
+  if (width != m_width || fabsf(zoom - m_zoom) > 1e-6f)
+    this->recalcGeometric(width, height, zoom);
 
   glPushAttrib(GL_ALL_ATTRIB_BITS); // IMPORTANT TO PREVENT CONFLICTS WITH QPAINTER
 
@@ -453,7 +464,7 @@ GLWaterfallOpenGLContext::render(
   glDisable(GL_CULL_FACE);
 
   ortho.translate(2 * left, 0);
-  ortho.scale(right - left, 1);
+  ortho.scale(zoom, 1);
 
   m_program.setAttributeBuffer(
         "vertex_coords",
@@ -476,8 +487,8 @@ GLWaterfallOpenGLContext::render(
   m_program.setUniformValue("t", -m_row / (float) m_rowCount);
   m_program.setUniformValue("x0", this->x0);
   m_program.setUniformValue("m",  this->m);
-  m_program.setUniformValue("c_x0", c_x0);
-  m_program.setUniformValue("c_m",  c_x1 - c_x0);
+  m_program.setUniformValue("c_x0", this->c_x0);
+  m_program.setUniformValue("c_m",  this->c_x1 - this->c_x0);
   m_vao.release();
   m_vao.bind();
 
@@ -604,50 +615,10 @@ GLWaterfall::initDefaults(void)
   fft_rate = 15;
 }
 
-void
-GLWaterfall::initColorTable(void)
-{
-  // default waterfall color scheme
-  for (int i = 0; i < 256; ++i) {
-    // level 0: black background
-    if (i < 20)
-      m_ColorTbl[i].setRgb(0, 0, 0);
-    // level 1: black -> blue
-    else if ((i >= 20) && (i < 70))
-      m_ColorTbl[i].setRgb(0, 0, 140 * (i - 20) / 50);
-    // level 2: blue -> light-blue / greenish
-    else if ((i >= 70) && (i < 100))
-      m_ColorTbl[i].setRgb(
-            60 * (i - 70) / 30,
-            125 * (i - 70) / 30,
-            115 * (i - 70)/30 + 140);
-    // level 3: light blue -> yellow
-    else if ((i >= 100) && (i < 150))
-      m_ColorTbl[i].setRgb(
-            195 * (i - 100)/50 + 60,
-            130 * (i - 100) / 50 + 125,
-            255 - (255*(i - 100)/50));
-    // level 4: yellow -> red
-    else if ((i >= 150) && (i < 250))
-      m_ColorTbl[i].setRgb(255, 255 - 255 * (i - 150) / 100, 0);
-    // level 5: red -> white
-    else if (i >= 250)
-      m_ColorTbl[i].setRgb(255, 255 * (i - 250) / 5, 255 * (i - 250) / 5);
-  }
-
-  for (int i = 0; i < 256; i++)
-    m_UintColorTbl[i] = qRgb(
-          m_ColorTbl[i].red(),
-          m_ColorTbl[i].green(),
-          m_ColorTbl[i].blue());
-}
-
-
 ///////////////////////////// GLWaterfall ////////////////////////////////////////
 GLWaterfall::GLWaterfall(QWidget *parent) : QOpenGLWidget(parent)
 {
   this->initLayout();
-  this->initColorTable();
   this->initDefaults();
 }
 
@@ -1297,7 +1268,6 @@ GLWaterfall::paintTimeStamps(
   int textHeight = metrics.height();
   int items = 0;
   int leftSpacing = 0;
-  QBrush brush(m_ColorTbl[0]);
 
   auto it = m_TimeStamps.begin();
 
@@ -1308,7 +1278,7 @@ GLWaterfall::paintTimeStamps(
   if (m_TimeStampMaxHeight < where.height())
     m_TimeStampMaxHeight = where.height();
 
-  painter.setPen(QPen(m_ColorTbl[255]));
+  painter.setPen(QPen(m_timeStampColor));
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
   leftSpacing = metrics.horizontalAdvance("00:00:00.000");
