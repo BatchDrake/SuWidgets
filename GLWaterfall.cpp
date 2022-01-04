@@ -1226,7 +1226,7 @@ void
 GLWaterfall::paintGL(void)
 {
   int y = m_Percent2DScreen * m_Size.height() / 100;
-  qint64 f0 = m_tentativeCenterFreq + m_FftCenter - m_Span / 2;
+  qint64 f0 = m_FftCenter - m_Span / 2;
   qreal  left  = (qreal) ( - f0) / (qreal) m_Span - .5f;
   qreal  right = (qreal) (+m_SampleFreq - f0) / (qreal) m_Span - .5f;
 
