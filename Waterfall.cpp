@@ -330,6 +330,9 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
             if (event->buttons() & m_freqDragBtn)
             {
               if (!m_Locked) {
+                qint64 centerFreq = boundCenterFreq(m_CenterFreq + delta_hz);
+                delta_hz = centerFreq - m_CenterFreq;
+
                 m_CenterFreq += delta_hz;
                 m_DemodCenterFreq += delta_hz;
 
@@ -338,7 +341,8 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
                 ///
                 m_tentativeCenterFreq += delta_hz;
 
-                emit newCenterFreq(m_CenterFreq);
+                if (delta_hz != 0)
+                  emit newCenterFreq(m_CenterFreq);
               }
             } else {
               setFftCenterFreq(m_FftCenter + delta_hz);
@@ -638,7 +642,9 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             {
               if (!m_Locked) {
                 // set center freq
-                m_CenterFreq = roundFreq(freqFromX(pt.x()), m_ClickResolution);
+                m_CenterFreq
+                    = boundCenterFreq(roundFreq(freqFromX(pt.x()), m_ClickResolution));
+
                 m_DemodCenterFreq = m_CenterFreq;
                 emit newCenterFreq(m_CenterFreq);
                 emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
@@ -1897,6 +1903,8 @@ void Waterfall::setDemodRanges(qint64 FLowCmin, qint64 FLowCmax,
 
 void Waterfall::setCenterFreq(qint64 f)
 {
+    f = boundCenterFreq(f);
+
     if(m_CenterFreq == f)
         return;
 
@@ -1906,6 +1914,23 @@ void Waterfall::setCenterFreq(qint64 f)
     updateOverlay();
 
     m_PeakHoldValid = false;
+}
+
+void Waterfall::setFrequencyLimits(qint64 min, qint64 max)
+{
+  this->m_lowerFreqLimit = min;
+  this->m_upperFreqLimit = max;
+
+  if (this->m_enforceFreqLimits)
+    this->setCenterFreq(this->m_CenterFreq);
+}
+
+void Waterfall::setFrequencyLimitsEnabled(bool enabled)
+{
+  this->m_enforceFreqLimits = enabled;
+
+  if (this->m_enforceFreqLimits)
+    this->setCenterFreq(this->m_CenterFreq);
 }
 
 // Ensure overlay is updated by either scheduling or forcing a redraw

@@ -778,6 +778,9 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
       qint64 delta_hz = delta_px * m_Span / m_OverlayPixmap.width();
       if (event->buttons() & m_freqDragBtn) {
         if (!m_Locked) {
+          qint64 centerFreq = boundCenterFreq(m_CenterFreq + delta_hz);
+          delta_hz = centerFreq - m_CenterFreq;
+
           m_CenterFreq += delta_hz;
           m_DemodCenterFreq += delta_hz;
 
@@ -786,7 +789,8 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
           ///
           m_tentativeCenterFreq += delta_hz;
 
-          emit newCenterFreq(m_CenterFreq);
+          if (delta_hz != 0)
+            emit newCenterFreq(m_CenterFreq);
         }
       } else {
         setFftCenterFreq(m_FftCenter + delta_hz);
@@ -999,7 +1003,8 @@ GLWaterfall::mousePressEvent(QMouseEvent * event)
       } else if (event->buttons() == Qt::MidButton) {
         if (!m_Locked) {
           // set center freq
-          m_CenterFreq = roundFreq(freqFromX(pt.x()), m_ClickResolution);
+          m_CenterFreq
+              = boundCenterFreq(roundFreq(freqFromX(pt.x()), m_ClickResolution));
           m_DemodCenterFreq = m_CenterFreq;
           emit newCenterFreq(m_CenterFreq);
           emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
@@ -2237,15 +2242,34 @@ void GLWaterfall::setDemodRanges(qint64 FLowCmin, qint64 FLowCmax,
 
 void GLWaterfall::setCenterFreq(qint64 f)
 {
-    if(m_CenterFreq == f)
-        return;
+  f = boundCenterFreq(f);
 
-    m_tentativeCenterFreq += f - m_CenterFreq;
-    m_CenterFreq = f;
+  if (m_CenterFreq == f)
+    return;
 
-    updateOverlay();
+  m_tentativeCenterFreq += f - m_CenterFreq;
+  m_CenterFreq = f;
 
-    m_PeakHoldValid = false;
+  updateOverlay();
+
+  m_PeakHoldValid = false;
+}
+
+void GLWaterfall::setFrequencyLimits(qint64 min, qint64 max)
+{
+  this->m_lowerFreqLimit = min;
+  this->m_upperFreqLimit = max;
+
+  if (this->m_enforceFreqLimits)
+    this->setCenterFreq(this->m_CenterFreq);
+}
+
+void GLWaterfall::setFrequencyLimitsEnabled(bool enabled)
+{
+  this->m_enforceFreqLimits = enabled;
+
+  if (this->m_enforceFreqLimits)
+    this->setCenterFreq(this->m_CenterFreq);
 }
 
 // Ensure overlay is updated by either scheduling or forcing a redraw

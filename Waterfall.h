@@ -48,6 +48,14 @@ class Waterfall : public QFrame
 {
     Q_OBJECT
 
+    inline qint64 boundCenterFreq(qint64 f) const
+    {
+      if (this->m_enforceFreqLimits)
+        return  qBound(this->m_lowerFreqLimit, f, this->m_upperFreqLimit);
+
+      return f;
+    }
+
 public:
     explicit Waterfall(QWidget *parent = 0);
     ~Waterfall();
@@ -252,6 +260,8 @@ public:
     void    setFftRate(int rate_hz);
     void    clearWaterfall(void);
     bool    saveWaterfall(const QString & filename) const;
+    void    setFrequencyLimits(qint64 min, qint64 max);
+    void    setFrequencyLimitsEnabled(bool);
 
 signals:
     void newCenterFreq(qint64 f);
@@ -434,12 +444,18 @@ private:
     int         m_TimeStampCounter = 64;
     int         m_TimeStampMaxHeight = 0;
 
+    // Frequency navigation limits
+    bool        m_enforceFreqLimits = false;
+    qint64      m_lowerFreqLimit    = 0;
+    qint64      m_upperFreqLimit    = 300000000;
+
     // Waterfall averaging
     quint64     tlast_wf_ms;        // last time waterfall has been updated
     quint64     msec_per_wfline;    // milliseconds between waterfall updates
     quint64     wf_span;            // waterfall span in milliseconds (0 = auto)
     int         fft_rate;           // expected FFT rate (needed when WF span is auto)
     int         m_expectedRate;
+
     // Frequency allocations
     bool m_ShowFATs = false;
     std::map<std::string, const FrequencyAllocationTable *> m_FATs;
