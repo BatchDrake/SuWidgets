@@ -605,6 +605,7 @@ GLWaterfall::initDefaults(void)
   setFftBgColor(QColor(PLOTTER_BGD_COLOR));
   setFftAxesColor(QColor(PLOTTER_GRID_COLOR));
   setFilterBoxColor(QColor(PLOTTER_FILTER_BOX_COLOR));
+  setTimeStampColor(QColor(0xFF,0xFF,0xFF,0xFF));
 
   setFftFill(false);
 
@@ -1283,7 +1284,7 @@ GLWaterfall::paintTimeStamps(
   if (m_TimeStampMaxHeight < where.height())
     m_TimeStampMaxHeight = where.height();
 
-  painter.setPen(QPen(m_timeStampColor));
+  painter.setPen(QPen(m_TimeStampColor));
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
   leftSpacing = metrics.horizontalAdvance("00:00:00.000");
@@ -2327,6 +2328,13 @@ void GLWaterfall::setFftPlotColor(const QColor color)
 void GLWaterfall::setFilterBoxColor(const QColor color)
 {
   m_FilterBoxColor = color;
+  updateOverlay();
+}
+
+/** Set timestamp color */
+void GLWaterfall::setTimeStampColor(const QColor color)
+{
+  m_TimeStampColor = color;
   updateOverlay();
 }
 

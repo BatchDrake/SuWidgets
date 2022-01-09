@@ -286,6 +286,7 @@ public slots:
     void setFftAxesColor(const QColor color);
     void setFftTextColor(const QColor color);
     void setFilterBoxColor(const QColor color);
+    void setTimeStampColor(const QColor color);
 
     void setFftFill(bool enabled);
     void setPeakHold(bool enabled);
@@ -427,6 +428,7 @@ private:
     QColor      m_FftBgColor, m_FftCenterAxisColor, m_FftAxesColor;
     QColor      m_FftTextColor;
     QColor      m_FilterBoxColor;
+    QColor      m_TimeStampColor;
     bool        m_FftFill;
 
     qint64      m_tentativeCenterFreq = 0;

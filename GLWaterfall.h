@@ -281,7 +281,6 @@ public:
 
     void setPalette(const QColor *table)
     {
-      m_timeStampColor = table[255];
       this->glCtx.setPalette(table);
       this->update();
     }
@@ -451,7 +450,7 @@ public slots:
     void setFftAxesColor(const QColor color);
     void setFftTextColor(const QColor color);
     void setFilterBoxColor(const QColor color);
-
+    void setTimeStampColor(const QColor color);
     void setFftFill(bool enabled);
     void setPeakHold(bool enabled);
     void setFftRange(float min, float max);
@@ -524,7 +523,6 @@ private:
     QPixmap     m_2DPixmap;
     QPixmap     m_OverlayPixmap;
     QImage      m_GLWaterfallImage;
-    QColor      m_timeStampColor = QColor(0xff, 0xff, 0xff);
     QSize       m_Size;
     QString     m_Str;
     QString     m_HDivText[HORZ_DIVS_MAX+1];
@@ -591,6 +589,7 @@ private:
     QColor      m_FftBgColor, m_FftCenterAxisColor, m_FftAxesColor;
     QColor      m_FftTextColor;
     QColor      m_FilterBoxColor;
+    QColor      m_TimeStampColor;
     bool        m_FftFill;
 
     qint64      m_tentativeCenterFreq = 0;
