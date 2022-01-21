@@ -1802,7 +1802,7 @@ GLWaterfall::drawBookmarks(
   for (int i = 0; i < bookmarks.size(); i++) {
     x = xFromFreq(bookmarks[i].frequency);
 #if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
-    int nameWidth = fm.width(bookmarks[i].name);
+    int nameWidth = ctx.metrics->width(bookmarks[i].name);
 #else
     int nameWidth = ctx.metrics->boundingRect(bookmarks[i].name).width();
 #endif
