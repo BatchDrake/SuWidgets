@@ -32,5 +32,5 @@ SOURCES += ThrottleableWidget.cpp \
 
 WIDGET_HEADERS += ThrottleableWidget.h SuWidgetsHelpers.h Version.h WFHelpers.h
 
-unix: CONFIG += link_pkgconfig
-unix: PKGCONFIG += sigutils fftw3
+CONFIG += link_pkgconfig
+PKGCONFIG += sigutils fftw3
