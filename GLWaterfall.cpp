@@ -38,16 +38,17 @@
 #include <QDebug>
 #include <QApplication>
 #include <QDesktopWidget>
+#include <cstring>
 
 #include "GLWaterfall.h"
 #include "gradient.h"
 
+// Comment out to enable plotter debug messages
+//#define PLOTTER_DEBUG
+
 #define GL_WATERFALL_TEX_MIN_DB  (-300.f)
 #define GL_WATERFALL_TEX_MAX_DB  (200.f)
 #define GL_WATERFALL_TEX_DR      (GL_WATERFALL_TEX_MAX_DB - GL_WATERFALL_TEX_MIN_DB)
-
-// Comment out to enable plotter debug messages
-//#define PLOTTER_DEBUG
 
 struct vertex {
     float vertex_coords[3];
@@ -103,6 +104,134 @@ static const char *wfFragmentShader = "                                        \
     }                                                                          \
 ";
 
+///////////////////////////// GLLine //////////////////////////////////////////
+void
+GLLine::normalize(void)
+{
+  int i;
+  int res = resolution();
+  float *data = this->data();
+
+#pragma GCC unroll 4
+  for (i = 0; i < res; ++i)
+    data[i] = (data[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR;
+
+}
+
+void
+GLLine::rescaleMean(void)
+{
+  float *data = this->data();
+  int res = resolution();
+  int i = 0, q = 0, p = res;
+  int l = this->levels;
+
+  normalize();
+
+  while (l-- > 0) {
+#pragma GCC unroll 4
+    for (i = 0; i < res; i += 2) {
+      data[p++] = .5f * (data[q] + data[q + 1]);
+      q += 2;
+    }
+
+    res >>= 1;
+  }
+}
+
+void
+GLLine::rescaleMax(void)
+{
+  float *data = this->data();
+  int res = resolution();
+  int i = 0, q = 0, p = res;
+  int l = this->levels;
+
+  normalize();
+
+  while (l-- > 0) {
+#pragma GCC unroll 4
+    for (i = 0; i < res; i += 2) {
+      data[p++] = fmaxf(data[q], data[q + 1]);
+      q += 2;
+    }
+
+    res >>= 1;
+  }
+}
+
+void
+GLLine::assignMean(const float *values)
+{
+  float *data = this->data();
+  int res = resolution();
+
+  memcpy(data, values, sizeof(float) * res);
+
+  rescaleMean();
+}
+
+void
+GLLine::assignMax(const float *values)
+{
+  float *data = this->data();
+  int res = resolution();
+
+  memcpy(data, values, sizeof(float) * res);
+
+  rescaleMax();
+}
+
+
+void
+GLLine::reduceMean(const float *values, int length)
+{
+  int res       = resolution();
+  int chunkSize = length / res;
+  float *data   = this->data();
+  float k       = 1. / chunkSize;
+
+  if (chunkSize > 0) {
+    int i, j, p = 0;
+
+#pragma GCC unroll 4
+    for (i = 0; i < length; i += chunkSize) {
+      float val = 0;
+      for (j = 0; j < chunkSize; ++j)
+        val += k * values[i + j];
+      data[p++] = val;
+    }
+
+    rescaleMean();
+  }
+}
+
+void
+GLLine::reduceMax(const float *values, int length)
+{
+  int res       = resolution();
+  int chunkSize = length / res;
+  float *data = this->data();
+
+  if (chunkSize > 0) {
+    int i, p = 0;
+
+#pragma GCC unroll 4
+    for (i = 0; i < length; i += chunkSize) {
+      float max = -INFINITY;
+      int j;
+      for (j = 0; j < chunkSize; ++j)
+        if (values[i + j] > max)
+          max = values[i + j];
+
+      data[p++] = max;
+    }
+
+    rescaleMax();
+  }
+}
+
+/////////////////////// GLWaterfallOpenGLContext //////////////////////////////
 GLWaterfallOpenGLContext::GLWaterfallOpenGLContext() :
   m_vbo(QOpenGLBuffer::VertexBuffer),
   m_ibo(QOpenGLBuffer::IndexBuffer)
@@ -332,47 +461,15 @@ GLWaterfallOpenGLContext::pushFFTData(
 
   /////////////////// Set line data ////////////////////
   if (size == dataSize) {
-    if (this->m_useMaxBlending) {
-      for (int i = 0; i < size; ++i)
-        line.setValueMax(
-              i,
-              qBound(
-                0.f,
-                (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
-                1.f));
-    } else {
-      for (int i = 0; i < size; ++i)
-        line.setValueMean(
-              i,
-              qBound(
-                0.f,
-                (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
-                1.f));
-    }
+    if (this->m_useMaxBlending)
+      line.assignMax(fftData);
+    else
+      line.assignMean(fftData);
   } else {
-    float v;
-    int d = floor(log2(dataSize / size));
-    float k = (float) size / (float) dataSize;
-
-    if (this->m_useMaxBlending) {
-      for (int i = 0; i < dataSize; ++i) {
-        v = qBound(
-              0.f,
-              (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
-              1.f);
-
-        line.setValueMax(static_cast<int>(i >> d), v);
-      }
-    } else {
-      for (int i = 0; i < dataSize; ++i) {
-        v = k * qBound(
-              0.f,
-              (fftData[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR,
-              1.f);
-
-        line.setValueMean(static_cast<int>(i >> d), v);
-      }
-    }
+    if (this->m_useMaxBlending)
+      line.reduceMax(fftData, dataSize);
+    else
+      line.reduceMean(fftData, dataSize);
   }
 }
 
@@ -1256,11 +1353,12 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
 
   painter.drawPixmap(0, 0, m_2DPixmap);
 
-  if (m_TimeStampsEnabled) {
+  drawSpectrum(painter, y);
+
+  if (m_TimeStampsEnabled)
     paintTimeStamps(
           painter,
           QRect(2, y, this->width(), this->height()));
-  }
 }
 
 void
@@ -1322,16 +1420,124 @@ GLWaterfall::paintTimeStamps(
     m_TimeStamps.removeLast();
 }
 
+
+void
+GLWaterfall::drawSpectrum(QPainter &painter, int forceHeight)
+{
+  int     i, n;
+  int     xmin, xmax;
+  qint64  limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
+  QPoint  LineBuf[MAX_SCREENSIZE];
+  int w = painter.device()->width();
+  int h = forceHeight < 0 ? painter.device()->height() : forceHeight;
+
+  // workaround for "fixed" line drawing since Qt 5
+  // see http://stackoverflow.com/questions/16990326
+  #if QT_VERSION >= 0x050000
+      painter.translate(0.5, 0.5);
+  #endif
+
+      // get new scaled fft data
+      getScreenIntegerFFTData(
+            h,
+            qMin(w, MAX_SCREENSIZE),
+            m_PandMaxdB,
+            m_PandMindB,
+            qBound(
+              -limit,
+              m_tentativeCenterFreq + m_FftCenter,
+              limit) - (qint64)m_Span/2,
+            qBound(
+              -limit,
+              m_tentativeCenterFreq + m_FftCenter,
+              limit) + (qint64)m_Span/2,
+            m_fftData, m_fftbuf,
+            &xmin,
+            &xmax);
+
+      // draw the pandapter
+      painter.setPen(m_FftColor);
+      n = xmax - xmin;
+      for (i = 0; i < n; i++) {
+        LineBuf[i].setX(i + xmin);
+        LineBuf[i].setY(m_fftbuf[i + xmin]);
+      }
+
+      if (m_FftFill) {
+        painter.setBrush(QBrush(m_FftFillCol, Qt::SolidPattern));
+        if (n < MAX_SCREENSIZE-2) {
+          LineBuf[n].setX(xmax-1);
+          LineBuf[n].setY(h);
+          LineBuf[n+1].setX(xmin);
+          LineBuf[n+1].setY(h);
+          painter.drawPolygon(LineBuf, n+2);
+        } else {
+          LineBuf[MAX_SCREENSIZE-2].setX(xmax-1);
+          LineBuf[MAX_SCREENSIZE-2].setY(h);
+          LineBuf[MAX_SCREENSIZE-1].setX(xmin);
+          LineBuf[MAX_SCREENSIZE-1].setY(h);
+          painter.drawPolygon(LineBuf, n);
+        }
+      } else {
+        painter.drawPolyline(LineBuf, n);
+      }
+
+      // Peak detection
+      if (m_PeakDetection > 0) {
+        m_Peaks.clear();
+
+        float   mean = 0;
+        float   sum_of_sq = 0;
+        for (i = 0; i < n; i++) {
+          mean += m_fftbuf[i + xmin];
+          sum_of_sq += m_fftbuf[i + xmin] * m_fftbuf[i + xmin];
+        }
+        mean /= n;
+        float stdev= sqrt(sum_of_sq / n - mean * mean );
+
+        int lastPeak = -1;
+        for (i = 0; i < n; i++) {
+          //m_PeakDetection times the std over the mean or better than current peak
+          float d = (lastPeak == -1) ? (mean - m_PeakDetection * stdev) :
+                                       m_fftbuf[lastPeak + xmin];
+
+          if (m_fftbuf[i + xmin] < d)
+            lastPeak=i;
+
+          if (lastPeak != -1 &&
+              (i - lastPeak > PEAK_H_TOLERANCE || i == n-1))
+          {
+            m_Peaks.insert(lastPeak + xmin, m_fftbuf[lastPeak + xmin]);
+            painter.drawEllipse(lastPeak + xmin - 5,
+                                 m_fftbuf[lastPeak + xmin] - 5, 10, 10);
+            lastPeak = -1;
+          }
+        }
+      }
+
+      // Peak hold
+      if (m_PeakHoldActive) {
+        for (i = 0; i < n; i++) {
+          if (!m_PeakHoldValid || m_fftbuf[i] < m_fftPeakHoldBuf[i])
+            m_fftPeakHoldBuf[i] = m_fftbuf[i];
+
+          LineBuf[i].setX(i + xmin);
+          LineBuf[i].setY(m_fftPeakHoldBuf[i + xmin]);
+        }
+        painter.setPen(m_PeakHoldColor);
+        painter.drawPolyline(LineBuf, n);
+
+        m_PeakHoldValid = true;
+      }
+}
+
 // Called to update spectrum data for displaying on the screen
 void
 GLWaterfall::draw()
 {
-  int     i, n;
   int     w;
   int     h;
-  int     xmin, xmax;
-  qint64  limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
-  QPoint  LineBuf[MAX_SCREENSIZE];
+
 
   if (m_DrawOverlay) {
     drawOverlay();
@@ -1349,111 +1555,7 @@ GLWaterfall::draw()
 
   if (w != 0 && h != 0) {
     // first copy into 2Dbitmap the overlay bitmap.
-    m_2DPixmap = m_OverlayPixmap.copy(0,0,w,h);
-
-    QPainter painter2(&m_2DPixmap);
-
-// workaround for "fixed" line drawing since Qt 5
-// see http://stackoverflow.com/questions/16990326
-#if QT_VERSION >= 0x050000
-    painter2.translate(0.5, 0.5);
-#endif
-
-    // get new scaled fft data
-    getScreenIntegerFFTData(
-          h,
-          qMin(w, MAX_SCREENSIZE),
-          m_PandMaxdB,
-          m_PandMindB,
-          qBound(
-            -limit,
-            m_tentativeCenterFreq + m_FftCenter,
-            limit) - (qint64)m_Span/2,
-          qBound(
-            -limit,
-            m_tentativeCenterFreq + m_FftCenter,
-            limit) + (qint64)m_Span/2,
-          m_fftData, m_fftbuf,
-          &xmin,
-          &xmax);
-
-    // draw the pandapter
-    painter2.setPen(m_FftColor);
-    n = xmax - xmin;
-    for (i = 0; i < n; i++) {
-      LineBuf[i].setX(i + xmin);
-      LineBuf[i].setY(m_fftbuf[i + xmin]);
-    }
-
-    if (m_FftFill) {
-      painter2.setBrush(QBrush(m_FftFillCol, Qt::SolidPattern));
-      if (n < MAX_SCREENSIZE-2) {
-        LineBuf[n].setX(xmax-1);
-        LineBuf[n].setY(h);
-        LineBuf[n+1].setX(xmin);
-        LineBuf[n+1].setY(h);
-        painter2.drawPolygon(LineBuf, n+2);
-      } else {
-        LineBuf[MAX_SCREENSIZE-2].setX(xmax-1);
-        LineBuf[MAX_SCREENSIZE-2].setY(h);
-        LineBuf[MAX_SCREENSIZE-1].setX(xmin);
-        LineBuf[MAX_SCREENSIZE-1].setY(h);
-        painter2.drawPolygon(LineBuf, n);
-      }
-    } else {
-      painter2.drawPolyline(LineBuf, n);
-    }
-
-    // Peak detection
-    if (m_PeakDetection > 0) {
-      m_Peaks.clear();
-
-      float   mean = 0;
-      float   sum_of_sq = 0;
-      for (i = 0; i < n; i++) {
-        mean += m_fftbuf[i + xmin];
-        sum_of_sq += m_fftbuf[i + xmin] * m_fftbuf[i + xmin];
-      }
-      mean /= n;
-      float stdev= sqrt(sum_of_sq / n - mean * mean );
-
-      int lastPeak = -1;
-      for (i = 0; i < n; i++) {
-        //m_PeakDetection times the std over the mean or better than current peak
-        float d = (lastPeak == -1) ? (mean - m_PeakDetection * stdev) :
-                                     m_fftbuf[lastPeak + xmin];
-
-        if (m_fftbuf[i + xmin] < d)
-          lastPeak=i;
-
-        if (lastPeak != -1 &&
-            (i - lastPeak > PEAK_H_TOLERANCE || i == n-1))
-        {
-          m_Peaks.insert(lastPeak + xmin, m_fftbuf[lastPeak + xmin]);
-          painter2.drawEllipse(lastPeak + xmin - 5,
-                               m_fftbuf[lastPeak + xmin] - 5, 10, 10);
-          lastPeak = -1;
-        }
-      }
-    }
-
-    // Peak hold
-    if (m_PeakHoldActive) {
-      for (i = 0; i < n; i++) {
-        if (!m_PeakHoldValid || m_fftbuf[i] < m_fftPeakHoldBuf[i])
-          m_fftPeakHoldBuf[i] = m_fftbuf[i];
-
-        LineBuf[i].setX(i + xmin);
-        LineBuf[i].setY(m_fftPeakHoldBuf[i + xmin]);
-      }
-      painter2.setPen(m_PeakHoldColor);
-      painter2.drawPolyline(LineBuf, n);
-
-      m_PeakHoldValid = true;
-    }
-
-    painter2.end();
-
+    m_2DPixmap = m_OverlayPixmap.copy(0, 0, w, h);
   }
 
   // trigger a new paintEvent

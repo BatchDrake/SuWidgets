@@ -52,6 +52,8 @@ struct GLDrawingContext {
 
 };
 
+typedef unsigned long size_t;
+
 //
 // CX:       1 bin,  1 level
 // BBCX:     2 bins, 2 levels
@@ -144,6 +146,17 @@ public:
       k     *= .5f;
     }
   }
+
+  void normalize(void);
+
+  void rescaleMean(void);
+  void rescaleMax(void);
+
+  void assignMean(const float *values);
+  void assignMax(const float *values);
+
+  void reduceMean(const float *values, int length);
+  void reduceMax(const float *values, int length);
 };
 
 typedef std::list<GLLine> GLLineHistory;
@@ -237,6 +250,7 @@ public:
 
     //void SetSdrInterface(CSdrInterface* ptr){m_pSdrInterface = ptr;}
     void draw();		//call to draw new fft data onto screen plot
+    void drawSpectrum(QPainter &, int forceHeight = -1);
     void setLocked(bool locked) { m_Locked = locked; }
     void setRunningState(bool running) { m_Running = running; }
     void setClickResolution(int clickres) { m_ClickResolution = clickres; }
