@@ -245,6 +245,7 @@ public:
 
     void drawFATs(GLDrawingContext &, qint64, qint64);
     void drawBookmarks(GLDrawingContext &, qint64, qint64, int xAxisTop);
+    void drawFilterBox(QPainter &painter, int height);
     void drawFilterBox(GLDrawingContext &);
     void drawAxes(GLDrawingContext &, qint64, qint64);
 

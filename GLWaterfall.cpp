@@ -1353,6 +1353,10 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
 
   painter.drawPixmap(0, 0, m_2DPixmap);
 
+  // Draw demod filter box
+  if (m_FilterBoxEnabled)
+    this->drawFilterBox(painter, y);
+
   drawSpectrum(painter, y);
 
   if (m_TimeStampsEnabled)
@@ -1964,22 +1968,26 @@ GLWaterfall::drawBookmarks(
 }
 
 void
-GLWaterfall::drawFilterBox(GLDrawingContext &ctx)
+GLWaterfall::drawFilterBox(QPainter &painter, int h)
 {
-  int h = ctx.height;
-
   m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
   m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
   m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
 
   int dw = m_DemodHiCutFreqX - m_DemodLowCutFreqX;
 
-  ctx.painter->setOpacity(0.3);
-  ctx.painter->fillRect(m_DemodLowCutFreqX, 0, dw, h, m_FilterBoxColor);
+  painter.setOpacity(0.3);
+  painter.fillRect(m_DemodLowCutFreqX, 0, dw, h, m_FilterBoxColor);
 
-  ctx.painter->setOpacity(1.0);
-  ctx.painter->setPen(QColor(PLOTTER_FILTER_LINE_COLOR));
-  ctx.painter->drawLine(m_DemodFreqX, 0, m_DemodFreqX, h);
+  painter.setOpacity(1.0);
+  painter.setPen(QColor(PLOTTER_FILTER_LINE_COLOR));
+  painter.drawLine(m_DemodFreqX, 0, m_DemodFreqX, h);
+}
+
+void
+GLWaterfall::drawFilterBox(GLDrawingContext &ctx)
+{
+  drawFilterBox(*ctx.painter, ctx.height);
 }
 
 void
@@ -2166,10 +2174,6 @@ GLWaterfall::drawOverlay()
   // Draw frequency allocation tables
   if (this->m_ShowFATs)
     this->drawFATs(ctx, StartFreq, EndFreq);
-
-  // Draw demod filter box
-  if (m_FilterBoxEnabled)
-    this->drawFilterBox(ctx);
 
   if (!m_Running) {
     // if not running so is no data updates to draw to screen
