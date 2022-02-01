@@ -52,7 +52,6 @@ struct GLDrawingContext {
 
 };
 
-typedef unsigned long size_t;
 
 //
 // CX:       1 bin,  1 level
