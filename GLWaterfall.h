@@ -374,6 +374,7 @@ public:
     void setGain(float gain)
     {
       m_gain = gain;
+      this->glCtx.setDynamicRange(m_WfMindB - m_gain, m_WfMaxdB - m_gain);
     }
 
     void setUnitName(QString const &name)

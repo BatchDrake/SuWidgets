@@ -1788,7 +1788,7 @@ GLWaterfall::setWaterfallRange(float min, float max)
   m_WfMindB = min;
   m_WfMaxdB = max;
 
-  this->glCtx.setDynamicRange(min, max);
+  this->glCtx.setDynamicRange(min - m_gain, max - m_gain);
 
   // no overlay change is necessary
 }
