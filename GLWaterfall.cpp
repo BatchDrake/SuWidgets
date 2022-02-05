@@ -1437,102 +1437,102 @@ GLWaterfall::drawSpectrum(QPainter &painter, int forceHeight)
 
   // workaround for "fixed" line drawing since Qt 5
   // see http://stackoverflow.com/questions/16990326
-  #if QT_VERSION >= 0x050000
+#if QT_VERSION >= 0x050000
       painter.translate(0.5, 0.5);
-  #endif
+#endif
 
-      // get new scaled fft data
-      getScreenIntegerFFTData(
-            h,
-            qMin(w, MAX_SCREENSIZE),
-            m_PandMaxdB,
-            m_PandMindB,
-            qBound(
-              -limit,
-              m_tentativeCenterFreq + m_FftCenter,
-              limit) - (qint64)m_Span/2,
-            qBound(
-              -limit,
-              m_tentativeCenterFreq + m_FftCenter,
-              limit) + (qint64)m_Span/2,
-            m_fftData, m_fftbuf,
-            &xmin,
-            &xmax);
+  // get new scaled fft data
+  getScreenIntegerFFTData(
+        h,
+        qMin(w, MAX_SCREENSIZE),
+        m_PandMaxdB,
+        m_PandMindB,
+        qBound(
+          -limit,
+          m_tentativeCenterFreq + m_FftCenter,
+          limit) - (qint64)m_Span/2,
+          qBound(
+            -limit,
+            m_tentativeCenterFreq + m_FftCenter,
+            limit) + (qint64)m_Span/2,
+          m_fftData, m_fftbuf,
+          &xmin,
+          &xmax);
 
-      // draw the pandapter
-      painter.setPen(m_FftColor);
-      n = xmax - xmin;
-      for (i = 0; i < n; i++) {
-        LineBuf[i].setX(i + xmin);
-        LineBuf[i].setY(m_fftbuf[i + xmin]);
+  // draw the pandapter
+  painter.setPen(m_FftColor);
+  n = xmax - xmin;
+  for (i = 0; i < n; i++) {
+    LineBuf[i].setX(i + xmin);
+    LineBuf[i].setY(m_fftbuf[i + xmin]);
+  }
+
+  if (m_FftFill) {
+    painter.setBrush(QBrush(m_FftFillCol, Qt::SolidPattern));
+    if (n < MAX_SCREENSIZE-2) {
+      LineBuf[n].setX(xmax-1);
+      LineBuf[n].setY(h);
+      LineBuf[n+1].setX(xmin);
+      LineBuf[n+1].setY(h);
+      painter.drawPolygon(LineBuf, n+2);
+    } else {
+      LineBuf[MAX_SCREENSIZE-2].setX(xmax-1);
+      LineBuf[MAX_SCREENSIZE-2].setY(h);
+      LineBuf[MAX_SCREENSIZE-1].setX(xmin);
+      LineBuf[MAX_SCREENSIZE-1].setY(h);
+      painter.drawPolygon(LineBuf, n);
+    }
+  } else {
+    painter.drawPolyline(LineBuf, n);
+  }
+
+  // Peak detection
+  if (m_PeakDetection > 0) {
+    m_Peaks.clear();
+
+    float   mean = 0;
+    float   sum_of_sq = 0;
+    for (i = 0; i < n; i++) {
+      mean += m_fftbuf[i + xmin];
+      sum_of_sq += m_fftbuf[i + xmin] * m_fftbuf[i + xmin];
+    }
+    mean /= n;
+    float stdev= sqrt(sum_of_sq / n - mean * mean );
+
+    int lastPeak = -1;
+    for (i = 0; i < n; i++) {
+      //m_PeakDetection times the std over the mean or better than current peak
+      float d = (lastPeak == -1) ? (mean - m_PeakDetection * stdev) :
+                                   m_fftbuf[lastPeak + xmin];
+
+      if (m_fftbuf[i + xmin] < d)
+        lastPeak=i;
+
+      if (lastPeak != -1 &&
+          (i - lastPeak > PEAK_H_TOLERANCE || i == n-1))
+      {
+        m_Peaks.insert(lastPeak + xmin, m_fftbuf[lastPeak + xmin]);
+        painter.drawEllipse(lastPeak + xmin - 5,
+                            m_fftbuf[lastPeak + xmin] - 5, 10, 10);
+        lastPeak = -1;
       }
+    }
+  }
 
-      if (m_FftFill) {
-        painter.setBrush(QBrush(m_FftFillCol, Qt::SolidPattern));
-        if (n < MAX_SCREENSIZE-2) {
-          LineBuf[n].setX(xmax-1);
-          LineBuf[n].setY(h);
-          LineBuf[n+1].setX(xmin);
-          LineBuf[n+1].setY(h);
-          painter.drawPolygon(LineBuf, n+2);
-        } else {
-          LineBuf[MAX_SCREENSIZE-2].setX(xmax-1);
-          LineBuf[MAX_SCREENSIZE-2].setY(h);
-          LineBuf[MAX_SCREENSIZE-1].setX(xmin);
-          LineBuf[MAX_SCREENSIZE-1].setY(h);
-          painter.drawPolygon(LineBuf, n);
-        }
-      } else {
-        painter.drawPolyline(LineBuf, n);
-      }
+  // Peak hold
+  if (m_PeakHoldActive) {
+    for (i = 0; i < n; i++) {
+      if (!m_PeakHoldValid || m_fftbuf[i] < m_fftPeakHoldBuf[i])
+        m_fftPeakHoldBuf[i] = m_fftbuf[i];
 
-      // Peak detection
-      if (m_PeakDetection > 0) {
-        m_Peaks.clear();
+      LineBuf[i].setX(i + xmin);
+      LineBuf[i].setY(m_fftPeakHoldBuf[i + xmin]);
+    }
+    painter.setPen(m_PeakHoldColor);
+    painter.drawPolyline(LineBuf, n);
 
-        float   mean = 0;
-        float   sum_of_sq = 0;
-        for (i = 0; i < n; i++) {
-          mean += m_fftbuf[i + xmin];
-          sum_of_sq += m_fftbuf[i + xmin] * m_fftbuf[i + xmin];
-        }
-        mean /= n;
-        float stdev= sqrt(sum_of_sq / n - mean * mean );
-
-        int lastPeak = -1;
-        for (i = 0; i < n; i++) {
-          //m_PeakDetection times the std over the mean or better than current peak
-          float d = (lastPeak == -1) ? (mean - m_PeakDetection * stdev) :
-                                       m_fftbuf[lastPeak + xmin];
-
-          if (m_fftbuf[i + xmin] < d)
-            lastPeak=i;
-
-          if (lastPeak != -1 &&
-              (i - lastPeak > PEAK_H_TOLERANCE || i == n-1))
-          {
-            m_Peaks.insert(lastPeak + xmin, m_fftbuf[lastPeak + xmin]);
-            painter.drawEllipse(lastPeak + xmin - 5,
-                                 m_fftbuf[lastPeak + xmin] - 5, 10, 10);
-            lastPeak = -1;
-          }
-        }
-      }
-
-      // Peak hold
-      if (m_PeakHoldActive) {
-        for (i = 0; i < n; i++) {
-          if (!m_PeakHoldValid || m_fftbuf[i] < m_fftPeakHoldBuf[i])
-            m_fftPeakHoldBuf[i] = m_fftbuf[i];
-
-          LineBuf[i].setX(i + xmin);
-          LineBuf[i].setY(m_fftPeakHoldBuf[i + xmin]);
-        }
-        painter.setPen(m_PeakHoldColor);
-        painter.drawPolyline(LineBuf, n);
-
-        m_PeakHoldValid = true;
-      }
+    m_PeakHoldValid = true;
+  }
 }
 
 // Called to update spectrum data for displaying on the screen

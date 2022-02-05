@@ -527,9 +527,9 @@ private:
     bool        m_PeakHoldValid;
     qint32      m_fftbuf[MAX_SCREENSIZE];
     qint32      m_fftPeakHoldBuf[MAX_SCREENSIZE];
-    float      *m_fftData;     /*! pointer to incoming FFT data */
-    float      *m_wfData;
-    int         m_fftDataSize;
+    float      *m_fftData = nullptr;     /*! pointer to incoming FFT data */
+    float      *m_wfData = nullptr;
+    int         m_fftDataSize = 0;
 
     int         m_XAxisYCenter;
     int         m_YAxisWidth;
