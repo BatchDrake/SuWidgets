@@ -247,9 +247,9 @@ WaveView::build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since)
     quint64 left  = MIN(length - i, WAVEFORM_BLOCK_LENGTH);
     SUFLOAT kInv  = 1.f/ SU_ASFLOAT(left);
 
+    data          = this->data + i;
     thisLimit.min = data[0];
     thisLimit.max = data[0];
-    data          = this->data + i;
 
     for (SUSCOUNT j = 0; j < left; ++j) {
       if (data[j].real() > thisLimit.max.real())
@@ -457,8 +457,8 @@ WaveView::drawWaveFar(QPainter &p, int level)
 {
   qreal firstSamp, lastSamp;
   qint64 firstBlock, lastBlock;
-  int nextX, currX, currY;
-  int prevX = 0, prevY = 0;
+  int nextX, currX;
+  int prevX = -1, prevYA = 0, prevYB = 0;
   int minEnvY = 0, maxEnvY = 0;
   int minWfY  = 0, maxWfY  = 0;
   int bits;
@@ -495,7 +495,6 @@ WaveView::drawWaveFar(QPainter &p, int level)
 
     currX = nextX;
     nextX = SCAST(int, this->samp2px(SCAST(qreal, samp + (1 << bits))));
-    currY = SCAST(int, this->value2px(this->cast(z.mean)));
 
     // Draw envelope?
     if (this->showEnvelope) {
@@ -555,23 +554,21 @@ WaveView::drawWaveFar(QPainter &p, int level)
       int yA = SCAST(int, this->value2px(min));
       int yB = SCAST(int, this->value2px(max));
 
-      // These comparisons seem inverted. They are not: remember that
-      // vertical screen coordinates are top-down, while regular cartesian
-      // coordinates are bottom-up. This results in a change of signedness
-      // in the vertical coordinate.
-
-      if (havePrev) {
-        if (prevY > yA)
-          yA = prevY;
-        if (prevY < yB)
-          yB = prevY;
-      }
-
       // Previous pixel column is not the same as next
       //  Initialize limits
       if (currX != prevX) {
-        minWfY = yB;
-        maxWfY = yA;
+        // These comparisons seem inverted. They are not: remember that
+        // vertical screen coordinates are top-down, while regular cartesian
+        // coordinates are bottom-up. This results in a change of signedness
+        // in the vertical coordinate.
+
+        if (havePrev) {
+          minWfY = MIN(yB, prevYA);
+          maxWfY = MAX(yA, prevYB);
+        } else {
+          minWfY = yB;
+          maxWfY = yA;
+        }
       } else {
         // If not: update limits
         if (minWfY > yB)
@@ -583,14 +580,17 @@ WaveView::drawWaveFar(QPainter &p, int level)
 
       // Next pixel column is going to be different, draw!
       if (currX != nextX) {
-        p.setOpacity(.33);
+        p.setOpacity(this->showEnvelope ? .33 : 1.);
         p.setPen(QPen(this->foreground));
         p.drawLine(currX, minWfY, currX, maxWfY);
       }
+
+      prevYA = yA;
+      prevYB = yB;
     }
 
-    prevX = currX;
-    prevY = currY;
+    prevX    = currX;
+
     havePrev = true;
   }
 }
