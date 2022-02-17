@@ -108,6 +108,7 @@ SymView::drawToImage(
     bool highlight = zoom > 2 && this->hoverX > 0 && this->hoverY > 0;
 
     int width = static_cast<int>(stride * zoom);
+
     if (width > image.width())
       width = image.width();
 
@@ -176,15 +177,17 @@ void
 SymView::draw(void)
 {
   unsigned int available;
+  int width = this->viewPort.width();
   int zoom = static_cast<int>(this->zoom);
+  int limitBar = static_cast<int>(stride * zoom);
   if (!this->size().isValid())
     return;
 
   // Assert a few things before going on
   this->assertImage();
 
-  int lineSize = this->stride > this->viewPort.width() / zoom
-      ? this->viewPort.width() / zoom
+  int lineSize = this->stride > width / zoom
+      ? width / zoom
       : this->stride;
   unsigned int lineSkip = static_cast<unsigned int>(this->stride - lineSize);
   unsigned int lineStart = static_cast<unsigned int>(this->hOffset);
@@ -218,6 +221,19 @@ SymView::draw(void)
           static_cast<unsigned int>(lineSize) + lineStart,
           lineSkip - lineStart,
           lineStart);
+  }
+
+
+  // Draw limitbar on the right
+  if (limitBar + zoom <= width) {
+    int height = this->viewPort.height();
+    for (auto i = 0; i < zoom; ++i) {
+      for (auto j = 0; j < height; ++j) {
+        QRgb *scanLine = reinterpret_cast<QRgb *>(
+            this->viewPort.scanLine(static_cast<int>(j)));
+        scanLine[i + limitBar] = qRgb(255, 0, 0);
+      }
+    }
   }
 }
 
