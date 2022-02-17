@@ -530,7 +530,9 @@ Waveform::drawWave(void)
          ++m)
     {
       int tw;
-      qint64 px = static_cast<qint64>(this->samp2px(m->x));
+      qint64 px = SCAST(qint64, this->samp2px(m->x));
+
+      printf("x = %d\n", px);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
       tw = metrics.horizontalAdvance(m->string);
@@ -546,6 +548,8 @@ Waveform::drawWave(void)
             (m->below ? 2 : - metrics.height() - 2);
 
         ypx = qBound(0, ypx, this->geometry.height() - metrics.height());
+
+        printf("y = %d\n", ypx);
 
         rect.setRect(
               px - tw / 2,
