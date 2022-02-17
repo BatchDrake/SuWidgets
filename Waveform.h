@@ -141,8 +141,6 @@ class Waveform : public ThrottleableWidget
 
   QList<WaveMarker> markerList;
 
-  qreal sampleRate = 1;
-  qreal deltaT = 1;
   qreal oX = 0;
 
   bool periodicSelection = false;
@@ -422,7 +420,7 @@ public:
   qreal
   getSampleRate(void) const
   {
-    return this->sampleRate;
+    return this->view.getSampleRate();
   }
 
   void
@@ -431,9 +429,8 @@ public:
     if (rate <= 0)
       rate = static_cast<qreal>(std::numeric_limits<SUFLOAT>::epsilon());
 
-    if (rate != this->sampleRate) {
-      this->sampleRate = rate;
-      this->deltaT = 1. / rate;
+    if (!sufreleq(rate, this->view.getSampleRate(), 1e-5f)) {
+      this->view.setTimeUnits(0, rate);
       this->axesDrawn = false;
       this->recalculateDisplayData();
       this->invalidate();

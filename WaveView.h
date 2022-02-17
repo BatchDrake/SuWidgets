@@ -201,7 +201,7 @@ public:
   inline qreal
   getViewInterval(void) const
   {
-    return this->viewInterval;
+    return (this->end - this->start) * this->deltaT;
   }
 
   inline qint64
@@ -299,8 +299,21 @@ public:
   {
     return this->showPhaseDiff;
   }
+
+  inline qreal
+  getSampleRate(void) const
+  {
+    return this->sampleRate;
+  }
+
+  inline qreal
+  getDeltaT(void) const
+  {
+    return this->deltaT;
+  }
+
   // Methods
-  void setTimeUnits(qreal t0, qreal deltaT);
+  void setTimeUnits(qreal t0, qreal rate);
   void setHorizontalZoom(qint64 start, qint64 end);
   void setVerticalZoom(qreal min, qreal max);
   void setGeometry(int width, int height);

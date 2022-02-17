@@ -140,7 +140,7 @@ Waveform::recalculateDisplayData(void)
     }
   }
 
-  this->hDivSamples = divLen * this->sampleRate;
+  this->hDivSamples = divLen * this->view.getSampleRate();
 
   // Same procedure for vertical axis
   range = this->view.getViewRange();
@@ -576,6 +576,7 @@ Waveform::drawVerticalAxes(void)
   QFontMetrics metrics(font);
   QRect rect;
   QPen pen(this->axes);
+  qreal deltaT = this->view.getDeltaT();
   int axis;
   int px;
 
@@ -611,8 +612,8 @@ Waveform::drawVerticalAxes(void)
         int tw;
 
         label = SuWidgetsHelpers::formatQuantityFromDelta(
-              (this->oX + axis * this->hDivSamples - rem) * this->deltaT,
-              this->hDivSamples * this->deltaT,
+              (this->oX + axis * this->hDivSamples - rem) * deltaT,
+              this->hDivSamples * deltaT,
               this->horizontalUnits);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
@@ -1026,8 +1027,7 @@ Waveform::Waveform(QWidget *parent) :
   unsigned int i;
   std::vector<QColor> colorTable;
 
-  this->sampleRate = 1024000;
-  this->deltaT = 1 / this->sampleRate;
+  this->view.setTimeUnits(0, 1024000);
 
   for (i = 0; i < 8192; ++i)
     this->data.feed(SU_ASFLOAT(.75) * SU_C_EXP(I * SU_ASFLOAT((M_PI * i) / 64)));

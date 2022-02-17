@@ -78,11 +78,11 @@ pointAbs(SUCOMPLEX a)
 }
 
 void
-WaveView::setTimeUnits(qreal t0, qreal deltaT)
+WaveView::setTimeUnits(qreal t0, qreal rate)
 {
   this->t0         = t0;
-  this->deltaT     = deltaT;
-  this->sampleRate = 1. / deltaT;
+  this->deltaT     = 1. / rate;
+  this->sampleRate = rate;
 
   // Set horizontal zoom again
   this->setHorizontalZoom(this->start, this->end);
