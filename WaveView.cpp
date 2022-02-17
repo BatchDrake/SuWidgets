@@ -208,7 +208,6 @@ WaveView::flush(void)
 
   this->data = nullptr;
   this->length = 0;
-  this->setHorizontalZoom(0, 0);
 }
 
 // Algorithm is as follows:

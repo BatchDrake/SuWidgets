@@ -1011,7 +1011,7 @@ void
 Waveform::refreshData(void)
 {
   qint64 currSpan = this->view.getViewSampleInterval();
-  qint64 lastSample = static_cast<qint64>(this->data.length()) - 1;
+  qint64 lastSample = this->getDataLength() - 1;
 
   this->view.flush();
   this->view.build(this->getData(), this->getDataLength(), 0);
