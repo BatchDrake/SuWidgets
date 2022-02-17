@@ -179,7 +179,7 @@ Waveform::zoomHorizontal(qint64 x, qreal amount)
   //
 
   fixedSamp = std::round(this->px2samp(x));
-  newRange = std::ceil(amount * this->view.getViewSampleInterval());
+  newRange  = std::ceil(amount * this->view.getViewSampleInterval());
 
   this->zoomHorizontal(
         static_cast<qint64>(std::floor(fixedSamp - relPoint * newRange)),
@@ -364,20 +364,12 @@ Waveform::getVerticalSelectionEnd(void) const
 void
 Waveform::fitToEnvelope(void)
 {
-  qreal min = +std::numeric_limits<qreal>::infinity();
-  qreal max = -std::numeric_limits<qreal>::infinity();
-  const SUCOMPLEX *data = this->data.data();
-  size_t length = this->data.length();
+  qreal envelope = this->view.getEnvelope();
 
-  for (unsigned i = 0; i < length; ++i) {
-    if (cast(data[i]) > max)
-      max = cast(data[i]);
-    if (cast(data[i]) < min)
-      min = cast(data[i]);
-  }
-
-  if (max > min)
-    this->zoomVertical(min, max);
+  if (envelope > 0)
+    this->zoomVertical(-envelope, envelope);
+  else
+    this->zoomVerticalReset();
 }
 
 void
@@ -560,6 +552,7 @@ Waveform::drawWave(void)
               ypx,
               tw,
               metrics.height());
+        p.setOpacity(1);
         p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom,m->string);
       }
     }
@@ -891,18 +884,25 @@ Waveform::paint(void)
 void
 Waveform::setData(
     const std::vector<SUCOMPLEX> *data,
-    bool keepView)
+    bool keepView,
+    bool flush)
 {
   bool   appending  = data != nullptr && data == this->data.loanedBuffer();
   qint64 prevLength = static_cast<qint64>(this->getDataLength());
   qint64 newLength  = data == nullptr ? 0 : static_cast<qint64>(data->size());
   qint64 extra      = newLength - prevLength;
 
-  if (appending && extra > 0) {
+  if (appending) {
     // The current wavebuffer holds a reference to the same data vector,
     // we only inform the view to recalculate the new samples
-    this->data.rebuildViews();
+    if (flush) {
+      this->view.build(data->data(), data->size(), 0);
+    } else if (extra > 0) {
+      this->data.rebuildViews();
+    }
   } else {
+    this->view.flush();
+
     if (data != nullptr)
       this->data = WaveBuffer(&this->view, data);
     else
@@ -1006,6 +1006,9 @@ Waveform::refreshData(void)
 {
   qint64 currSpan = this->view.getViewSampleInterval();
   qint64 lastSample = static_cast<qint64>(this->data.length()) - 1;
+
+  this->view.flush();
+  this->view.build(this->getData(), this->getDataLength(), 0);
 
   if (this->autoScroll && this->getSampleEnd() <= lastSample)
     this->view.setHorizontalZoom(lastSample - currSpan, lastSample);

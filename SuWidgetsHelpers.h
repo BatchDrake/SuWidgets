@@ -30,6 +30,7 @@ class QWidget;
 class QLayout;
 
 #define SUWIDGETS_DEFAULT_PRECISION 3
+#define SCAST(type, value) static_cast<type>(value)
 
 class SuWidgetsHelpers {
 

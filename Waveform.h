@@ -538,9 +538,18 @@ public:
     this->oX = origin;
   }
 
+  inline qreal
+  getEnvelope(void) const
+  {
+    return this->view.getEnvelope();
+  }
+
   Waveform(QWidget *parent = nullptr);
 
-  void setData(const std::vector<SUCOMPLEX> *, bool keepView = false);
+  void setData(
+      const std::vector<SUCOMPLEX> *,
+      bool keepView = false,
+      bool flush = false);
   void draw(void) override;
   void paint(void) override;
   void zoomHorizontalReset(void); // To show full wave or to sampPerPix = 1

@@ -313,13 +313,13 @@ public:
   }
 
   // Methods
+  qreal getEnvelope(void) const;
   void setTimeUnits(qreal t0, qreal rate);
   void setHorizontalZoom(qint64 start, qint64 end);
   void setVerticalZoom(qreal min, qreal max);
   void setGeometry(int width, int height);
-
+  void flush(void);
   void build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since = 0);
-
   void drawWave(QPainter &painter);
 };
 #endif // WAVEVIEW_H

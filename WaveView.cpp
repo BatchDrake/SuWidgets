@@ -19,6 +19,7 @@
 #include "WaveView.h"
 #include <sys/time.h>
 #include <QPainterPath>
+#include "SuWidgetsHelpers.h"
 #include "YIQ.h"
 
 // See https://www.linuxquestions.org/questions/blog/rainbowsally-615861/qt-fast-pixel-color-mixing-35589/
@@ -29,7 +30,7 @@ qMixRgb(QRgb pixel1, QRgb pixel2, unsigned alpha)
   int a, b, c;
   uint res1, res2;
 
-  b = static_cast<int>(alpha);
+  b = SCAST(int, alpha);
   // Add and sub are faster than a branch too, so we use the compare to 0
   // optimization to get the upper clamp value without branching.  Again,
   // see the disassembly.
@@ -56,12 +57,12 @@ static inline QColor const &
 phaseToColor(qreal angle)
 {
   if (angle < 0)
-    angle += 2 * PI;
+    angle += SCAST(qreal, 2 * PI);
 
   return yiqTable[
         qBound(
           0,
-        static_cast<int>(SU_FLOOR(1024 * angle / (2 * PI))),
+        SCAST(int, SU_FLOOR(1024 * angle / (2 * PI))),
         1023)];
 }
 
@@ -75,6 +76,15 @@ static inline SUCOMPLEX
 pointAbs(SUCOMPLEX a)
 {
   return fabs(a.real()) + I * fabs(a.imag());
+}
+
+qreal
+WaveView::getEnvelope(void) const
+{
+  if (this->views.size() == 0)
+    return 0;
+
+  return SCAST(qreal, this->views[this->views.size() - 1][0].envelope);
 }
 
 void
@@ -93,7 +103,9 @@ WaveView::setHorizontalZoom(qint64 start, qint64 end)
 {
   this->start        = start;
   this->end          = end;
-  this->viewInterval = static_cast<qreal>(end - start) * this->deltaT;
+  this->viewInterval = SCAST(qreal, end - start) * this->deltaT;
+
+  this->setGeometry(this->width, this->height);
 }
 
 void
@@ -109,8 +121,8 @@ WaveView::setGeometry(int width, int height)
   this->width  = width;
   this->height = height;
 
-  this->sampPerPx  = static_cast<qreal>(this->end - this->start) / this->width;
-  this->unitsPerPx = static_cast<qreal>(this->max - this->min) / this->height;
+  this->sampPerPx  = SCAST(qreal, this->end - this->start) / this->width;
+  this->unitsPerPx = SCAST(qreal, this->max - this->min) / this->height;
 }
 
 // Algorithm is as follows:
@@ -123,10 +135,9 @@ WaveView::buildNextView(WaveViewList::iterator p, SUSCOUNT since)
 {
   WaveViewList::iterator next = p + 1;
   SUSCOUNT length, nextLength;
-  SUFLOAT kInv = 1.f / SU_ASFLOAT(WAVEFORM_BLOCK_LENGTH);
 
-  since /= WAVEFORM_BLOCK_LENGTH;
-  since *= WAVEFORM_BLOCK_LENGTH;
+  since >>= WAVEFORM_BLOCK_BITS;
+  since <<= WAVEFORM_BLOCK_BITS;
 
   if (next == this->views.end()) {
     this->views.append(WaveLimitVector());
@@ -136,7 +147,7 @@ WaveView::buildNextView(WaveViewList::iterator p, SUSCOUNT since)
   }
 
   length = p->size();
-  nextLength = (length + WAVEFORM_BLOCK_LENGTH - 1) / WAVEFORM_BLOCK_LENGTH;
+  nextLength = (length + WAVEFORM_BLOCK_LENGTH - 1) >> WAVEFORM_BLOCK_BITS;
 
   if (next->size() < nextLength)
     next->resize(nextLength);
@@ -144,11 +155,13 @@ WaveView::buildNextView(WaveViewList::iterator p, SUSCOUNT since)
   for (auto i = since; i < length; i += WAVEFORM_BLOCK_LENGTH) {
     const WaveLimits *data = p->data() + i;
     WaveLimits thisLimit;
+    quint64 left       = MIN(length - i, WAVEFORM_BLOCK_LENGTH);
+    SUFLOAT kInv       = 1.f/ SU_ASFLOAT(left);
 
     thisLimit.max      = data[0].max;
     thisLimit.min      = data[0].min;
 
-    for (auto j = 0; j < WAVEFORM_BLOCK_LENGTH; ++j) {
+    for (SUSCOUNT j = 0; j < left; ++j) {
       if (data[j].max.real() > thisLimit.max.real())
         thisLimit.max = data[j].max.real() + thisLimit.max.imag() * I;
       if (data[j].max.imag() > thisLimit.max.imag())
@@ -170,30 +183,30 @@ WaveView::buildNextView(WaveViewList::iterator p, SUSCOUNT since)
     thisLimit.mean *= kInv;
     thisLimit.freq *= kInv;
 
-    (*next)[i / WAVEFORM_BLOCK_LENGTH] = thisLimit;
+    (*next)[i >> WAVEFORM_BLOCK_BITS] = thisLimit;
   }
 
   if (next->size() > 1)
-    buildNextView(next, since / WAVEFORM_BLOCK_LENGTH);
+    buildNextView(next, since >> WAVEFORM_BLOCK_BITS);
+}
+
+void
+WaveView::flush(void)
+{
+  this->views.clear();
 }
 
 // Algorithm is as follows:
 // 1. Construct views[0] traversing data
 // 2. Call buildNextView on views[0] since 0
-
-
 void
 WaveView::build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since)
 {
   WaveViewList::iterator next = this->views.begin();
   SUSCOUNT nextLength;
-  SUFLOAT kInv = 1.f / SU_ASFLOAT(WAVEFORM_BLOCK_LENGTH);
-  struct timeval tv, otv, diff;
 
-  gettimeofday(&otv, nullptr);
-
-  since /= WAVEFORM_BLOCK_LENGTH;
-  since *= WAVEFORM_BLOCK_LENGTH;
+  since >>= WAVEFORM_BLOCK_BITS;
+  since <<= WAVEFORM_BLOCK_BITS;
 
   this->data   = data;
   this->length = length;
@@ -204,20 +217,22 @@ WaveView::build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since)
     next->resize(1);
   }
 
-  nextLength = (length + WAVEFORM_BLOCK_LENGTH - 1) / WAVEFORM_BLOCK_LENGTH;
+  nextLength = (length + WAVEFORM_BLOCK_LENGTH - 1) >> WAVEFORM_BLOCK_BITS;
 
   if (next->size() < nextLength)
     next->resize(nextLength);
 
   for (SUSCOUNT i = since; i < length; i += WAVEFORM_BLOCK_LENGTH) {
     WaveLimits thisLimit;
-    SUFLOAT env2 = 0;
+    SUFLOAT env2  = 0;
+    quint64 left  = MIN(length - i, WAVEFORM_BLOCK_LENGTH);
+    SUFLOAT kInv  = 1.f/ SU_ASFLOAT(left);
 
     thisLimit.min = data[0];
     thisLimit.max = data[0];
     data          = this->data + i;
 
-    for (SUSCOUNT j = 0; j < WAVEFORM_BLOCK_LENGTH; ++j) {
+    for (SUSCOUNT j = 0; j < left; ++j) {
       if (data[j].real() > thisLimit.max.real())
         thisLimit.max = data[j].real() + thisLimit.max.imag() * I;
       if (data[j].imag() > thisLimit.max.imag())
@@ -242,14 +257,11 @@ WaveView::build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since)
     thisLimit.mean *= kInv;
     thisLimit.envelope = sqrt(thisLimit.envelope);
 
-    (*next)[i / WAVEFORM_BLOCK_LENGTH] = thisLimit;
+    (*next)[i >> WAVEFORM_BLOCK_BITS] = thisLimit;
   }
 
   if (next->size() > 1)
-    buildNextView(next, since / WAVEFORM_BLOCK_LENGTH);
-
-  gettimeofday(&tv, nullptr);
-  timersub(&tv, &otv, &diff);
+    buildNextView(next, since >> WAVEFORM_BLOCK_BITS);
 }
 
 /////////////////////////////// Drawing methods ////////////////////////////////
@@ -288,28 +300,28 @@ WaveView::drawWaveClose(QPainter &p)
   firstSamp = this->px2samp(this->leftMargin);
   lastSamp  = this->px2samp(this->width - 1);
 
-  firstIntegerSamp = static_cast<qint64>(std::ceil(firstSamp));
-  lastIntegerSamp  = static_cast<qint64>(std::floor(lastSamp));
+  firstIntegerSamp = SCAST(qint64, std::ceil(firstSamp));
+  lastIntegerSamp  = SCAST(qint64, std::floor(lastSamp));
 
   if (firstIntegerSamp < 0)
     firstIntegerSamp = 0;
 
-  if (lastIntegerSamp >= this->length)
-    lastIntegerSamp = this->length - 1;
+  if (lastIntegerSamp >= SCAST(qint64, this->length))
+    lastIntegerSamp = SCAST(qint64, this->length - 1);
 
   for (qint64 i = firstIntegerSamp; i <= lastIntegerSamp; ++i) {
-    currX = static_cast<int>(this->samp2px(static_cast<qreal>(i)));
-    currY = static_cast<int>(this->value2px(this->cast(data[i])));
+    currX = SCAST(int, this->samp2px(SCAST(qreal, i)));
+    currY = SCAST(int, this->value2px(this->cast(data[i])));
 
-    if (i >= 0 && i < this->length) {
+    if (i >= 0 && i < SCAST(qint64, this->length)) {
       // Draw envelope?
       if (this->showEnvelope) {
         // Determine limits
-        qreal mag   = static_cast<qreal>(SU_C_ABS(this->data[i]));
-        qreal phase = static_cast<qreal>(SU_C_ARG(this->data[i]));
+        qreal mag   = SCAST(qreal, SU_C_ABS(this->data[i]));
+        qreal phase = SCAST(qreal, SU_C_ARG(this->data[i]));
 
-        int pxHigh = static_cast<int>(this->value2px(+mag));
-        int pxLow  = static_cast<int>(this->value2px(-mag));
+        int pxHigh = SCAST(int, this->value2px(+mag));
+        int pxLow  = SCAST(int, this->value2px(-mag));
 
         p.setPen(Qt::NoPen);
         p.setOpacity(this->showWaveform ? .33 : 1.);
@@ -327,7 +339,7 @@ WaveView::drawWaveClose(QPainter &p)
               // Display its first derivative (frequency)
               qreal phaseDiff = phase - prevPhase;
               if (phaseDiff < 0)
-                phaseDiff += 2. * static_cast<qreal>(PI);
+                phaseDiff += 2. * SCAST(qreal, PI);
               QColor diff = this->phaseDiff2Color(phaseDiff);
               p.fillPath(path, diff);
             } else {
@@ -368,13 +380,11 @@ WaveView::drawWaveFar(QPainter &p, int level)
   qreal firstSamp, lastSamp;
   qint64 firstBlock, lastBlock;
   int currX, currY;
-  int prevX = 0, prevY = 0;
+  int prevY = 0;
   int bits;
-  qreal prevPhase = 0;
   qreal blocksPerPx;
   bool havePrev = false;
   QColor color = this->foreground;
-  QColor darkenedForeground;
   qreal alpha = 1.;
   QPen pen;
   WaveViewList::iterator view = this->views.begin() + level;
@@ -403,30 +413,30 @@ WaveView::drawWaveFar(QPainter &p, int level)
   firstSamp = this->px2samp(this->leftMargin);
   lastSamp  = this->px2samp(this->width - 1);
 
-  firstBlock = static_cast<qint64>(std::ceil(firstSamp)) >> bits;
-  lastBlock  = static_cast<qint64>(std::floor(lastSamp)) >> bits;
+  firstBlock = SCAST(qint64, std::ceil(firstSamp)) >> bits;
+  lastBlock  = SCAST(qint64, std::floor(lastSamp)) >> bits;
 
   if (firstBlock < 0)
     firstBlock = 0;
 
-  if (lastBlock >= view->size())
-    lastBlock = view->size() - 1;
+  if (lastBlock >= SCAST(qint64, view->size()))
+    lastBlock = SCAST(qint64, view->size() - 1);
 
   for (qint64 i = firstBlock; i <= lastBlock; ++i) {
-    WaveLimits &z = (*view)[i];
+    WaveLimits &z = (*view)[SCAST(unsigned long, i)];
     qint64 samp = i << bits;
 
-    currX = static_cast<int>(this->samp2px(static_cast<qreal>(samp)));
-    currY = static_cast<int>(this->value2px(this->cast(z.mean)));
+    currX = SCAST(int, this->samp2px(SCAST(qreal, samp)));
+    currY = SCAST(int, this->value2px(this->cast(z.mean)));
 
     // Draw envelope?
     if (this->showEnvelope) {
       // Determine limits
-      qreal mag   = z.envelope;
-      qreal phase = static_cast<qreal>(SU_C_ARG(z.mean));
+      qreal mag   = SCAST(qreal, z.envelope);
+      qreal phase = SCAST(qreal, SU_C_ARG(z.mean));
 
-      int pxHigh = static_cast<int>(this->value2px(+mag));
-      int pxLow  = static_cast<int>(this->value2px(-mag));
+      int pxHigh  = SCAST(int, this->value2px(+mag));
+      int pxLow   = SCAST(int, this->value2px(-mag));
 
       p.setPen(Qt::NoPen);
       p.setOpacity(this->showWaveform ? .33 : 1.);
@@ -439,9 +449,7 @@ WaveView::drawWaveFar(QPainter &p, int level)
           // Display its first derivative (frequency, cached)
           if (this->showPhaseDiff) {
             lineColor = this->phaseDiff2Color(
-                  z.freq < 0
-                  ? z.freq + 2 * PI
-                  : z.freq);
+                  SCAST(qreal, z.freq < 0 ? z.freq + 2 * PI : z.freq));
           }
           else
             lineColor = phaseToColor(phase);
@@ -452,16 +460,14 @@ WaveView::drawWaveFar(QPainter &p, int level)
         p.setPen(QPen(lineColor));
         p.drawLine(currX, pxHigh, currX, pxLow);
       }
-
-      prevPhase  = phase;
     }
 
     if (this->showWaveform) {
       qreal min = this->cast(z.min);
       qreal max = this->cast(z.max);
 
-      int yA = static_cast<int>(this->value2px(min));
-      int yB = static_cast<int>(this->value2px(max));
+      int yA = SCAST(int, this->value2px(min));
+      int yB = SCAST(int, this->value2px(max));
 
       // These comparisons seem inverted. They are not: remember that
       // vertical screen coordinates are top-down, while regular cartesian
@@ -480,7 +486,6 @@ WaveView::drawWaveFar(QPainter &p, int level)
       p.drawLine(currX, yA, currX, yB);
     }
 
-    prevX = currX;
     prevY = currY;
     havePrev = true;
   }
@@ -492,7 +497,7 @@ WaveView::drawWave(QPainter &painter)
   this->setGeometry(painter.device()->width(), painter.device()->height());
 
   // Nothing to paint? Leave.
-  if (this->length == 0)
+  if (this->length == 0 || this->views.size() == 0)
     return;
 
   if (this->sampPerPx > 8.) {
@@ -506,7 +511,8 @@ WaveView::drawWave(QPainter &painter)
     // sampPerPx in [64, 512): Level 1
     //
 
-    level = static_cast<int>(
+    level = SCAST(
+          int,
           floor(log(this->sampPerPx) / log(WAVEFORM_BLOCK_LENGTH))) - 1;
     if (level >= this->views.size())
       level = this->views.size() - 1;
