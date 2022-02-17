@@ -78,13 +78,24 @@ pointAbs(SUCOMPLEX a)
   return fabs(a.real()) + I * fabs(a.imag());
 }
 
+WaveView::WaveView()
+{
+  this->waveTree = &this->ownWaveTree;
+}
+
+void
+WaveView::borrowTree(WaveView &view)
+{
+  this->waveTree = view.waveTree;
+}
+
 qreal
 WaveView::getEnvelope(void) const
 {
-  if (this->views.size() == 0)
+  if (this->waveTree->size() == 0)
     return 0;
 
-  return SCAST(qreal, this->views[this->views.size() - 1][0].envelope);
+  return SCAST(qreal, (*this->waveTree)[this->waveTree->size() - 1][0].envelope);
 }
 
 void
@@ -101,10 +112,8 @@ WaveView::setTimeUnits(qreal t0, qreal rate)
 void
 WaveView::setHorizontalZoom(qint64 start, qint64 end)
 {
-  this->start        = start;
-  this->end          = end;
-  this->viewInterval = SCAST(qreal, end - start) * this->deltaT;
-
+  this->start = start;
+  this->end   = end;
   this->setGeometry(this->width, this->height);
 }
 
@@ -113,6 +122,7 @@ WaveView::setVerticalZoom(qreal min, qreal max)
 {
   this->min = min;
   this->max = max;
+  this->setGeometry(this->width, this->height);
 }
 
 void
@@ -131,17 +141,17 @@ WaveView::setGeometry(int width, int height)
 // 3. Continue until next p has size 1
 
 void
-WaveView::buildNextView(WaveViewList::iterator p, SUSCOUNT since)
+WaveView::buildNextView(WaveViewTree::iterator p, SUSCOUNT since)
 {
-  WaveViewList::iterator next = p + 1;
+  WaveViewTree::iterator next = p + 1;
   SUSCOUNT length, nextLength;
 
   since >>= WAVEFORM_BLOCK_BITS;
   since <<= WAVEFORM_BLOCK_BITS;
 
-  if (next == this->views.end()) {
-    this->views.append(WaveLimitVector());
-    next = this->views.end() - 1;
+  if (next == this->waveTree->end()) {
+    this->waveTree->append(WaveLimitVector());
+    next = this->waveTree->end() - 1;
     p    = next - 1;
     next->resize(1);
   }
@@ -193,16 +203,21 @@ WaveView::buildNextView(WaveViewList::iterator p, SUSCOUNT since)
 void
 WaveView::flush(void)
 {
-  this->views.clear();
+  if (this->waveTree == &this->ownWaveTree)
+    this->waveTree->clear();
+
+  this->data = nullptr;
+  this->length = 0;
+  this->setHorizontalZoom(0, 0);
 }
 
 // Algorithm is as follows:
-// 1. Construct views[0] traversing data
-// 2. Call buildNextView on views[0] since 0
+// 1. Construct waveTree[0] traversing data
+// 2. Call buildNextView on waveTree[0] since 0
 void
 WaveView::build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since)
 {
-  WaveViewList::iterator next = this->views.begin();
+  WaveViewTree::iterator next = this->waveTree->begin();
   SUSCOUNT nextLength;
 
   since >>= WAVEFORM_BLOCK_BITS;
@@ -211,9 +226,13 @@ WaveView::build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since)
   this->data   = data;
   this->length = length;
 
-  if (next == this->views.end()) {
-    this->views.append(WaveLimitVector());
-    next = this->views.begin();
+  // And that's it, that's the only thing we do if the tree is not ours.
+  if (this->waveTree != &this->ownWaveTree)
+    return;
+
+  if (next == this->waveTree->end()) {
+    this->waveTree->append(WaveLimitVector());
+    next = this->waveTree->begin();
     next->resize(1);
   }
 
@@ -270,20 +289,24 @@ WaveView::drawWaveClose(QPainter &p)
 {
   qreal firstSamp, lastSamp;
   qint64 firstIntegerSamp, lastIntegerSamp;
-  int prevPxHigh = 0;
-  int prevPxLow = 0;
-  int currX, currY;
+  int prevMinEnvY = 0;
+  int prevMaxEnvY = 0;
+  int nextX, currX, currY;
   int prevX = 0, prevY = 0;
+  int pathX = 0;
 
   qreal prevPhase = 0;
   qreal alpha = 1;
-  bool havePrev = false;
+  bool havePrevEnv = false;
+  bool havePrevWf  = false;
   QColor color = this->foreground;
   QColor darkenedForeground;
+  int minEnvY = 0, maxEnvY = 0;
   QPen pen;
+  bool paintSamples = this->sampPerPx < 1. / (2 * WAVEFORM_CIRCLE_DIM);
 
   if (this->sampPerPx > 1)
-    alpha = sqrt(this->sampPerPx);
+    alpha = sqrt(1. / this->sampPerPx);
 
   pen.setColor(color);
   pen.setStyle(Qt::SolidLine);
@@ -309,65 +332,120 @@ WaveView::drawWaveClose(QPainter &p)
   if (lastIntegerSamp >= SCAST(qint64, this->length))
     lastIntegerSamp = SCAST(qint64, this->length - 1);
 
+  nextX = SCAST(int, this->samp2px(SCAST(qreal, firstIntegerSamp)));
   for (qint64 i = firstIntegerSamp; i <= lastIntegerSamp; ++i) {
-    currX = SCAST(int, this->samp2px(SCAST(qreal, i)));
+    currX = nextX;
+    nextX = SCAST(int, this->samp2px(SCAST(qreal, i + 1)));
     currY = SCAST(int, this->value2px(this->cast(data[i])));
 
     if (i >= 0 && i < SCAST(qint64, this->length)) {
       // Draw envelope?
       if (this->showEnvelope) {
         // Determine limits
-        qreal mag   = SCAST(qreal, SU_C_ABS(this->data[i]));
-        qreal phase = SCAST(qreal, SU_C_ARG(this->data[i]));
+        qreal mag    = SCAST(qreal, SU_C_ABS(this->data[i]));
+        qreal phase  = SCAST(qreal, SU_C_ARG(this->data[i]));
 
-        int pxHigh = SCAST(int, this->value2px(+mag));
-        int pxLow  = SCAST(int, this->value2px(-mag));
+        int pxLower  = SCAST(int, this->value2px(+mag));
+        int pxUpper  = SCAST(int, this->value2px(-mag));
 
-        p.setPen(Qt::NoPen);
-        p.setOpacity(this->showWaveform ? .33 : 1.);
+        // Previous pixel column is not the same as next
+        //  Initialize limits
+        if (currX != prevX) {
+          minEnvY = pxLower;
+          maxEnvY = pxUpper;
+          pathX   = prevX;
+        } else {
+          // If not: update limits
+          if (pxLower < minEnvY)
+            minEnvY = pxLower;
 
-        if (havePrev) {
-          QPainterPath path;
-          path.moveTo(prevX, prevPxHigh);
-          path.lineTo(currX, pxHigh);
-          path.lineTo(currX, pxLow);
-          path.lineTo(prevX, prevPxLow);
-
-          // Show phase?
-          if (this->showPhase) {
-            if (this->showPhaseDiff) {
-              // Display its first derivative (frequency)
-              qreal phaseDiff = phase - prevPhase;
-              if (phaseDiff < 0)
-                phaseDiff += 2. * SCAST(qreal, PI);
-              QColor diff = this->phaseDiff2Color(phaseDiff);
-              p.fillPath(path, diff);
-            } else {
-              // Display it as-is
-              QLinearGradient gradient(prevX, 0, currX, 0);
-              gradient.setColorAt(0, phaseToColor(prevPhase));
-              gradient.setColorAt(1, phaseToColor(phase));
-              p.fillPath(path, gradient);
-            }
-          } else {
-            p.fillPath(path, this->foreground);
-          }
+          if (pxUpper > maxEnvY)
+            maxEnvY = pxUpper;
         }
-        prevPxHigh = pxHigh;
-        prevPxLow  = pxLow;
+
+        // Next pixel column will be different: time to draw line
+        if (currX != nextX) {
+          p.setPen(Qt::NoPen);
+          p.setOpacity(this->showWaveform ? .33 : 1.);
+
+          if (havePrevEnv) {
+            QPainterPath path;
+
+            if (pathX != currX) {
+              path.moveTo(pathX, prevMinEnvY);
+              path.lineTo(currX, minEnvY);
+              path.lineTo(currX, maxEnvY);
+              path.lineTo(pathX, prevMaxEnvY);
+            }
+
+            // Show phase?
+            if (this->showPhase) {
+              if (this->showPhaseDiff) {
+                // Display its first derivative (frequency)
+                qreal phaseDiff = phase - prevPhase;
+                if (phaseDiff < 0)
+                  phaseDiff += 2. * SCAST(qreal, PI);
+                QColor diffColor = this->phaseDiff2Color(phaseDiff);
+
+                if (pathX != currX) {
+                  p.fillPath(path, diffColor);
+                } else {
+                  p.setPen(diffColor);
+                  p.drawLine(currX, minEnvY, currX, maxEnvY);
+                }
+              } else {
+                // Display it as-is
+                if (pathX != currX) {
+                  QLinearGradient gradient(prevX, 0, currX, 0);
+                  gradient.setColorAt(0, phaseToColor(prevPhase));
+                  gradient.setColorAt(1, phaseToColor(phase));
+                  p.fillPath(path, gradient);
+                } else {
+                  p.setPen( phaseToColor(phase));
+                  p.drawLine(currX, minEnvY, currX, maxEnvY);
+                }
+
+              }
+            } else {
+              if (pathX != currX) {
+                p.fillPath(path, this->foreground);
+              } else {
+                p.setPen(this->foreground);
+                p.drawLine(currX, minEnvY, currX, maxEnvY);
+              }
+            }
+          }
+
+          prevMinEnvY  = minEnvY;
+          prevMaxEnvY  = maxEnvY;
+          havePrevEnv = true;
+        }
+
         prevPhase  = phase;
       }
 
-      if (this->showWaveform && havePrev) {
+      if (this->showWaveform) {
         p.setOpacity(alpha);
-        p.setPen(QPen(this->foreground));
-        p.drawLine(prevX, prevY, currX, currY);
+
+        if (havePrevWf) {
+          p.setPen(QPen(this->foreground));
+          p.drawLine(prevX, prevY, currX, currY);
+        }
+
+        if (paintSamples) {
+          p.setBrush(QBrush(this->foreground));
+          p.drawEllipse(
+                currX - WAVEFORM_CIRCLE_DIM / 2,
+                currY - WAVEFORM_CIRCLE_DIM / 2,
+                WAVEFORM_CIRCLE_DIM,
+                WAVEFORM_CIRCLE_DIM);
+        }
       }
     }
 
-    prevX = currX;
-    prevY = currY;
-    havePrev = true;
+    prevX      = currX;
+    prevY      = currY;
+    havePrevWf = true;
   }
 }
 
@@ -379,31 +457,18 @@ WaveView::drawWaveFar(QPainter &p, int level)
 {
   qreal firstSamp, lastSamp;
   qint64 firstBlock, lastBlock;
-  int currX, currY;
-  int prevY = 0;
+  int nextX, currX, currY;
+  int prevX = 0, prevY = 0;
+  int minEnvY = 0, maxEnvY = 0;
+  int minWfY  = 0, maxWfY  = 0;
   int bits;
-  qreal blocksPerPx;
   bool havePrev = false;
-  QColor color = this->foreground;
-  qreal alpha = 1.;
   QPen pen;
-  WaveViewList::iterator view = this->views.begin() + level;
+  WaveViewTree::iterator view = this->waveTree->begin() + level;
 
   bits = (level + 1) * WAVEFORM_BLOCK_BITS;
 
-  blocksPerPx = this->sampPerPx / (1 << bits);
-
-  //
-  // k = 1 / blocksPerPx
-  // exp(-(blocksPerPx - 1))
-  //
-  if (blocksPerPx > 1) {
-    alpha = exp(-(blocksPerPx - 1) / (WAVEFORM_BLOCK_LENGTH - 1) * 1.25);
-    if (alpha < 1./ WAVEFORM_BLOCK_LENGTH)
-      alpha = 1. / WAVEFORM_BLOCK_LENGTH;
-  }
-
-  pen.setColor(color);
+  pen.setColor(this->foreground);
   pen.setStyle(Qt::SolidLine);
   p.setPen(pen);
 
@@ -422,11 +487,14 @@ WaveView::drawWaveFar(QPainter &p, int level)
   if (lastBlock >= SCAST(qint64, view->size()))
     lastBlock = SCAST(qint64, view->size() - 1);
 
+  nextX = SCAST(int, this->samp2px(SCAST(qreal, firstBlock << bits)));
+
   for (qint64 i = firstBlock; i <= lastBlock; ++i) {
     WaveLimits &z = (*view)[SCAST(unsigned long, i)];
     qint64 samp = i << bits;
 
-    currX = SCAST(int, this->samp2px(SCAST(qreal, samp)));
+    currX = nextX;
+    nextX = SCAST(int, this->samp2px(SCAST(qreal, samp + (1 << bits))));
     currY = SCAST(int, this->value2px(this->cast(z.mean)));
 
     // Draw envelope?
@@ -438,30 +506,48 @@ WaveView::drawWaveFar(QPainter &p, int level)
       int pxHigh  = SCAST(int, this->value2px(+mag));
       int pxLow   = SCAST(int, this->value2px(-mag));
 
-      p.setPen(Qt::NoPen);
-      p.setOpacity(this->showWaveform ? .33 : 1.);
+      // Previous pixel column is not the same as next
+      //  Initialize limits
+      if (currX != prevX) {
+        minEnvY = pxHigh;
+        maxEnvY = pxLow;
+      } else {
+        // If not: update limits
+        if (minEnvY > pxHigh)
+          minEnvY = pxHigh;
 
-      if (havePrev) {
-        // Show phase?
-        QColor lineColor;
+        if (maxEnvY < pxLow)
+          maxEnvY = pxLow;
+      }
 
-        if (this->showPhase) {
-          // Display its first derivative (frequency, cached)
-          if (this->showPhaseDiff) {
-            lineColor = this->phaseDiff2Color(
-                  SCAST(qreal, z.freq < 0 ? z.freq + 2 * PI : z.freq));
+      // Next pixel column will be different: time to draw line
+      if (currX != nextX) {
+        p.setPen(Qt::NoPen);
+        p.setOpacity(this->showWaveform ? .33 : 1.);
+
+        if (havePrev) {
+          // Show phase?
+          QColor lineColor;
+
+          if (this->showPhase) {
+            // Display its first derivative (frequency, cached)
+            if (this->showPhaseDiff) {
+              lineColor = this->phaseDiff2Color(
+                    SCAST(qreal, z.freq < 0 ? z.freq + 2 * PI : z.freq));
+            }
+            else
+              lineColor = phaseToColor(phase);
+          } else {
+            lineColor = this->foreground;
           }
-          else
-            lineColor = phaseToColor(phase);
-        } else {
-          lineColor = this->foreground;
-        }
 
-        p.setPen(QPen(lineColor));
-        p.drawLine(currX, pxHigh, currX, pxLow);
+          p.setPen(QPen(lineColor));
+          p.drawLine(currX, minEnvY, currX, maxEnvY);
+        }
       }
     }
 
+    // Draw waveform
     if (this->showWaveform) {
       qreal min = this->cast(z.min);
       qreal max = this->cast(z.max);
@@ -475,17 +561,35 @@ WaveView::drawWaveFar(QPainter &p, int level)
       // in the vertical coordinate.
 
       if (havePrev) {
-        if (yA < prevY)
+        if (prevY > yA)
           yA = prevY;
-        if (yB > prevY)
+        if (prevY < yB)
           yB = prevY;
       }
 
-      p.setOpacity(alpha);
-      p.setPen(QPen(this->foreground));
-      p.drawLine(currX, yA, currX, yB);
+      // Previous pixel column is not the same as next
+      //  Initialize limits
+      if (currX != prevX) {
+        minWfY = yB;
+        maxWfY = yA;
+      } else {
+        // If not: update limits
+        if (minWfY > yB)
+          minWfY = yB;
+
+        if (maxWfY < yA)
+          maxWfY = yA;
+      }
+
+      // Next pixel column is going to be different, draw!
+      if (currX != nextX) {
+        p.setOpacity(.33);
+        p.setPen(QPen(this->foreground));
+        p.drawLine(currX, minWfY, currX, maxWfY);
+      }
     }
 
+    prevX = currX;
     prevY = currY;
     havePrev = true;
   }
@@ -497,7 +601,7 @@ WaveView::drawWave(QPainter &painter)
   this->setGeometry(painter.device()->width(), painter.device()->height());
 
   // Nothing to paint? Leave.
-  if (this->length == 0 || this->views.size() == 0)
+  if (this->length == 0 || this->waveTree->size() == 0)
     return;
 
   if (this->sampPerPx > 8.) {
@@ -514,8 +618,8 @@ WaveView::drawWave(QPainter &painter)
     level = SCAST(
           int,
           floor(log(this->sampPerPx) / log(WAVEFORM_BLOCK_LENGTH))) - 1;
-    if (level >= this->views.size())
-      level = this->views.size() - 1;
+    if (level >= this->waveTree->size())
+      level = this->waveTree->size() - 1;
 
     this->drawWaveFar(painter, level);
   } else {

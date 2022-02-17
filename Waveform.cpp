@@ -68,7 +68,7 @@ WaveBuffer::rebuildViews(void)
     SUSCOUNT since = this->view->getLength();
 
     if (since < this->buffer->size())
-      this->view->build(this->ownBuffer.data(), this->ownBuffer.size(), since);
+      this->view->build(this->buffer->data(), this->buffer->size(), since);
   }
 }
 
@@ -532,15 +532,13 @@ Waveform::drawWave(void)
       int tw;
       qint64 px = SCAST(qint64, this->samp2px(m->x));
 
-      printf("x = %d\n", px);
-
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
       tw = metrics.horizontalAdvance(m->string);
 #else
       tw = metrics.width(m->string);
 #endif // QT_VERSION_CHECK
 
-      if (px >= 0 && px < this->geometry.width() - px/ 2) {
+      if (px >= 0 && px < this->geometry.width() - tw / 2) {
         qreal y = m->x < this->getDataLength()
             ? this->cast(this->getData()[m->x])
             : 0;
@@ -548,8 +546,6 @@ Waveform::drawWave(void)
             (m->below ? 2 : - metrics.height() - 2);
 
         ypx = qBound(0, ypx, this->geometry.height() - metrics.height());
-
-        printf("y = %d\n", ypx);
 
         rect.setRect(
               px - tw / 2,
@@ -886,13 +882,19 @@ Waveform::paint(void)
 }
 
 void
+Waveform::reuseDisplayData(Waveform *other)
+{
+  this->view.borrowTree(other->view);
+}
+
+void
 Waveform::setData(
     const std::vector<SUCOMPLEX> *data,
     bool keepView,
     bool flush)
 {
   bool   appending  = data != nullptr && data == this->data.loanedBuffer();
-  qint64 prevLength = static_cast<qint64>(this->getDataLength());
+  qint64 prevLength = SCAST(qint64, this->view.getLength());
   qint64 newLength  = data == nullptr ? 0 : static_cast<qint64>(data->size());
   qint64 extra      = newLength - prevLength;
 
@@ -1031,13 +1033,9 @@ Waveform::Waveform(QWidget *parent) :
   ThrottleableWidget(parent),
   data(&this->view)
 {
-  unsigned int i;
   std::vector<QColor> colorTable;
 
   this->view.setTimeUnits(0, 1024000);
-
-  for (i = 0; i < 8192; ++i)
-    this->data.feed(SU_ASFLOAT(.75) * SU_C_EXP(I * SU_ASFLOAT((M_PI * i) / 64)));
 
   colorTable.resize(256);
 

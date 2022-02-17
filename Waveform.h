@@ -550,6 +550,7 @@ public:
       const std::vector<SUCOMPLEX> *,
       bool keepView = false,
       bool flush = false);
+  void reuseDisplayData(Waveform *);
   void draw(void) override;
   void paint(void) override;
   void zoomHorizontalReset(void); // To show full wave or to sampPerPix = 1

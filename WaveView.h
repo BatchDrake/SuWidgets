@@ -34,9 +34,10 @@ struct WaveLimits {
 
 #define WAVEFORM_BLOCK_BITS   2
 #define WAVEFORM_BLOCK_LENGTH (1 << WAVEFORM_BLOCK_BITS)
+#define WAVEFORM_CIRCLE_DIM   4
 
 typedef std::vector<WaveLimits> WaveLimitVector;
-typedef QList<WaveLimitVector> WaveViewList;
+typedef QList<WaveLimitVector> WaveViewTree;
 
 class WaveView {
   // Wave data
@@ -44,7 +45,8 @@ class WaveView {
   SUSCOUNT         length = 0;
 
   // Rescaled wave data
-  WaveViewList views;
+  WaveViewTree  ownWaveTree;
+  WaveViewTree *waveTree = nullptr;
 
   // Representation properties
   QColor foreground;
@@ -53,7 +55,6 @@ class WaveView {
   // Horizontal zoom
   qint64 start = 0;
   qint64 end   = 0;
-  qreal  viewInterval = 0;
 
   // Vertical zoom
   qreal min = -1;
@@ -94,7 +95,7 @@ class WaveView {
     return this->colorTable[(index + this->phaseDiffOrigin) & 0xff];
   }
 
-  void buildNextView(WaveViewList::iterator, SUSCOUNT since);
+  void buildNextView(WaveViewTree::iterator, SUSCOUNT since);
   void drawWaveClose(QPainter &painter);
   void drawWaveFar(QPainter &painter, int level);
 
@@ -313,11 +314,14 @@ public:
   }
 
   // Methods
+  WaveView();
+
   qreal getEnvelope(void) const;
   void setTimeUnits(qreal t0, qreal rate);
   void setHorizontalZoom(qint64 start, qint64 end);
   void setVerticalZoom(qreal min, qreal max);
   void setGeometry(int width, int height);
+  void borrowTree(WaveView &);
   void flush(void);
   void build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since = 0);
   void drawWave(QPainter &painter);
