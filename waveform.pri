@@ -1,5 +1,4 @@
-WIDGET_HEADERS += Waveform.h
+WIDGET_HEADERS += Waveform.h WaveView.h
 
-HEADERS += Waveform.h \
-  $$PWD/YIQ.h
-SOURCES += Waveform.cpp
+HEADERS += Waveform.h WaveView.h YIQ.h
+SOURCES += Waveform.cpp WaveView.cpp
