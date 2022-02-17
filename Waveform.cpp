@@ -22,82 +22,70 @@
 #include <QPainterPath>
 #include <QColormap>
 #include <SuWidgetsHelpers.h>
-#include "YIQ.h"
-
-// See https://www.linuxquestions.org/questions/blog/rainbowsally-615861/qt-fast-pixel-color-mixing-35589/
-
-static QRgb
-qMixRgb(QRgb pixel1, QRgb pixel2, unsigned alpha)
-{
-  int a, b, c;
-  uint res1, res2;
-
-  b = static_cast<int>(alpha);
-  // Add and sub are faster than a branch too, so we use the compare to 0
-  // optimization to get the upper clamp value without branching.  Again,
-  // see the disassembly.
-  c = b - 255;
-  c = (c > 0) ? 0 : c;
-  b = c + 255;
-
-  // fudge to compensate for limited fixed point precision
-  a = 256 - b;
-  b++; // still testing fudge algorithm, possibly 'b = b > a ? b+1 : b;'
-
-  // lo bits: mask, multiply, mask, shift
-  res1 = (((pixel1 & 0x00FF00FF) * a) & 0xFF00FF00) >> 8;
-  res1 += ((((pixel2 & 0x00FF00FF) * b) & 0xFF00FF00)) >> 8;
-
-  // hi bits: mask, shift, multiply, mask
-  res2 = (((pixel1 & 0xFF00FF00) >> 8) * a) & 0xFF00FF00;
-  res2 += (((pixel2 & 0xFF00FF00) >> 8) * b) & 0xFF00FF00;
-
-  return (res1 + res2) | 0xff000000; // set alpha = 255 if opaque
-}
-
-static QColor const &
-phaseToColor(SUFLOAT angle)
-{
-  if (angle < 0)
-    angle += 2 * PI;
-
-  return yiqTable[
-        qBound(
-          0,
-        static_cast<int>(SU_FLOOR(1024 * angle / (2 * PI))),
-        1023)];
-}
 
 ////////////////////////// WaveBuffer methods //////////////////////////////////
-WaveBuffer::WaveBuffer()
+WaveBuffer::WaveBuffer(WaveView *view)
 {
+  this->view = view;
   this->buffer = &this->ownBuffer;
+
+  if (view != nullptr)
+    this->view->build(this->buffer->data(), this->buffer->size());
 }
 
-WaveBuffer::WaveBuffer(const std::vector<SUCOMPLEX> *vec)
+WaveBuffer::WaveBuffer(WaveView *view, const std::vector<SUCOMPLEX> *vec)
 {
+  this->view = view;
   this->loan = true;
   this->buffer = vec;
+
+  if (view != nullptr)
+    this->view->build(this->buffer->data(), this->buffer->size());
 }
 
 bool
 WaveBuffer::feed(SUCOMPLEX val)
 {
+  SUSCOUNT since;
+
   if (this->loan)
     return false;
 
+  since = this->ownBuffer.size();
+
   this->ownBuffer.push_back(val);
 
+  if (view != nullptr)
+  this->view->build(this->ownBuffer.data(), this->ownBuffer.size(), since);
+
   return true;
+}
+
+void
+WaveBuffer::rebuildViews(void)
+{
+  if (this->view != nullptr) {
+    SUSCOUNT since = this->view->getLength();
+
+    if (since < this->buffer->size())
+      this->view->build(this->buffer->data(), this->buffer->size(), since);
+  }
 }
 
 bool
 WaveBuffer::feed(std::vector<SUCOMPLEX> const &vec)
 {
+  SUSCOUNT since;
+
   if (this->loan)
     return false;
 
+  since = this->ownBuffer.size();
+
   this->ownBuffer.insert(this->ownBuffer.end(), vec.begin(), vec.end());
+
+  if (view != nullptr)
+    this->view->build(this->ownBuffer.data(), this->ownBuffer.size(), since);
 
   return true;
 }
@@ -130,20 +118,14 @@ Waveform::recalculateDisplayData(void)
   qreal range;
   qreal divLen;
 
-  this->sampPerPx = static_cast<qreal>(this->end - this->start)
-      / this->geometry.width();
-  this->unitsPerPx = static_cast<qreal>(this->max - this->min)
-      / this->geometry.height();
-
   // In every direction must be a minimum of 5 divisions, and a maximum of 10
-  range = (this->end - this->start) * deltaT;
-
   //
   // 7.14154 - 7.143. Range is 0.00146.
   // First significant digit: at 1e-3
   //  7.141 ... 2 ...  3. Only 3 divs if rounding to the 1e-3.
   //  7.141 ...15 ... 20 ... 25 ... 30. 5 divs if rounding to de 5e-4!
 
+  range = this->view.getViewInterval();
   divLen = pow(10, std::floor(std::log10(range)));
 
   // We progressively divide the division length, until we find a good match
@@ -158,10 +140,10 @@ Waveform::recalculateDisplayData(void)
     }
   }
 
-  this->hDivSamples = divLen * this->sampleRate;
+  this->hDivSamples = divLen * this->view.getSampleRate();
 
   // Same procedure for vertical axis
-  range = this->max - this->min;
+  range = this->view.getViewRange();
   divLen = pow(10, std::floor(std::log10(range)));
   if (range / divLen < 5) {
     divLen /= 2;
@@ -197,7 +179,7 @@ Waveform::zoomHorizontal(qint64 x, qreal amount)
   //
 
   fixedSamp = std::round(this->px2samp(x));
-  newRange = std::ceil(amount * (this->end - this->start));
+  newRange  = std::ceil(amount * this->view.getViewSampleInterval());
 
   this->zoomHorizontal(
         static_cast<qint64>(std::floor(fixedSamp - relPoint * newRange)),
@@ -215,9 +197,11 @@ Waveform::zoomHorizontal(qreal tStart, qreal tEnd)
 void
 Waveform::zoomHorizontal(qint64 start, qint64 end)
 {
-  if (start != this->start || end != this->end) {
-    this->start = start;
-    this->end = end;
+  qint64 currStart = this->getSampleStart();
+  qint64 currEnd   = this->getSampleEnd();
+
+  if (start != currStart || end != currEnd) {
+    this->view.setHorizontalZoom(start, end);
     if (this->hSelection)
       this->selectionDrawn = false;
     this->axesDrawn = false;
@@ -229,8 +213,8 @@ Waveform::zoomHorizontal(qint64 start, qint64 end)
 void
 Waveform::saveHorizontal(void)
 {
-  this->savedStart = this->start;
-  this->savedEnd   = this->end;
+  this->savedStart = this->getSampleStart();
+  this->savedEnd   = this->getSampleEnd();
 }
 
 void
@@ -243,8 +227,8 @@ void
 Waveform::scrollHorizontal(qint64 delta)
 {
   this->zoomHorizontal(
-        this->savedStart - static_cast<qint64>(delta * this->sampPerPx),
-        this->savedEnd   - static_cast<qint64>(delta * this->sampPerPx));
+        this->savedStart - static_cast<qint64>(delta * this->getSamplesPerPixel()),
+        this->savedEnd   - static_cast<qint64>(delta * this->getSamplesPerPixel()));
 }
 
 void
@@ -304,26 +288,25 @@ Waveform::zoomVertical(qint64 y, qreal amount)
   qreal val = this->px2value(y);
 
   this->zoomVertical(
-        (this->min - val) * amount + val,
-        (this->max - val) * amount + val);
+        (this->getMin() - val) * amount + val,
+        (this->getMax() - val) * amount + val);
 }
 
 void
-Waveform::zoomVertical(qreal start, qreal end)
+Waveform::zoomVertical(qreal min, qreal max)
 {
-  this->min = start;
-  this->max = end;
+  this->view.setVerticalZoom(min, max);
   this->axesDrawn = false;
 
   this->recalculateDisplayData();
-  emit verticalRangeChanged(start, end);
+  emit verticalRangeChanged(min, max);
 }
 
 void
 Waveform::saveVertical(void)
 {
-  this->savedMin = this->min;
-  this->savedMax = this->max;
+  this->savedMin = this->getMin();
+  this->savedMax = this->getMax();
 }
 
 void
@@ -336,8 +319,8 @@ void
 Waveform::scrollVertical(qint64 delta)
 {
   this->zoomVertical(
-        this->savedMin + delta * this->unitsPerPx,
-        this->max = this->savedMax + delta * this->unitsPerPx);
+        this->savedMin + delta * this->getUnitsPerPx(),
+        this->savedMax + delta * this->getUnitsPerPx());
 }
 
 void
@@ -381,20 +364,12 @@ Waveform::getVerticalSelectionEnd(void) const
 void
 Waveform::fitToEnvelope(void)
 {
-  qreal min = +std::numeric_limits<qreal>::infinity();
-  qreal max = -std::numeric_limits<qreal>::infinity();
-  const SUCOMPLEX *data = this->data.data();
-  size_t length = this->data.length();
+  qreal envelope = this->view.getEnvelope();
 
-  for (unsigned i = 0; i < length; ++i) {
-    if (cast(data[i]) > max)
-      max = cast(data[i]);
-    if (cast(data[i]) < min)
-      min = cast(data[i]);
-  }
-
-  if (max > min)
-    this->zoomVertical(min, max);
+  if (envelope > 0)
+    this->zoomVertical(-envelope, envelope);
+  else
+    this->zoomVerticalReset();
 }
 
 void
@@ -501,35 +476,6 @@ Waveform::leaveEvent(QEvent *)
 }
 
 //////////////////////////////// Drawing methods ///////////////////////////////////
-SUCOMPLEX
-Waveform::getMagPhase(qint64 sample)
-{
-  SUCOMPLEX val;
-
-  if (sample < 0 || sample >= static_cast<qint64>(this->getDataLength()))
-    return 0;
-
-  if (!this->haveMagPhaseInfo) {
-    this->magPhase =
-          std::vector<SUCOMPLEX>(
-            this->getDataLength(),
-          std::numeric_limits<SUFLOAT>::quiet_NaN());
-    this->haveMagPhaseInfo = true;
-  }
-
-  val = this->magPhase[static_cast<quint64>(sample)];
-
-  if (std::isnan(SU_C_REAL(val)) || std::isnan(SU_C_IMAG(val))) {
-    val =
-        SU_C_ABS(this->data.data()[sample])
-        + I * SU_C_ARG(this->data.data()[sample]);
-
-    this->magPhase[static_cast<quint64>(sample)] = val;
-  }
-
-  return val;
-}
-
 void
 Waveform::drawSelection(void)
 {
@@ -547,7 +493,7 @@ Waveform::drawSelection(void)
     QRect rect(
           static_cast<int>(this->samp2px(this->hSelStart)),
           0,
-          static_cast<int>(selLen / this->sampPerPx),
+          static_cast<int>(selLen / this->getSamplesPerPixel()),
           this->geometry.height());
 
     if (rect.x() < this->valueTextWidth)
@@ -566,224 +512,10 @@ Waveform::drawSelection(void)
 void
 Waveform::drawWave(void)
 {
-  const SUCOMPLEX *data = this->data.data();
-  int length = static_cast<int>(this->data.length());
-  bool havePrev = false;
-  QColor darkenedForeground;
-
-  if (this->showWaveform && !this->showPhase) {
-    darkenedForeground.setRed(this->foreground.red() / 3);
-    darkenedForeground.setGreen(this->foreground.green() / 3);
-    darkenedForeground.setBlue(this->foreground.blue() / 3);
-  }
-
   waveform.fill(Qt::transparent);
-
   QPainter p(&this->waveform);
 
-  if (this->sampPerPx > 1) {
-    std::vector<int> history(static_cast<size_t>(this->geometry.height()));
-    int iters = static_cast<int>(std::floor(this->sampPerPx));
-    int skip = 1;
-    int count = 0;
-    int samp = 0;
-    int y = 0;
-    int pxHigh, pxLow;
-    int prev_y;
-
-    p.setPen(this->foreground);
-
-    if (iters > WAVEFORM_MAX_ITERS)
-      skip = iters / WAVEFORM_MAX_ITERS;
-
-    for (int i = this->valueTextWidth; i < this->geometry.width(); ++i) {
-      std::fill(history.begin(), history.end(), 0);
-      samp = static_cast<int>(std::floor(this->px2samp(i)));
-
-      count = 0;
-      if (samp >= 0 && samp < length - iters) {
-        int hMin = this->geometry.height();
-        int hMax = 0;
-        SUCOMPLEX mp;
-        SUFLOAT mag = 0;
-        int redAcc = 0, greenAcc = 0, blueAcc = 0;
-        SUFLOAT phase, phaseDiff = 0;
-        SUFLOAT absMax = 0;
-
-        // Compose history
-        for (int j = 0; j < iters; j += skip) {
-          ++count;
-          mp = this->getMagPhase(samp + j);
-
-          mag = SU_C_REAL(mp);
-          phase = SU_C_IMAG(mp);
-          phaseDiff = phase - SU_C_IMAG(this->getMagPhase(samp + j - 1));
-
-          if (mag > absMax)
-            absMax = mag;
-
-          if (phaseDiff < 0)
-            phaseDiff += 2 * PI;
-
-          const QColor &color =
-              this->showPhaseDiff
-              ? this->phaseDiff2Color(phaseDiff)
-              : phaseToColor(phase);
-
-          redAcc   += color.red();
-          greenAcc += color.green();
-          blueAcc  += color.blue();
-
-          y = static_cast<int>(this->value2px(this->cast(data[samp + j])));
-
-          if (havePrev) {
-            for (int k = std::min(y, prev_y); k < std::max(y, prev_y); ++k)
-              if (k >= 0 && k < this->geometry.height()) {
-                ++history[static_cast<unsigned>(k)];
-                if (k > hMax)
-                  hMax = k;
-                if (k < hMin)
-                  hMin = k;
-              }
-          }
-
-          havePrev = true;
-          prev_y = y;
-
-          if (j + skip > iters && j != iters - 1)
-            j = iters - skip - 1;
-        }
-
-        if (this->showEnvelope) {
-          // If draw envelope
-          if (this->showPhase) {
-            if (this->showWaveform)
-              p.setPen(QColor(redAcc / count >> 1, greenAcc / count >> 1, blueAcc / count >> 1));
-            else
-              p.setPen(QColor(redAcc / count, greenAcc / count, blueAcc / count));
-          } else {
-            if (this->showWaveform)
-              p.setPen(darkenedForeground);
-          }
-
-          pxHigh = static_cast<int>(this->value2px(static_cast<qreal>(absMax)));
-          pxLow  = static_cast<int>(this->value2px(-static_cast<qreal>(absMax)));
-
-          p.drawLine(i, pxLow, i, pxHigh);
-        }
-
-        if (this->showWaveform) {
-          // Draw it
-          unsigned int color =
-              0xffffff & QColormap::instance().pixel(this->foreground);
-          unsigned int alpha;
-
-          for (int j = hMin; j <= hMax; ++j) {
-            alpha = 63 + (192 * history[static_cast<unsigned>(j)]) / count;
-
-            if (this->showEnvelope) {
-              // Blend
-              QRgb prev = waveform.pixel(i, j);
-              waveform.setPixel(
-                    i,
-                    j,
-                    qMixRgb(prev, color, alpha));
-            } else {
-              waveform.setPixel(
-                    i,
-                    j,
-                    (alpha << 24) | color);
-            }
-          }
-        }
-      }
-    }
-  } else {
-    qreal firstSamp, lastSamp;
-    int firstIntegerSamp, lastIntegerSamp;
-    int prevPxHigh = 0;
-    int prevPxLow = 0;
-    int prevX = 0, currX;
-    SUCOMPLEX prevMp = 0;
-    QPen pen(this->foreground);
-    // Two cases: if sampPerPx > 1: create small history of samples. Otherwise,
-    // just interpolate
-
-    pen.setStyle(Qt::SolidLine);
-    p.setPen(pen);
-
-    firstSamp = this->px2samp(this->valueTextWidth);
-    lastSamp  = this->px2samp(this->geometry.width() - 1);
-
-    firstIntegerSamp = static_cast<int>(std::ceil(firstSamp));
-    lastIntegerSamp  = static_cast<int>(std::floor(lastSamp));
-
-    for (int i = firstIntegerSamp; i <= lastIntegerSamp; ++i) {
-      currX = static_cast<int>(this->samp2px(i));
-
-      if (i >= 0 && i < length) {
-        if (this->showEnvelope) {
-          SUCOMPLEX mp = this->getMagPhase(i);
-          int pxHigh = static_cast<int>(
-                this->value2px(static_cast<qreal>(SU_C_REAL(mp))));
-
-          int pxLow = static_cast<int>(
-                this->value2px(-static_cast<qreal>(SU_C_REAL(mp))));
-
-          p.setPen(Qt::NoPen);
-          QPainterPath path;
-
-          if (havePrev) {
-            path.moveTo(prevX, prevPxHigh);
-            path.lineTo(currX, pxHigh);
-            path.lineTo(currX, pxLow);
-            path.lineTo(prevX, prevPxLow);
-
-            if (this->showPhase) {
-              if (this->showPhaseDiff) {
-                SUFLOAT phaseDiff = SU_C_IMAG(mp) - SU_C_IMAG(prevMp);
-
-                if (phaseDiff < 0)
-                  phaseDiff += 2 * PI;
-
-                QColor diff = this->phaseDiff2Color(phaseDiff);
-                if (this->showWaveform)
-                  p.setOpacity(0.5);
-                p.fillPath(path, diff);
-              } else {
-                QLinearGradient gradient(prevX, 0, currX, 0);
-                gradient.setColorAt(0, phaseToColor(SU_C_IMAG(prevMp)));
-                gradient.setColorAt(1, phaseToColor(SU_C_IMAG(mp)));
-                if (this->showWaveform)
-                  p.setOpacity(0.5);
-                p.fillPath(path, gradient);
-              }
-            } else {
-              p.fillPath(
-                    path,
-                    this->showWaveform ? darkenedForeground : this->foreground);
-            }
-          }
-          prevPxHigh = pxHigh;
-          prevPxLow = pxLow;
-          prevMp = mp;
-        }
-
-        if (this->showWaveform && havePrev) {
-          p.setOpacity(1);
-          p.setPen(this->foreground);
-          p.drawLine(
-                prevX,
-                static_cast<int>(this->value2px(this->cast(data[i - 1]))),
-                currX,
-                static_cast<int>(this->value2px(this->cast(data[i]))));
-        }
-      }
-
-      prevX = currX;
-      havePrev = true;
-    }
-  }
+  this->view.drawWave(p);
 
   if (this->markerList.size() > 0) {
     QFont font;
@@ -798,7 +530,7 @@ Waveform::drawWave(void)
          ++m)
     {
       int tw;
-      qint64 px = static_cast<qint64>(this->samp2px(m->x));
+      qint64 px = SCAST(qint64, this->samp2px(m->x));
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
       tw = metrics.horizontalAdvance(m->string);
@@ -806,7 +538,7 @@ Waveform::drawWave(void)
       tw = metrics.width(m->string);
 #endif // QT_VERSION_CHECK
 
-      if (px >= 0 && px < this->geometry.width() - px/ 2) {
+      if (px >= 0 && px < this->geometry.width() - tw / 2) {
         qreal y = m->x < this->getDataLength()
             ? this->cast(this->getData()[m->x])
             : 0;
@@ -820,6 +552,7 @@ Waveform::drawWave(void)
               ypx,
               tw,
               metrics.height());
+        p.setOpacity(1);
         p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom,m->string);
       }
     }
@@ -836,6 +569,7 @@ Waveform::drawVerticalAxes(void)
   QFontMetrics metrics(font);
   QRect rect;
   QPen pen(this->axes);
+  qreal deltaT = this->view.getDeltaT();
   int axis;
   int px;
 
@@ -850,9 +584,9 @@ Waveform::drawVerticalAxes(void)
         this->hDivSamples * std::floor(this->oX / this->hDivSamples);
 
     // Draw axes
-    axis = static_cast<int>(std::floor(this->start / this->hDivSamples));
+    axis = static_cast<int>(std::floor(this->getSampleStart() / this->hDivSamples));
 
-    while (axis * this->hDivSamples <= this->end + rem) {
+    while (axis * this->hDivSamples <= this->getSampleEnd() + rem) {
       px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
 
       if (px > 0)
@@ -862,8 +596,8 @@ Waveform::drawVerticalAxes(void)
 
     // Draw labels
     p.setPen(this->text);
-    axis = static_cast<int>(std::floor(this->start / this->hDivSamples));
-    while (axis * this->hDivSamples <= this->end + rem) {
+    axis = static_cast<int>(std::floor(this->getSampleStart() / this->hDivSamples));
+    while (axis * this->hDivSamples <= this->getSampleEnd() + rem) {
       px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
 
       if (px > 0) {
@@ -871,8 +605,8 @@ Waveform::drawVerticalAxes(void)
         int tw;
 
         label = SuWidgetsHelpers::formatQuantityFromDelta(
-              (this->oX + axis * this->hDivSamples - rem) * this->deltaT,
-              this->hDivSamples * this->deltaT,
+              (this->oX + axis * this->hDivSamples - rem) * deltaT,
+              this->hDivSamples * deltaT,
               this->horizontalUnits);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
@@ -911,9 +645,9 @@ Waveform::drawHorizontalAxes(void)
   this->valueTextWidth = 0;
 
   if (this->vDivUnits > 0) {
-    axis = static_cast<int>(std::floor(this->min / this->vDivUnits));
+    axis = static_cast<int>(std::floor(this->getMin() / this->vDivUnits));
 
-    while (axis * this->vDivUnits <= this->max) {
+    while (axis * this->vDivUnits <= this->getMax()) {
       pen.setStyle(axis == 0 ? Qt::SolidLine : Qt::DotLine);
       p.setPen(pen);
       px = static_cast<int>(this->value2px(axis * this->vDivUnits));
@@ -924,8 +658,8 @@ Waveform::drawHorizontalAxes(void)
     }
 
     p.setPen(this->text);
-    axis = static_cast<int>(std::floor(this->min / this->vDivUnits));
-    while (axis * this->vDivUnits <= this->max) {
+    axis = static_cast<int>(std::floor(this->getMin() / this->vDivUnits));
+    while (axis * this->vDivUnits <= this->getMax()) {
       px = static_cast<int>(this->value2px(axis * this->vDivUnits));
 
       if (px > 0) {
@@ -949,8 +683,10 @@ Waveform::drawHorizontalAxes(void)
               tw,
               metrics.height());
 
-        if (tw > this->valueTextWidth)
+        if (tw > this->valueTextWidth) {
           this->valueTextWidth = tw;
+          this->view.setLeftMargin(tw);
+        }
 
         p.fillRect(rect, this->background);
         p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, label);
@@ -977,8 +713,8 @@ Waveform::overlaySelectionMarkes(QPainter &p)
     qreal selLen = this->hSelEnd - this->hSelStart;
     // The sample buffer is divided in pieces of selLen samples,
     // starting from selLen.
-    qint64 firstDiv = static_cast<int>((this->start - this->hSelStart) / selLen);
-    qint64 lastDiv  = static_cast<int>((this->end - this->hSelStart) / selLen);
+    qint64 firstDiv = static_cast<int>((this->getSampleStart() - this->hSelStart) / selLen);
+    qint64 lastDiv  = static_cast<int>((this->getSampleEnd() - this->hSelStart) / selLen);
 
     qreal deltaDiv = selLen / static_cast<qreal>(this->divsPerSelection);
 
@@ -1047,6 +783,8 @@ Waveform::draw(void)
     return;
 
   if (this->geometry != this->size()) {
+    this->view.setGeometry(this->size().width(), this->size().height());
+
     this->geometry = this->size();
     if (!this->haveGeometry) {
       this->haveGeometry = true;
@@ -1144,32 +882,37 @@ Waveform::paint(void)
 }
 
 void
+Waveform::reuseDisplayData(Waveform *other)
+{
+  this->view.borrowTree(other->view);
+}
+
+void
 Waveform::setData(
     const std::vector<SUCOMPLEX> *data,
-    bool keepView)
+    bool keepView,
+    bool flush)
 {
-  bool appending = data == this->data.loanedBuffer();
-
-  if (data != nullptr)
-    this->data = WaveBuffer(data);
-  else
-    this->data = WaveBuffer();
+  bool   appending  = data != nullptr && data == this->data.loanedBuffer();
+  qint64 prevLength = SCAST(qint64, this->view.getLength());
+  qint64 newLength  = data == nullptr ? 0 : static_cast<qint64>(data->size());
+  qint64 extra      = newLength - prevLength;
 
   if (appending) {
-    qint64 curr  = this->magPhase.size();
-    qint64 extra = this->getDataLength() - curr;
-
-    this->magPhase.resize(this->getDataLength());
-
-    if (extra > 0) {
-      std::fill(
-            this->magPhase.begin() + curr,
-            this->magPhase.end(),
-            std::numeric_limits<SUFLOAT>::quiet_NaN());
-      this->haveMagPhaseInfo = true;
+    // The current wavebuffer holds a reference to the same data vector,
+    // we only inform the view to recalculate the new samples
+    if (flush) {
+      this->view.build(data->data(), data->size(), 0);
+    } else if (extra > 0) {
+      this->data.rebuildViews();
     }
   } else {
-    this->haveMagPhaseInfo = false;
+    this->view.flush();
+
+    if (data != nullptr)
+      this->data = WaveBuffer(&this->view, data);
+    else
+      this->data = WaveBuffer(&this->view);
   }
 
   this->waveDrawn = false;
@@ -1189,7 +932,7 @@ Waveform::setData(
 void
 Waveform::setRealComponent(bool real)
 {
-  this->realComponent = real;
+  this->view.setRealComponent(real);
   this->fitToEnvelope();
   this->invalidate();
 }
@@ -1197,7 +940,7 @@ Waveform::setRealComponent(bool real)
 void
 Waveform::setShowEnvelope(bool show)
 {
-  this->showEnvelope = show;
+  this->view.setShowEnvelope(show);
   this->waveDrawn = false;
   this->axesDrawn = false;
   this->invalidate();
@@ -1206,8 +949,8 @@ Waveform::setShowEnvelope(bool show)
 void
 Waveform::setShowPhase(bool show)
 {
-  this->showPhase = show;
-  if (this->showEnvelope) {
+  this->view.setShowPhase(show);
+  if (this->view.isEnvelopeVisible()) {
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
@@ -1217,9 +960,9 @@ Waveform::setShowPhase(bool show)
 void
 Waveform::setShowPhaseDiff(bool show)
 {
-  this->showPhaseDiff = show;
+  this->view.setShowPhaseDiff(show);
 
-  if (this->showEnvelope) {
+  if (this->view.isEnvelopeVisible()) {
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
@@ -1229,9 +972,11 @@ Waveform::setShowPhaseDiff(bool show)
 void
 Waveform::setPhaseDiffOrigin(unsigned origin)
 {
-  this->phaseDiffOrigin = origin & 0xff;
+  this->view.setPhaseDiffOrigin(origin);
 
-  if (this->showEnvelope && this->showPhase && this->showPhaseDiff) {
+  if (this->view.isEnvelopeVisible()
+      && this->view.isPhaseEnabled()
+      && this->view.isPhaseDiffEnabled()) {
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
@@ -1241,9 +986,11 @@ Waveform::setPhaseDiffOrigin(unsigned origin)
 void
 Waveform::setPhaseDiffContrast(qreal contrast)
 {
-  this->phaseDiffContrast = contrast;
+  this->view.setPhaseDiffContrast(contrast);
 
-  if (this->showEnvelope && this->showPhase && this->showPhaseDiff) {
+  if (this->view.isEnvelopeVisible()
+      && this->view.isPhaseEnabled()
+      && this->view.isPhaseDiffEnabled()) {
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
@@ -1253,7 +1000,8 @@ Waveform::setPhaseDiffContrast(qreal contrast)
 void
 Waveform::setShowWaveform(bool show)
 {
-  this->showWaveform = show;
+  this->view.setShowWaveform(show);
+
   this->waveDrawn = false;
   this->axesDrawn = false;
   this->invalidate();
@@ -1262,13 +1010,14 @@ Waveform::setShowWaveform(bool show)
 void
 Waveform::refreshData(void)
 {
-  qint64 currSpan = this->end - this->start;
+  qint64 currSpan = this->view.getViewSampleInterval();
   qint64 lastSample = static_cast<qint64>(this->data.length()) - 1;
 
-  if (this->autoScroll && this->end <= lastSample) {
-    this->end = lastSample;
-    this->start = lastSample - currSpan;
-  }
+  this->view.flush();
+  this->view.build(this->getData(), this->getDataLength(), 0);
+
+  if (this->autoScroll && this->getSampleEnd() <= lastSample)
+    this->view.setHorizontalZoom(lastSample - currSpan, lastSample);
 
   this->waveDrawn = false;
 
@@ -1281,15 +1030,14 @@ Waveform::refreshData(void)
 }
 
 Waveform::Waveform(QWidget *parent) :
-  ThrottleableWidget(parent)
+  ThrottleableWidget(parent),
+  data(&this->view)
 {
-  unsigned int i;
+  std::vector<QColor> colorTable;
 
-  this->sampleRate = 1024000;
-  this->deltaT = 1 / this->sampleRate;
+  this->view.setTimeUnits(0, 1024000);
 
-  for (i = 0; i < 8192; ++i)
-    this->data.feed(SU_ASFLOAT(.75) * SU_C_EXP(I * SU_ASFLOAT((M_PI * i) / 64)));
+  colorTable.resize(256);
 
   for (int i = 0; i < 256; i++) {
     // level 0: black background
@@ -1319,6 +1067,10 @@ Waveform::Waveform(QWidget *parent) :
   this->selection    = WAVEFORM_DEFAULT_SELECTION_COLOR;
   this->subSelection = WAVEFORM_DEFAULT_SUBSEL_COLOR;
   this->envelope     = WAVEFORM_DEFAULT_ENVELOPE_COLOR;
+
+  this->view.setPalette(colorTable.data());
+  this->view.setForeground(this->foreground);
+
   this->setMouseTracking(true);
   this->invalidate();
 }
