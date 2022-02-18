@@ -1426,6 +1426,32 @@ GLWaterfall::paintTimeStamps(
 
 
 void
+GLWaterfall::drawFilterCutOff(QPainter &painter, int y)
+{
+  int h = painter.device()->height();
+  QPen pen = QPen(m_TimeStampColor);
+  pen.setStyle(Qt::DashLine);
+  pen.setWidth(1);
+
+  painter.save();
+  painter.setPen(pen);
+  painter.setOpacity(1);
+
+  painter.drawLine(
+        m_DemodLowCutFreqX,
+        y,
+        m_DemodLowCutFreqX,
+        h - 1);
+
+  painter.drawLine(
+        m_DemodHiCutFreqX,
+        y,
+        m_DemodHiCutFreqX,
+        h - 1);
+  painter.restore();
+}
+
+void
 GLWaterfall::drawSpectrum(QPainter &painter, int forceHeight)
 {
   int     i, n;
@@ -1982,6 +2008,8 @@ GLWaterfall::drawFilterBox(QPainter &painter, int h)
   painter.setOpacity(1.0);
   painter.setPen(QColor(PLOTTER_FILTER_LINE_COLOR));
   painter.drawLine(m_DemodFreqX, 0, m_DemodFreqX, h);
+
+  drawFilterCutOff(painter, h);
 }
 
 void

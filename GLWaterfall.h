@@ -246,6 +246,8 @@ public:
     void drawBookmarks(GLDrawingContext &, qint64, qint64, int xAxisTop);
     void drawFilterBox(QPainter &painter, int height);
     void drawFilterBox(GLDrawingContext &);
+    void drawFilterCutOff(QPainter &painter, int forceHeight);
+
     void drawAxes(GLDrawingContext &, qint64, qint64);
 
     //void SetSdrInterface(CSdrInterface* ptr){m_pSdrInterface = ptr;}
