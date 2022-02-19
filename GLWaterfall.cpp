@@ -252,6 +252,7 @@ GLWaterfallOpenGLContext::~GLWaterfallOpenGLContext(void)
   delete m_vertexShader;
   delete m_fragmentShader;
   delete m_waterfall;
+  delete m_palette;
 }
 
 void
@@ -514,6 +515,7 @@ GLWaterfallOpenGLContext::finalize()
   m_vao.destroy();
   m_vbo.destroy();
   m_waterfall->destroy();
+  m_palette->destroy();
 }
 
 void
