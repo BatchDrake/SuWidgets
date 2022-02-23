@@ -503,7 +503,7 @@ WaveView::drawWave(QPainter &painter)
       else
         text = "Processing waveform";
     } else {
-      text = "Processing was cancelled";
+      text = "No wave data";
     }
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)

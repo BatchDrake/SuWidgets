@@ -256,12 +256,11 @@ WaveViewTree::WaveViewTree(QObject *parent) : QObject(parent)
 
 WaveViewTree::~WaveViewTree()
 {
-  if (this->currentWorker != nullptr) {
+  if (this->currentWorker != nullptr)
     this->currentWorker->cancel();
-    this->currentWorker->deleteLater();
-    this->workerThread->quit();
-    this->workerThread->wait();
-  }
+
+  this->workerThread->quit();
+  this->workerThread->wait();
 }
 
 void
