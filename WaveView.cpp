@@ -99,14 +99,19 @@ WaveView::getEnvelope(void) const
 }
 
 void
-WaveView::setTimeUnits(qreal t0, qreal rate)
+WaveView::setSampleRate(qreal rate)
 {
-  this->t0         = t0;
   this->deltaT     = 1. / rate;
   this->sampleRate = rate;
 
   // Set horizontal zoom again
   this->setHorizontalZoom(this->start, this->end);
+}
+
+void
+WaveView::setTimeStart(qreal t0)
+{
+  this->t0 = t0;
 }
 
 void
@@ -521,7 +526,7 @@ WaveView::drawWaveFar(QPainter &p, int level)
       // Next pixel column will be different: time to draw line
       if (currX != nextX) {
         p.setPen(Qt::NoPen);
-        p.setOpacity(this->showWaveform ? .33 : 1.);
+        p.setOpacity(this->showWaveform ? .33 : .66);
 
         if (havePrev) {
           // Show phase?
@@ -579,7 +584,7 @@ WaveView::drawWaveFar(QPainter &p, int level)
 
       // Next pixel column is going to be different, draw!
       if (currX != nextX) {
-        p.setOpacity(this->showEnvelope ? .33 : 1.);
+        p.setOpacity(this->showEnvelope ? .33 : .66);
         p.setPen(QPen(this->foreground));
         p.drawLine(currX, minWfY, currX, maxWfY);
       }

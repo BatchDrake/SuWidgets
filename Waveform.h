@@ -430,7 +430,7 @@ public:
       rate = static_cast<qreal>(std::numeric_limits<SUFLOAT>::epsilon());
 
     if (!sufreleq(rate, this->view.getSampleRate(), 1e-5f)) {
-      this->view.setTimeUnits(0, rate);
+      this->view.setSampleRate(rate);
       this->axesDrawn = false;
       this->recalculateDisplayData();
       this->invalidate();

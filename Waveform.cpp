@@ -1035,7 +1035,7 @@ Waveform::Waveform(QWidget *parent) :
 {
   std::vector<QColor> colorTable;
 
-  this->view.setTimeUnits(0, 1024000);
+  this->view.setSampleRate(1024000);
 
   colorTable.resize(256);
 

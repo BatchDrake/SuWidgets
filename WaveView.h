@@ -104,13 +104,13 @@ public:
   inline qreal
   samp2t(qreal samp) const
   {
-    return (samp + static_cast<qreal>(this->start)) * this->deltaT + this->t0;
+    return samp * this->deltaT + this->t0;
   }
 
   inline qreal
   t2samp(qreal t) const
   {
-    return (t - this->t0) * this->sampleRate - static_cast<qreal>(this->start);
+    return (t - this->t0) * this->sampleRate;
   }
 
   inline qreal
@@ -317,7 +317,9 @@ public:
   WaveView();
 
   qreal getEnvelope(void) const;
-  void setTimeUnits(qreal t0, qreal rate);
+  void setSampleRate(qreal rate);
+  void setTimeStart(qreal t0);
+
   void setHorizontalZoom(qint64 start, qint64 end);
   void setVerticalZoom(qreal min, qreal max);
   void setGeometry(int width, int height);
