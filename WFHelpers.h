@@ -145,7 +145,7 @@ static inline quint64 time_ms(void)
 {
     struct timeval  tval;
 
-    gettimeofday(&tval, NULL);
+    gettimeofday(&tval, nullptr);
 
     return 1e3 * tval.tv_sec + 1e-3 * tval.tv_usec;
 }

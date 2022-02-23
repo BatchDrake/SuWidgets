@@ -81,17 +81,46 @@ pointAbs(SUCOMPLEX a)
 WaveView::WaveView()
 {
   this->waveTree = &this->ownWaveTree;
+  this->borrowTree(*this);
 }
 
 void
 WaveView::borrowTree(WaveView &view)
 {
+  if (this->waveTree != nullptr) {
+    disconnect(
+          this->waveTree,
+          SIGNAL(ready(void)),
+          this,
+          nullptr);
+
+    disconnect(
+          this->waveTree,
+          SIGNAL(progress(quint64, quint64)),
+          this,
+          nullptr);
+  }
+
   this->waveTree = view.waveTree;
+  connect(
+        this->waveTree,
+        SIGNAL(ready(void)),
+        this,
+        SLOT(onReady(void)));
+
+  connect(
+        this->waveTree,
+        SIGNAL(progress(quint64, quint64)),
+        this,
+        SLOT(onProgress(quint64, quint64)));
 }
 
 qreal
 WaveView::getEnvelope(void) const
 {
+  if (!this->waveTree->isComplete())
+    return 0;
+
   if (this->waveTree->size() == 0)
     return 0;
 
@@ -140,159 +169,14 @@ WaveView::setGeometry(int width, int height)
   this->unitsPerPx = SCAST(qreal, this->max - this->min) / this->height;
 }
 
-// Algorithm is as follows:
-// 1. Traverse *p starting from `since` and compute min, max, mean and std
-// 2. If next to p has less than the required elements, append
-// 3. Continue until next p has size 1
-
-void
-WaveView::buildNextView(WaveViewTree::iterator p, SUSCOUNT since)
-{
-  WaveViewTree::iterator next = p + 1;
-  SUSCOUNT length, nextLength;
-
-  since >>= WAVEFORM_BLOCK_BITS;
-  since <<= WAVEFORM_BLOCK_BITS;
-
-  if (next == this->waveTree->end()) {
-    this->waveTree->append(WaveLimitVector());
-    next = this->waveTree->end() - 1;
-    p    = next - 1;
-    next->resize(1);
-  }
-
-  length = p->size();
-  nextLength = (length + WAVEFORM_BLOCK_LENGTH - 1) >> WAVEFORM_BLOCK_BITS;
-
-  if (next->size() < nextLength)
-    next->resize(nextLength);
-
-  for (auto i = since; i < length; i += WAVEFORM_BLOCK_LENGTH) {
-    const WaveLimits *data = p->data() + i;
-    WaveLimits thisLimit;
-    quint64 left       = MIN(length - i, WAVEFORM_BLOCK_LENGTH);
-    SUFLOAT kInv       = 1.f/ SU_ASFLOAT(left);
-
-    thisLimit.max      = data[0].max;
-    thisLimit.min      = data[0].min;
-
-    for (SUSCOUNT j = 0; j < left; ++j) {
-      if (data[j].max.real() > thisLimit.max.real())
-        thisLimit.max = data[j].max.real() + thisLimit.max.imag() * I;
-      if (data[j].max.imag() > thisLimit.max.imag())
-        thisLimit.max = thisLimit.max.real() + data[j].max.imag() * I;
-
-      if (data[j].min.real() < thisLimit.min.real())
-        thisLimit.min = data[j].min.real() + thisLimit.min.imag() * I;
-      if (data[j].min.imag() < thisLimit.min.imag())
-        thisLimit.min = thisLimit.min.real() + data[j].min.imag() * I;
-
-      if (thisLimit.envelope < data[j].envelope)
-        thisLimit.envelope = data[j].envelope;
-
-      thisLimit.mean += data[j].mean;
-      thisLimit.freq += data[j].freq;
-    }
-
-    // Compute mean, mean frequency and finish
-    thisLimit.mean *= kInv;
-    thisLimit.freq *= kInv;
-
-    (*next)[i >> WAVEFORM_BLOCK_BITS] = thisLimit;
-  }
-
-  if (next->size() > 1)
-    buildNextView(next, since >> WAVEFORM_BLOCK_BITS);
-}
-
-void
-WaveView::flush(void)
-{
-  if (this->waveTree == &this->ownWaveTree)
-    this->waveTree->clear();
-
-  this->data = nullptr;
-  this->length = 0;
-}
-
-// Algorithm is as follows:
-// 1. Construct waveTree[0] traversing data
-// 2. Call buildNextView on waveTree[0] since 0
-void
-WaveView::build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since)
-{
-  WaveViewTree::iterator next = this->waveTree->begin();
-  SUSCOUNT nextLength;
-
-  since >>= WAVEFORM_BLOCK_BITS;
-  since <<= WAVEFORM_BLOCK_BITS;
-
-  this->data   = data;
-  this->length = length;
-
-  // And that's it, that's the only thing we do if the tree is not ours.
-  if (this->waveTree != &this->ownWaveTree)
-    return;
-
-  if (next == this->waveTree->end()) {
-    this->waveTree->append(WaveLimitVector());
-    next = this->waveTree->begin();
-    next->resize(1);
-  }
-
-  nextLength = (length + WAVEFORM_BLOCK_LENGTH - 1) >> WAVEFORM_BLOCK_BITS;
-
-  if (next->size() < nextLength)
-    next->resize(nextLength);
-
-  for (SUSCOUNT i = since; i < length; i += WAVEFORM_BLOCK_LENGTH) {
-    WaveLimits thisLimit;
-    SUFLOAT env2  = 0;
-    quint64 left  = MIN(length - i, WAVEFORM_BLOCK_LENGTH);
-    SUFLOAT kInv  = 1.f/ SU_ASFLOAT(left);
-
-    data          = this->data + i;
-    thisLimit.min = data[0];
-    thisLimit.max = data[0];
-
-    for (SUSCOUNT j = 0; j < left; ++j) {
-      if (data[j].real() > thisLimit.max.real())
-        thisLimit.max = data[j].real() + thisLimit.max.imag() * I;
-      if (data[j].imag() > thisLimit.max.imag())
-        thisLimit.max = thisLimit.max.real() + data[j].imag() * I;
-
-      if (data[j].real() < thisLimit.min.real())
-        thisLimit.min = data[j].real() + thisLimit.min.imag() * I;
-      if (data[j].imag() < thisLimit.min.imag())
-        thisLimit.min = thisLimit.min.real() + data[j].imag() * I;
-
-      env2 = SU_C_REAL(data[j] * SU_C_CONJ(data[j]));
-      if (thisLimit.envelope < env2)
-        thisLimit.envelope = env2;
-
-      if ((i + j) > 0)
-        thisLimit.freq += SU_C_ARG(data[j] * SU_C_CONJ(data[j - 1]));
-
-      thisLimit.mean += data[j];
-    }
-
-    thisLimit.freq *= kInv;
-    thisLimit.mean *= kInv;
-    thisLimit.envelope = sqrt(thisLimit.envelope);
-
-    (*next)[i >> WAVEFORM_BLOCK_BITS] = thisLimit;
-  }
-
-  if (next->size() > 1)
-    buildNextView(next, since >> WAVEFORM_BLOCK_BITS);
-}
-
 /////////////////////////////// Drawing methods ////////////////////////////////
 void
 WaveView::drawWaveClose(QPainter &p)
 {
   qreal firstSamp, lastSamp;
   qint64 firstIntegerSamp, lastIntegerSamp;
+  SUSCOUNT length = this->waveTree->getLength();
+  const SUCOMPLEX *data = this->waveTree->getData();
   int prevMinEnvY = 0;
   int prevMaxEnvY = 0;
   int nextX, currX, currY;
@@ -333,8 +217,8 @@ WaveView::drawWaveClose(QPainter &p)
   if (firstIntegerSamp < 0)
     firstIntegerSamp = 0;
 
-  if (lastIntegerSamp >= SCAST(qint64, this->length))
-    lastIntegerSamp = SCAST(qint64, this->length - 1);
+  if (lastIntegerSamp >= SCAST(qint64, length))
+    lastIntegerSamp = SCAST(qint64, length - 1);
 
   nextX = SCAST(int, this->samp2px(SCAST(qreal, firstIntegerSamp)));
   for (qint64 i = firstIntegerSamp; i <= lastIntegerSamp; ++i) {
@@ -342,12 +226,12 @@ WaveView::drawWaveClose(QPainter &p)
     nextX = SCAST(int, this->samp2px(SCAST(qreal, i + 1)));
     currY = SCAST(int, this->value2px(this->cast(data[i])));
 
-    if (i >= 0 && i < SCAST(qint64, this->length)) {
+    if (i >= 0 && i < SCAST(qint64, length)) {
       // Draw envelope?
       if (this->showEnvelope) {
         // Determine limits
-        qreal mag    = SCAST(qreal, SU_C_ABS(this->data[i]));
-        qreal phase  = SCAST(qreal, SU_C_ARG(this->data[i]));
+        qreal mag    = SCAST(qreal, SU_C_ABS(data[i]));
+        qreal phase  = SCAST(qreal, SU_C_ARG(data[i]));
 
         int pxLower  = SCAST(int, this->value2px(+mag));
         int pxUpper  = SCAST(int, this->value2px(-mag));
@@ -604,8 +488,46 @@ WaveView::drawWave(QPainter &painter)
 {
   this->setGeometry(painter.device()->width(), painter.device()->height());
 
+  if (!this->waveTree->isComplete()) {
+    QFont font;
+    QFontMetrics metrics(font);
+    QString text;
+    QRect rect;
+    int tw;
+
+    if (this->waveTree->isRunning()) {
+      if (this->lastProgressMax > 0)
+        text = QString::asprintf(
+              "Processing waveform (%ld%% complete)",
+              100 * this->lastProgressCurr / this->lastProgressMax);
+      else
+        text = "Processing waveform";
+    } else {
+      text = "Processing was cancelled";
+    }
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    tw = metrics.horizontalAdvance(text);
+#else
+    tw = metrics.width(m->string);
+#endif // QT_VERSION_CHECK
+
+    rect.setRect(
+          this->width / 2 - tw / 2,
+          this->height / 2 - metrics.height() / 2,
+          tw,
+          metrics.height());
+
+    painter.setPen(this->foreground);
+    painter.setOpacity(1);
+    painter.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, text);
+
+    return;
+  }
+
   // Nothing to paint? Leave.
-  if (this->length == 0 || this->waveTree->size() == 0)
+  if (this->waveTree->getLength() == 0
+      || this->waveTree->size() == 0)
     return;
 
   if (this->sampPerPx > 8.) {
@@ -630,3 +552,38 @@ WaveView::drawWave(QPainter &painter)
     this->drawWaveClose(painter);
   }
 }
+
+void
+WaveView::setBuffer(const std::vector<SUCOMPLEX> *buf)
+{
+  if (this->waveTree == &this->ownWaveTree) {
+    this->waveTree->clear();
+    this->waveTree->reprocess(buf->data(), buf->size());
+  }
+}
+
+void
+WaveView::refreshBuffer(const std::vector<SUCOMPLEX> *buf)
+{
+  if (this->waveTree == &this->ownWaveTree)
+    this->waveTree->reprocess(buf->data(), buf->size());
+}
+
+///////////////////////////////////// Slots ////////////////////////////////////
+void
+WaveView::onReady(void)
+{
+  this->lastProgressCurr = this->lastProgressMax = 0;
+
+  emit ready();
+}
+
+void
+WaveView::onProgress(quint64 curr, quint64 max)
+{
+  this->lastProgressCurr = curr;
+  this->lastProgressMax  = max;
+
+  emit progress();
+}
+

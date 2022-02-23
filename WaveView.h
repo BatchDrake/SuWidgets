@@ -1,5 +1,5 @@
 //
-//    WaveView.cpp: Compute rescaled views of the same waveform
+//    WaveView.cpp: Draw rescaled views of the same waveform
 //    Copyright (C) 2022 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -19,30 +19,11 @@
 #ifndef WAVEVIEW_H
 #define WAVEVIEW_H
 
-#include <sigutils/types.h>
-#include <vector>
-#include <QList>
 #include <QPainter>
+#include <WaveViewTree.h>
 
-struct WaveLimits {
-  SUCOMPLEX min = +INFINITY + +INFINITY * I;
-  SUCOMPLEX max = -INFINITY + -INFINITY * I;
-  SUCOMPLEX mean = 0;
-  SUFLOAT   envelope = 0;
-  SUFLOAT   freq = 0;
-};
-
-#define WAVEFORM_BLOCK_BITS   2
-#define WAVEFORM_BLOCK_LENGTH (1 << WAVEFORM_BLOCK_BITS)
-#define WAVEFORM_CIRCLE_DIM   4
-
-typedef std::vector<WaveLimits> WaveLimitVector;
-typedef QList<WaveLimitVector> WaveViewTree;
-
-class WaveView {
-  // Wave data
-  const SUCOMPLEX *data = nullptr;
-  SUSCOUNT         length = 0;
+class WaveView : public QObject {
+  Q_OBJECT
 
   // Rescaled wave data
   WaveViewTree  ownWaveTree;
@@ -71,6 +52,10 @@ class WaveView {
   int   height = 1;
   int   width  = 1;
 
+  // Cached data
+  uint64_t lastProgressCurr = 0;
+  uint64_t lastProgressMax = 0;
+
   // Representation config
   qreal phaseDiffContrast = 1;
   unsigned int phaseDiffOrigin = 0;
@@ -95,12 +80,47 @@ class WaveView {
     return this->colorTable[(index + this->phaseDiffOrigin) & 0xff];
   }
 
-  void buildNextView(WaveViewTree::iterator, SUSCOUNT since);
   void drawWaveClose(QPainter &painter);
   void drawWaveFar(QPainter &painter, int level);
 
 public:
   // Inlined methods
+  inline bool
+  isComplete(void) const
+  {
+    return this->waveTree->isComplete();
+  }
+
+  inline bool
+  isRunning(void) const
+  {
+    return this->waveTree->isRunning();
+  }
+
+  inline SUCOMPLEX
+  getDataMax(void) const
+  {
+    return this->waveTree->getMax();
+  }
+
+  inline SUCOMPLEX
+  getDataMin(void) const
+  {
+    return this->waveTree->getMin();
+  }
+
+  inline SUCOMPLEX
+  getDataMean(void) const
+  {
+    return this->waveTree->getMean();
+  }
+
+  inline SUFLOAT
+  getDataRMS(void) const
+  {
+    return this->waveTree->getRMS();
+  }
+
   inline qreal
   samp2t(qreal samp) const
   {
@@ -232,7 +252,7 @@ public:
   inline SUSCOUNT
   getLength(void) const
   {
-    return this->length;
+    return this->waveTree->getLength();
   }
 
   inline void
@@ -324,8 +344,18 @@ public:
   void setVerticalZoom(qreal min, qreal max);
   void setGeometry(int width, int height);
   void borrowTree(WaveView &);
-  void flush(void);
-  void build(const SUCOMPLEX *data, SUSCOUNT length, SUSCOUNT since = 0);
   void drawWave(QPainter &painter);
+  void setBuffer(const std::vector<SUCOMPLEX> *);
+  void refreshBuffer(const std::vector<SUCOMPLEX> *);
+
+  // Slots
+public slots:
+  void onReady(void);
+  void onProgress(quint64, quint64);
+
+  // Signals
+signals:
+  void ready(void);
+  void progress(void);
 };
 #endif // WAVEVIEW_H

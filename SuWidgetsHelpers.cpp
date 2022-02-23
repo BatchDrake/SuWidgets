@@ -291,3 +291,75 @@ SuWidgetsHelpers::findParentLayout(
 
   return nullptr;
 }
+
+void
+SuWidgetsHelpers::kahanMeanAndRms(
+    SUCOMPLEX *mean,
+    SUFLOAT *rms,
+    const SUCOMPLEX *data,
+    SUSCOUNT length,
+    KahanState *state)
+{
+  KahanState currState;
+
+  if (state == nullptr)
+    state = &currState;
+
+  SUCOMPLEX meanY, meanT;
+
+  SUFLOAT   rmsY, rmsT;
+
+  for (SUSCOUNT i = 0; i < length; ++i) {
+    meanY = data[i] - state->meanC;
+    rmsY  = SU_C_REAL(data[i] * SU_C_CONJ(data[i])) - state->rmsC;
+
+    meanT = state->meanSum + meanY;
+    rmsT  = state->rmsSum  + rmsY;
+
+    state->meanC = (meanT - state->meanSum) - meanY;
+    state->rmsC  = (rmsT  - state->rmsSum)  - rmsY;
+
+    state->meanSum = meanT;
+    state->rmsSum  = rmsT;
+  }
+
+  state->count += length;
+
+  *mean = state->meanSum / SU_ASFLOAT(state->count);
+  *rms  = SU_SQRT(state->rmsSum / state->count);
+}
+
+void
+SuWidgetsHelpers::calcLimits(
+    SUCOMPLEX *oMin,
+    SUCOMPLEX *oMax,
+    const SUCOMPLEX *data,
+    SUSCOUNT length,
+    bool inPlace)
+{
+  SUFLOAT minReal =
+      inPlace ? SU_C_REAL(*oMin) : +std::numeric_limits<SUFLOAT>::infinity();
+  SUFLOAT maxReal =
+      inPlace ? SU_C_REAL(*oMax) : -std::numeric_limits<SUFLOAT>::infinity();
+
+
+  SUFLOAT minImag =
+      inPlace ? SU_C_IMAG(*oMin) : minReal;
+  SUFLOAT maxImag =
+      inPlace ? SU_C_IMAG(*oMax) : maxReal;
+
+  for (SUSCOUNT i = 0; i < length; ++i) {
+    if (SU_C_REAL(data[i]) < minReal)
+      minReal = SU_C_REAL(data[i]);
+    if (SU_C_IMAG(data[i]) < minImag)
+      minImag = SU_C_IMAG(data[i]);
+
+    if (SU_C_REAL(data[i]) > maxReal)
+      maxReal = SU_C_REAL(data[i]);
+    if (SU_C_IMAG(data[i]) > maxImag)
+      maxImag = SU_C_IMAG(data[i]);
+  }
+
+  *oMin = minReal + I * minImag;
+  *oMax = maxReal + I * maxImag;
+}

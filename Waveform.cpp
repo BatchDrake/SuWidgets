@@ -30,7 +30,7 @@ WaveBuffer::WaveBuffer(WaveView *view)
   this->buffer = &this->ownBuffer;
 
   if (view != nullptr)
-    this->view->build(this->buffer->data(), this->buffer->size());
+    this->view->setBuffer(this->buffer);
 }
 
 WaveBuffer::WaveBuffer(WaveView *view, const std::vector<SUCOMPLEX> *vec)
@@ -40,7 +40,7 @@ WaveBuffer::WaveBuffer(WaveView *view, const std::vector<SUCOMPLEX> *vec)
   this->buffer = vec;
 
   if (view != nullptr)
-    this->view->build(this->buffer->data(), this->buffer->size());
+    this->view->setBuffer(this->buffer);
 }
 
 bool
@@ -56,7 +56,7 @@ WaveBuffer::feed(SUCOMPLEX val)
   this->ownBuffer.push_back(val);
 
   if (view != nullptr)
-  this->view->build(this->ownBuffer.data(), this->ownBuffer.size(), since);
+    this->view->refreshBuffer(&ownBuffer);
 
   return true;
 }
@@ -64,28 +64,20 @@ WaveBuffer::feed(SUCOMPLEX val)
 void
 WaveBuffer::rebuildViews(void)
 {
-  if (this->view != nullptr) {
-    SUSCOUNT since = this->view->getLength();
-
-    if (since < this->buffer->size())
-      this->view->build(this->buffer->data(), this->buffer->size(), since);
-  }
+  if (this->view != nullptr)
+    this->view->refreshBuffer(this->buffer);
 }
 
 bool
 WaveBuffer::feed(std::vector<SUCOMPLEX> const &vec)
 {
-  SUSCOUNT since;
-
   if (this->loan)
     return false;
-
-  since = this->ownBuffer.size();
 
   this->ownBuffer.insert(this->ownBuffer.end(), vec.begin(), vec.end());
 
   if (view != nullptr)
-    this->view->build(this->ownBuffer.data(), this->ownBuffer.size(), since);
+    this->view->refreshBuffer(&ownBuffer);
 
   return true;
 }
@@ -898,35 +890,22 @@ Waveform::setData(
   qint64 newLength  = data == nullptr ? 0 : static_cast<qint64>(data->size());
   qint64 extra      = newLength - prevLength;
 
+  this->askedToKeepView = keepView;
+
   if (appending) {
     // The current wavebuffer holds a reference to the same data vector,
     // we only inform the view to recalculate the new samples
     if (flush) {
-      this->view.build(data->data(), data->size(), 0);
+      this->view.setBuffer(data);
     } else if (extra > 0) {
-      this->data.rebuildViews();
+      this->view.refreshBuffer(data);
     }
   } else {
-    this->view.flush();
-
     if (data != nullptr)
       this->data = WaveBuffer(&this->view, data);
     else
       this->data = WaveBuffer(&this->view);
   }
-
-  this->waveDrawn = false;
-
-  if (!keepView) {
-    this->resetSelection();
-    this->zoomVerticalReset();
-    this->zoomHorizontalReset();
-  } else {
-    this->axesDrawn = false;
-    this->selectionDrawn = false;
-  }
-
-  this->invalidate();
 }
 
 void
@@ -1013,8 +992,7 @@ Waveform::refreshData(void)
   qint64 currSpan = this->view.getViewSampleInterval();
   qint64 lastSample = this->getDataLength() - 1;
 
-  this->view.flush();
-  this->view.build(this->getData(), this->getDataLength(), 0);
+  this->data.rebuildViews();
 
   if (this->autoScroll && this->getSampleEnd() <= lastSample)
     this->view.setHorizontalZoom(lastSample - currSpan, lastSample);
@@ -1071,6 +1049,41 @@ Waveform::Waveform(QWidget *parent) :
   this->view.setPalette(colorTable.data());
   this->view.setForeground(this->foreground);
 
+  connect(
+        &this->view,
+        SIGNAL(ready()),
+        this,
+        SLOT(onWaveViewChanges(void)));
+
+  connect(
+        &this->view,
+        SIGNAL(progress()),
+        this,
+        SLOT(onWaveViewChanges(void)));
+
   this->setMouseTracking(true);
   this->invalidate();
+}
+
+void
+Waveform::onWaveViewChanges(void)
+{
+  this->waveDrawn = false;
+
+  if (!this->askedToKeepView) {
+    this->resetSelection();
+
+    if (this->autoFitToEnvelope)
+      this->fitToEnvelope();
+    else
+      this->zoomVerticalReset();
+
+    this->zoomHorizontalReset();
+  } else {
+    this->axesDrawn = false;
+    this->selectionDrawn = false;
+  }
+
+  this->invalidate();
+  emit waveViewChanged();
 }

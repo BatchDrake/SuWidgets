@@ -180,6 +180,8 @@ class Waveform : public ThrottleableWidget
   bool haveCursor = false;
   int  currMouseX = 0;
 
+  bool askedToKeepView = false;
+
   // Limits
   WaveView   view;
   WaveBuffer data;
@@ -205,7 +207,7 @@ class Waveform : public ThrottleableWidget
 
   // Behavioral properties
   bool autoScroll = false;
-  bool autoFitToEnvelope = false;
+  bool autoFitToEnvelope = true;
 
   void drawHorizontalAxes(void);
   void drawVerticalAxes(void);
@@ -230,6 +232,42 @@ protected:
     void leaveEvent(QEvent *event) override;
 
 public:
+    inline bool
+    isComplete(void) const
+    {
+      return this->view.isComplete();
+    }
+
+    inline bool
+    isRunning(void) const
+    {
+      return this->view.isRunning();
+    }
+
+    inline SUCOMPLEX
+    getDataMax(void) const
+    {
+      return this->view.getDataMax();
+    }
+
+    inline SUCOMPLEX
+    getDataMin(void) const
+    {
+      return this->view.getDataMin();
+    }
+
+    inline SUCOMPLEX
+    getDataMean(void) const
+    {
+      return this->view.getDataMean();
+    }
+
+    inline SUFLOAT
+    getDataRMS(void) const
+    {
+      return this->view.getDataRMS();
+    }
+
     inline qreal
     samp2t(qreal samp) const
     {
@@ -611,6 +649,10 @@ signals:
   void horizontalSelectionChanged(qreal start, qreal end);
   void verticalSelectionChanged(qreal min, qreal max);
   void hoverTime(qreal);
+  void waveViewChanged(void);
+
+public slots:
+  void onWaveViewChanges(void);
 };
 
 #endif
