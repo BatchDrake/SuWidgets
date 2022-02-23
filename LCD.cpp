@@ -20,6 +20,7 @@
 
 #include <QPainter>
 #include <QPainterPath>
+#include <SuWidgetsHelpers.h>
 
 void
 LCD::recalculateDisplayData(void)
@@ -153,6 +154,54 @@ LCD::drawSeparator(QPainter &painter, qreal x, int index)
 }
 
 void
+LCD::drawLockAt(QPainter &painter, int x, bool locked)
+{
+  const qreal shackleRadius = this->glyphWidth / 5.;
+  const qreal shackleThickness = this->glyphWidth / 10.;
+  const qreal bodyWidth = 2 * shackleRadius * 1.7;
+  const qreal bodyHeight = bodyWidth * .8;
+  const qreal shackleSep = .5 * this->glyphWidth - shackleRadius;
+  const qreal bodySep    = .5 * (this->glyphWidth - bodyWidth);
+  QPen pen;
+  QRectF shackleRect(
+        x + shackleSep,
+        shackleSep,
+        2 * shackleRadius,
+        2 * shackleRadius);
+  QRectF bodyRect(
+        x + bodySep,
+        shackleRect.y() + shackleRadius + shackleThickness / 2,
+        bodyWidth,
+        bodyHeight);
+
+  painter.save();
+
+  if (locked)
+    painter.setOpacity(1);
+  else
+    painter.setOpacity(.5);
+
+  pen.setColor(this->foreground);
+  pen.setWidthF(shackleThickness);
+
+  painter.setRenderHint(QPainter::Antialiasing);
+
+  painter.setPen(pen);
+  painter.drawArc(shackleRect, 0, locked ? 180 * 16 : 150 * 16);
+
+  painter.fillRect(bodyRect, this->foreground);
+  painter.restore();
+
+  this->lockRect = QRectF(
+        0,
+        shackleRect.y(),
+        this->glyphWidth,
+        bodyHeight + shackleRadius);
+
+  this->haveLockRect = true;
+}
+
+void
 LCD::drawContent(void)
 {
   QPainter painter(&this->contentPixmap);
@@ -247,6 +296,8 @@ LCD::drawContent(void)
           static_cast<int>(this->margin),
           this->glyphs[0][10]);
   }
+
+  this->drawLockAt(painter, 0, this->locked);
 }
 
 void
@@ -292,6 +343,14 @@ LCD::paintEvent(QPaintEvent *)
 void
 LCD::mousePressEvent(QMouseEvent *ev)
 {
+  if (this->haveLockRect) {
+    if (this->lockRect.contains(ev->x(), ev->y())) {
+      this->locked = !this->locked;
+      this->dirty = true;
+      this->draw();
+    }
+  }
+
   if (this->glyphWidth > 0)
     this->selectDigit((this->width - ev->x()) / this->glyphWidth);
 }
@@ -306,7 +365,7 @@ LCD::scrollDigit(int digit, int delta)
   if (digit < LCD_MAX_DIGITS) {
     this->selectDigit(digit);
 
-    if (this->selected >= 0) {
+    if (this->selected >= 0 && !this->locked) {
       for (int i = 0; i < this->selected; ++i)
         mult *= 10;
 
@@ -339,9 +398,20 @@ LCD::wheelEvent(QWheelEvent *ev)
 void
 LCD::mouseMoveEvent(QMouseEvent *event)
 {
+  QRectF rect = this->rect();
+
   int digit = -1;
 
-  if (this->rect().contains(event->pos()))
+  if (this->haveLockRect) {
+    qreal lockSpaceX = this->lockRect.x() + this->lockRect.width();
+    rect = QRectF(
+          lockSpaceX,
+          0,
+          rect.width() - lockSpaceX,
+          rect.height());
+  }
+
+  if (rect.contains(event->pos()))
     digit = (this->width - event->x()) / this->glyphWidth;
 
   if (digit != this->hoverDigit) {
@@ -394,7 +464,7 @@ LCD::keyPressEvent(QKeyEvent *event)
     case Qt::Key_7:
     case Qt::Key_8:
     case Qt::Key_9:
-      if (this->selected != -1) {
+      if (this->selected != -1 && !this->locked) {
         qint64 value = this->value;
         bool negative = value < 0;
 
@@ -418,11 +488,17 @@ LCD::keyPressEvent(QKeyEvent *event)
       break;
 
     case Qt::Key_Plus:
-      this->setValue(std::abs(this->value));
+      if (!this->locked)
+        this->setValue(std::abs(this->value));
       break;
 
     case Qt::Key_Minus:
-      this->setValue(-this->value);
+      if (!this->locked)
+        this->setValue(-this->value);
+      break;
+
+    case Qt::Key_L:
+      this->locked = !this->locked;
       break;
 
     default:
