@@ -44,6 +44,18 @@ struct WaveMarker {
   bool below = false;
 };
 
+struct WaveVCursor {
+  QString string;
+  QColor color = WAVEFORM_DEFAULT_TEXT_COLOR;
+  SUCOMPLEX level;
+};
+
+struct WaveACursor {
+  QString string;
+  QColor color = WAVEFORM_DEFAULT_TEXT_COLOR;
+  SUFLOAT amplitude;
+};
+
 class WaveBuffer {
   WaveView *view = nullptr;
   std::vector<SUCOMPLEX> ownBuffer;
@@ -147,7 +159,9 @@ class Waveform : public ThrottleableWidget
   QString horizontalUnits = "s";
   QString verticalUnits = "";
 
-  QList<WaveMarker> markerList;
+  QList<WaveMarker>  markerList;
+  QList<WaveVCursor> vCursorList;
+  QList<WaveACursor> aCursorList;
 
   qreal oX = 0;
 
@@ -219,6 +233,9 @@ class Waveform : public ThrottleableWidget
   void drawHorizontalAxes(void);
   void drawVerticalAxes(void);
   void drawAxes(void);
+  void overlayMarkers(QPainter &);
+  void overlayACursors(QPainter &);
+  void overlayVCursors(QPainter &);
   void drawWave(void);
   void overlaySelection(QPainter &);
   void overlaySelectionMarkes(QPainter &);
@@ -309,6 +326,22 @@ public:
     setMarkerList(const QList<WaveMarker> &list)
     {
       this->markerList = list;
+      this->waveDrawn = false;
+      this->invalidate();
+    }
+
+    inline void
+    setVCursorList(const QList<WaveVCursor> &list)
+    {
+      this->vCursorList = list;
+      this->waveDrawn = false;
+      this->invalidate();
+    }
+
+    inline void
+    setACursorList(const QList<WaveACursor> &list)
+    {
+      this->aCursorList = list;
       this->waveDrawn = false;
       this->invalidate();
     }

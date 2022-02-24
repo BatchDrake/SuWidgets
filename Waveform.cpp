@@ -534,13 +534,8 @@ Waveform::overlaySelection(QPainter &p)
 }
 
 void
-Waveform::drawWave(void)
+Waveform::overlayMarkers(QPainter &p)
 {
-  waveform.fill(Qt::transparent);
-  QPainter p(&this->waveform);
-
-  this->view.drawWave(p);
-
   if (this->markerList.size() > 0) {
     QFont font;
     QFontMetrics metrics(font);
@@ -581,7 +576,94 @@ Waveform::drawWave(void)
       }
     }
   }
+}
 
+void
+Waveform::overlayVCursors(QPainter &p)
+{
+  if (this->vCursorList.size() > 0) {
+    int width = p.device()->width();
+    QFont font;
+    QFontMetrics metrics(font);
+    QPen pen;
+    int x = this->valueTextWidth;
+
+    p.save();
+
+    pen.setStyle(Qt::DashLine);
+    pen.setWidth(1);
+
+    p.setOpacity(1);
+
+    for (auto c = this->vCursorList.begin();
+         c != this->vCursorList.end();
+         ++c) {
+      QPainterPath path;
+      int y = SCAST(int, this->value2px(this->cast(c->level)));
+
+      path.moveTo(x + 10, y);
+      path.lineTo(x, y - 5);
+      path.lineTo(x, y + 5);
+      path.lineTo(x + 10, y);
+
+      p.setPen(Qt::NoPen);
+      p.fillPath(path, QBrush(c->color));
+
+      pen.setColor(c->color);
+      p.setPen(pen);
+
+      p.drawText(x + 10, y - metrics.height() / 2, c->string);
+      p.drawLine(x + 10, y, width - 1, y);
+    }
+
+    p.restore();
+  }
+}
+
+void
+Waveform::overlayACursors(QPainter &p)
+{
+  if (this->aCursorList.size() > 0) {
+    QFont font;
+    QFontMetrics metrics(font);
+    int x = this->valueTextWidth;
+    int width = p.device()->width();
+
+    p.save();
+
+    p.setOpacity(1);
+
+    for (auto a = this->aCursorList.begin();
+         a != this->aCursorList.end();
+         ++a) {
+      QPainterPath path;
+      QPen pen;
+      int y1 = SCAST(int, this->value2px(+a->amplitude));
+      int y2 = SCAST(int, this->value2px(-a->amplitude));
+
+      pen.setWidth(1);
+      pen.setColor(a->color);
+
+      p.setPen(pen);
+
+      p.drawText(x, y1 - metrics.height() / 2, a->string);
+      p.fillRect(x, y1, width - x, y2 - y1 + 2, a->color);
+    }
+
+    p.restore();
+  }
+}
+
+void
+Waveform::drawWave(void)
+{
+  waveform.fill(Qt::transparent);
+  QPainter p(&this->waveform);
+
+  this->overlayACursors(p);
+  this->view.drawWave(p);
+  this->overlayMarkers(p);
+  this->overlayVCursors(p);
   p.end();
 }
 

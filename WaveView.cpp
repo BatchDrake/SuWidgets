@@ -410,7 +410,7 @@ WaveView::drawWaveFar(QPainter &p, int level)
       // Next pixel column will be different: time to draw line
       if (currX != nextX) {
         p.setPen(Qt::NoPen);
-        p.setOpacity(this->showWaveform ? .33 : .66);
+        p.setOpacity(this->showWaveform ? .33 : 1.);
 
         if (havePrev) {
           // Show phase?
