@@ -21,6 +21,9 @@
 #include <QPainter>
 #include <fstream>
 #include <iomanip>
+#include <SuWidgetsHelpers.h>
+#include <QApplication>
+#include <QClipboard>
 
 SymView::SymView(QWidget *parent) :
   ThrottleableWidget(parent)
@@ -56,14 +59,15 @@ SymView::drawToImage(
     unsigned int zoom,
     unsigned int lineSize,
     unsigned int lineSkip,
-    unsigned int lineStart)
+    unsigned int lineStart,
+    bool showSelection)
 {
   unsigned int x = 0;
   int y = 0;
   int asInt, convD;
   unsigned int p = start;
   QRgb *scanLine;
-
+  QRgb color;
   // Calculate conversion coefficients
   convD = (1 << this->bps) - 1;
 
@@ -73,17 +77,26 @@ SymView::drawToImage(
     lineSize = static_cast<unsigned int>(image.width());
 
   if (this->zoom == 1) {
+    bool inSel;
     while (p < end) {
+      inSel = showSelection && this->selStart <= p && p < this->selEnd;
+
       asInt = (static_cast<int>(this->buffer[p++]) * 255) / convD;
       if (this->reverse)
         asInt = ~asInt;
 
       // You like Cobol, right?
-      if (x++ >= lineStart)
-        scanLine[x - 1 - lineStart] = qRgb(
-              (this->lowSym.red()   * (255 - asInt) + this->highSym.red()   * asInt) / 255,
-              (this->lowSym.green() * (255 - asInt) + this->highSym.green() * asInt) / 255,
-              (this->lowSym.blue()  * (255 - asInt) + this->highSym.blue()  * asInt) / 255);
+      if (x++ >= lineStart) {
+        if (inSel)
+          color = qRgb(255 - asInt, 255 - asInt, 255);
+        else
+          color = qRgb(
+                (this->lowSym.red()   * (255 - asInt) + this->highSym.red()   * asInt) / 255,
+                (this->lowSym.green() * (255 - asInt) + this->highSym.green() * asInt) / 255,
+                (this->lowSym.blue()  * (255 - asInt) + this->highSym.blue()  * asInt) / 255);
+
+        scanLine[x - 1 - lineStart] = color;
+      }
 
 
       if (x >= lineSize) {
@@ -106,7 +119,8 @@ SymView::drawToImage(
 
     unsigned int stride = lineSize + lineSkip;
     bool highlight = zoom > 2 && this->hoverX > 0 && this->hoverY > 0;
-
+    QRgb color;
+    bool inSel;
     int width = static_cast<int>(stride * zoom);
 
     if (width > image.width())
@@ -120,16 +134,22 @@ SymView::drawToImage(
             + lineStart;
         if (x < stride) {
           p = start + x + y * stride;
+          inSel = showSelection && this->selStart <= p && p < this->selEnd;
           asInt = (static_cast<int>(this->buffer[p]) * 255) / convD;
           if (p >= end)
             break;
           if (this->reverse)
             asInt = ~asInt;
 
-          scanLine[i] = qRgb(
-                (this->lowSym.red()   * (255 - asInt) + this->highSym.red()   * asInt) / 255,
-                (this->lowSym.green() * (255 - asInt) + this->highSym.green() * asInt) / 255,
-                (this->lowSym.blue()  * (255 - asInt) + this->highSym.blue()  * asInt) / 255);
+          if (inSel)
+            color = qRgb(255 - asInt, 255 - asInt, 255);
+          else
+            color = qRgb(
+                  (this->lowSym.red()   * (255 - asInt) + this->highSym.red()   * asInt) / 255,
+                  (this->lowSym.green() * (255 - asInt) + this->highSym.green() * asInt) / 255,
+                  (this->lowSym.blue()  * (255 - asInt) + this->highSym.blue()  * asInt) / 255);
+
+          scanLine[i] = color;
 
         }
       }
@@ -218,9 +238,10 @@ SymView::draw(void)
           this->offset,
           this->offset + visible,
           this->zoom,
-          static_cast<unsigned int>(lineSize) + lineStart,
-          lineSkip - lineStart,
-          lineStart);
+          static_cast<unsigned int>(lineSize) + lineStart, // lineSize
+          lineSkip - lineStart,                            // lineSkip
+          lineStart,                                       // lineStart
+          true); // drawSelection
   }
 
 
@@ -242,6 +263,7 @@ SymView::clear(void)
 {
   this->buffer.clear();
   this->offset = 0;
+  this->selStart = this->selEnd = 0;
   this->invalidate();
 }
 
@@ -371,18 +393,96 @@ SymView::feed(std::vector<Symbol> const &x)
 }
 
 void
-SymView::mousePressEvent(QMouseEvent *)
+SymView::mousePressEvent(QMouseEvent *ev)
 {
+  qint64 off = coordToOffset(hoverX, hoverY);
 
+  if (off >= 0) {
+    if (ev->button() == Qt::MouseButton::LeftButton) {
+      this->selecting  = true;
+      this->selStart   = off;
+      this->selEnd     = off;
+      this->invalidate();
+    }
+  }
+}
+
+void
+SymView::mouseReleaseEvent(QMouseEvent *ev)
+{
+  if (this->selecting) {
+    if (ev->button() == Qt::MouseButton::LeftButton) {
+      this->selecting  = false;
+      this->invalidate();
+    }
+  }
+}
+
+qint64
+SymView::coordToOffset(int x, int y)
+{
+  qint64 off;
+
+  x /= this->zoom;
+  y /= this->zoom;
+
+  if (x >= this->stride)
+    return -1;
+
+  x += this->hOffset;
+
+  off = this->offset + SCAST(qint64, x) + SCAST(qint64, y) * this->stride;
+
+  if (off < 0 || off >= SCAST(qint64, this->buffer.size()))
+    off = -1;
+
+  return off;
 }
 
 void
 SymView::mouseMoveEvent(QMouseEvent *event)
 {
-  if (this->zoom > 2) {
-    hoverX = event->x();
-    hoverY = event->y();
+  hoverX = event->x();
+  hoverY = event->y();
+
+  if (this->selecting) {
+    qint64 start = this->selStart;
+    qint64 end   = this->coordToOffset(hoverX, hoverY);
+
+    if (end >= 0) {
+      if (start > end) {
+        this->selStart = end;
+        this->selEnd   = start;
+      } else {
+        this->selStart = start;
+        this->selEnd   = end;
+      }
+
+      this->invalidate();
+    }
+  }
+
+  if (this->zoom > 2)
     this->invalidate();
+}
+
+#include <QDebug>
+
+void
+SymView::copyToClipboard(void)
+{
+  if (this->selStart < this->selEnd) {
+    QClipboard *clipboard = QApplication::clipboard();
+    QString string;
+    int p = 0;
+
+    string.resize(SCAST(int, this->selEnd - this->selStart));
+    for (size_t i = SCAST(size_t, this->selStart);
+         i < SCAST(size_t, this->selEnd);
+         ++i)
+      string[p++] = QChar('0' + this->buffer[i]);
+
+    clipboard->setText(string);
   }
 }
 
@@ -455,6 +555,27 @@ SymView::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Minus:
       if (event->modifiers() & Qt::ControlModifier && this->zoom > 1)
         this->setZoom(this->zoom - 1);
+      break;
+
+    case Qt::Key_Escape:
+      if (this->selecting) {
+        this->selStart = this->selEnd = 0;
+        this->selecting = false;
+        this->invalidate();
+      }
+      break;
+
+    case Qt::Key_C:
+      if (event->modifiers() & Qt::Modifier::CTRL)
+        this->copyToClipboard();
+      break;
+
+    case Qt::Key_A:
+      if (event->modifiers() & Qt::Modifier::CTRL) {
+        this->selStart = 0;
+        this->selEnd = SCAST(qint64, this->buffer.size());
+        this->invalidate();
+      }
       break;
   }
 }
