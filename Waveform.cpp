@@ -901,6 +901,11 @@ Waveform::draw(void)
     this->selUpdated = false;
     this->axesDrawn  = false;
     this->waveDrawn  = false;
+  } else if (!this->isComplete() && !this->enableFeedback) {
+    // If we were called because we need to redraw something, but we
+    // explicitly disabled feedback and there is a previous waveform
+    // image that we can reuse, we wait for later to redraw everything
+    return;
   }
 
   //
@@ -1154,6 +1159,9 @@ Waveform::Waveform(QWidget *parent) :
 void
 Waveform::onWaveViewChanges(void)
 {
+  if (!this->isComplete() && !this->enableFeedback)
+    return;
+
   this->waveDrawn = false;
   this->axesDrawn = false;
 

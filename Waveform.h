@@ -175,6 +175,7 @@ class Waveform : public ThrottleableWidget
   bool axesDrawn = false;
   bool waveDrawn = false;
   bool selUpdated = false;
+  bool enableFeedback = true;
 
   QImage  waveform;
   QPixmap contentPixmap; // Data and vertical axes
@@ -614,6 +615,13 @@ public:
   setOriginX(qreal origin)
   {
     this->oX = origin;
+  }
+
+
+  inline void
+  setEnableFeedback(bool enable)
+  {
+    this->enableFeedback = enable;
   }
 
   inline qreal
