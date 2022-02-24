@@ -68,6 +68,8 @@ SymView::drawToImage(
   unsigned int p = start;
   QRgb *scanLine;
   QRgb color;
+  qint64 selStart = 0, selEnd = 0;
+
   // Calculate conversion coefficients
   convD = (1 << this->bps) - 1;
 
@@ -76,10 +78,19 @@ SymView::drawToImage(
   if (lineSize == 0)
     lineSize = static_cast<unsigned int>(image.width());
 
+  if (showSelection) {
+    if (this->selStart > this->selEnd) {
+      selStart = this->selEnd - 1;
+      selEnd   = this->selStart + 1;
+    } else {
+      selStart = this->selStart;
+      selEnd   = this->selEnd;
+    }
+  }
   if (this->zoom == 1) {
     bool inSel;
     while (p < end) {
-      inSel = showSelection && this->selStart <= p && p < this->selEnd;
+      inSel = showSelection && selStart <= p && p < selEnd;
 
       asInt = (static_cast<int>(this->buffer[p++]) * 255) / convD;
       if (this->reverse)
@@ -134,7 +145,7 @@ SymView::drawToImage(
             + lineStart;
         if (x < stride) {
           p = start + x + y * stride;
-          inSel = showSelection && this->selStart <= p && p < this->selEnd;
+          inSel = showSelection && selStart <= p && p < selEnd;
           asInt = (static_cast<int>(this->buffer[p]) * 255) / convD;
           if (p >= end)
             break;
@@ -427,14 +438,18 @@ SymView::coordToOffset(int x, int y)
   y /= this->zoom;
 
   if (x >= this->stride)
-    return -1;
+    x = this->stride - 1;
+  else if (x < 0)
+    x = 0;
 
   x += this->hOffset;
 
   off = this->offset + SCAST(qint64, x) + SCAST(qint64, y) * this->stride;
 
-  if (off < 0 || off >= SCAST(qint64, this->buffer.size()))
-    off = -1;
+  if (off < 0)
+    off = 0;
+  else if (off >= SCAST(qint64, this->buffer.size()))
+    off = SCAST(qint64, this->buffer.size()) - 1;
 
   return off;
 }
@@ -446,18 +461,10 @@ SymView::mouseMoveEvent(QMouseEvent *event)
   hoverY = event->y();
 
   if (this->selecting) {
-    qint64 start = this->selStart;
     qint64 end   = this->coordToOffset(hoverX, hoverY);
 
     if (end >= 0) {
-      if (start > end) {
-        this->selStart = end;
-        this->selEnd   = start;
-      } else {
-        this->selStart = start;
-        this->selEnd   = end;
-      }
-
+      this->selEnd = end;
       this->invalidate();
     }
   }
@@ -466,19 +473,27 @@ SymView::mouseMoveEvent(QMouseEvent *event)
     this->invalidate();
 }
 
-#include <QDebug>
-
 void
 SymView::copyToClipboard(void)
 {
-  if (this->selStart < this->selEnd) {
+  if (this->selStart != this->selEnd) {
+    qint64 start;
+    qint64 end;
     QClipboard *clipboard = QApplication::clipboard();
     QString string;
     int p = 0;
 
-    string.resize(SCAST(int, this->selEnd - this->selStart));
-    for (size_t i = SCAST(size_t, this->selStart);
-         i < SCAST(size_t, this->selEnd);
+    if (this->selStart > this->selEnd) {
+      start = this->selEnd - 1;
+      end   = this->selStart + 1;
+    } else {
+      start = this->selStart;
+      end   = this->selEnd;
+    }
+
+    string.resize(SCAST(int, end - start));
+    for (auto i = start;
+         i < end;
          ++i)
       string[p++] = QChar('0' + this->buffer[i]);
 
