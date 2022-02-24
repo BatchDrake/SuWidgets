@@ -285,6 +285,9 @@ WaveViewTree::clear(void)
   this->length = 0;
   this->complete = true;
 
+  // This is a reprocessing too
+  emit ready();
+
   return true;
 }
 

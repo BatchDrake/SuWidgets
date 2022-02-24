@@ -34,7 +34,7 @@
 #define WAVEFORM_DEFAULT_TEXT_COLOR       QColor(0xff, 0xff, 0xff)
 #define WAVEFORM_DEFAULT_SELECTION_COLOR  QColor(0x08, 0x08, 0x08)
 #define WAVEFORM_DEFAULT_ENVELOPE_COLOR   QColor(0x3f, 0x3f, 0x00)
-#define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0x7f, 0x08, 0x08)
+#define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0xff, 0x08, 0x08)
 #define WAVEFORM_MAX_ITERS                20
 #define WAVEFORM_DELTA_LIMIT              9000
 
@@ -51,6 +51,14 @@ class WaveBuffer {
   bool loan = false;
 
 public:
+  inline bool
+  isLoan(void) const
+  {
+    return this->loan;
+  }
+
+  void operator = (const WaveBuffer &);
+
   WaveBuffer(WaveView *view);
   WaveBuffer(WaveView *view, const std::vector<SUCOMPLEX> *);
 
@@ -152,12 +160,11 @@ class Waveform : public ThrottleableWidget
   bool haveGeometry = false;
   bool axesDrawn = false;
   bool waveDrawn = false;
-  bool selectionDrawn = false;
+  bool selUpdated = false;
 
   QImage  waveform;
   QPixmap contentPixmap; // Data and vertical axes
   QPixmap axesPixmap;    // Only horizontal axes
-  QPixmap selectionPixmap;
 
   // Interactive state
   qreal savedMin;
@@ -213,14 +220,14 @@ class Waveform : public ThrottleableWidget
   void drawVerticalAxes(void);
   void drawAxes(void);
   void drawWave(void);
-  void drawSelection(void);
+  void overlaySelection(QPainter &);
   void overlaySelectionMarkes(QPainter &);
   void recalculateDisplayData(void);
 
   inline bool
   somethingDirty(void) const
   {
-    return !this->waveDrawn || !this->axesDrawn || !this->selectionDrawn;
+    return !this->waveDrawn || !this->axesDrawn || !this->selUpdated;
   }
 
 protected:
@@ -398,7 +405,7 @@ public:
   setSelectionColor(const QColor &c)
   {
     this->selection = c;
-    this->selectionDrawn = false;
+    this->selUpdated = false;
     this->invalidate();
     emit textColorChanged();
   }
@@ -413,7 +420,7 @@ public:
   setSubSelectionColor(const QColor &c)
   {
     this->selection = c;
-    this->selectionDrawn = false;
+    this->selUpdated = false;
     this->invalidate();
     emit textColorChanged();
   }
@@ -513,7 +520,7 @@ public:
       divs = 1;
     this->divsPerSelection = divs;
     if (this->hSelection)
-      this->selectionDrawn = false;
+      this->selUpdated = false;
     this->invalidate();
   }
 
