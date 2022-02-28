@@ -204,6 +204,9 @@ struct GLWaterfallOpenGLContext {
   void                     pushFFTData(const float *fftData, int size);
   void                     averageFFTData(const float *fftData, int size);
   void                     commitFFTData(void);
+  void                     flushOneLine(void);
+  void                     disposeLastLine(void);
+  void                     flushLinesBulk(void);
   void                     flushLines(void);
   void                     flushLinePool(void);
   void                     flushPalette(void);

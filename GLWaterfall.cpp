@@ -49,6 +49,8 @@
 #define GL_WATERFALL_TEX_MIN_DB  (-300.f)
 #define GL_WATERFALL_TEX_MAX_DB  (200.f)
 #define GL_WATERFALL_TEX_DR      (GL_WATERFALL_TEX_MAX_DB - GL_WATERFALL_TEX_MIN_DB)
+#define GL_WATERFALL_MAX_LINE_POOL_SIZE 30
+#define GL_WATERFALL_MIN_BULK_TRANSFER  10
 
 struct vertex {
     float vertex_coords[3];
@@ -381,33 +383,99 @@ GLWaterfallOpenGLContext::flushPalette(void)
 }
 
 void
-GLWaterfallOpenGLContext::flushLines(void)
+GLWaterfallOpenGLContext::disposeLastLine(void)
 {
-  while (!m_history.empty()) {
+  if (!m_history.empty()) {
     GLLine &line = m_history.back();
-    int row = m_rowCount - (m_row % m_rowCount) - 1;
 
-    if (m_rowSize == line.resolution()) {
-      glTexSubImage2D(
-            GL_TEXTURE_2D,
-            0,
-            0,
-            row,
-            line.allocation(),
-            1,
-            GL_RED,
-            GL_FLOAT,
-            line.data());
-
+    // Can we reuse it?
+    if (m_rowSize == line.resolution()
+        && m_pool.size() < GL_WATERFALL_MAX_LINE_POOL_SIZE) {
       auto last = m_history.end();
       --last;
       m_pool.splice(m_pool.begin(), m_history, last);
-
-      m_row = (m_row + 1) % m_rowCount;
     } else {
-      // Wrong line size. Just discard.
       m_history.pop_back();
     }
+  }
+}
+
+void
+GLWaterfallOpenGLContext::flushOneLine(void)
+{
+  GLLine &line = m_history.back();
+  int row = m_rowCount - (m_row % m_rowCount) - 1;
+
+  if (m_rowSize == line.resolution()) {
+    glTexSubImage2D(
+          GL_TEXTURE_2D,
+          0,
+          0,
+          row,
+          line.allocation(),
+          1,
+          GL_RED,
+          GL_FLOAT,
+          line.data());
+    this->disposeLastLine();
+    m_row = (m_row + 1) % m_rowCount;
+  } else {
+    // Wrong line size. Just discard.
+    this->disposeLastLine();
+  }
+}
+
+void
+GLWaterfallOpenGLContext::flushLinesBulk(void)
+{
+  int maxRows = m_rowCount - (m_row % m_rowCount);
+  int count = 0;
+  int alloc = GLLine::allocationFor(m_rowSize);
+  std::vector<float> bulkData;
+
+  bulkData.resize(maxRows * alloc);
+
+  for (int i = 0; i < maxRows && !this->m_history.empty(); ++i) {
+    GLLine &line = m_history.back();
+
+    if (m_rowSize != line.resolution()) {
+      this->disposeLastLine();
+      break;
+    }
+
+    memcpy(
+          bulkData.data() + (maxRows - i - 1) * alloc,
+          line.data(),
+          alloc * sizeof(float));
+    this->disposeLastLine();
+
+    ++count;
+  }
+
+
+  if (count > 0) {
+    glTexSubImage2D(
+          GL_TEXTURE_2D,
+          0,
+          0,
+          maxRows - count,
+          alloc,
+          count,
+          GL_RED,
+          GL_FLOAT,
+          bulkData.data() + (maxRows - count) * alloc);
+    m_row = (m_row + count) % m_rowCount;
+  }
+}
+
+void
+GLWaterfallOpenGLContext::flushLines(void)
+{
+  while (!m_history.empty()) {
+    if (m_history.size() >= GL_WATERFALL_MIN_BULK_TRANSFER)
+      this->flushLinesBulk();
+    else
+      this->flushOneLine();
   }
 }
 
@@ -456,6 +524,12 @@ GLWaterfallOpenGLContext::pushFFTData(
   } else {
     m_history.push_front(GLLine());
   }
+
+  // We can store up to the latest m_rowCount updates (the only ones we are
+  // going to paint). We can safely discard the rest
+
+  if (m_history.size() > m_rowCount)
+    m_history.pop_back();
 
   GLLine &line = m_history.front();
   line.setResolution(size);
