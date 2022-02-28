@@ -452,7 +452,6 @@ GLWaterfallOpenGLContext::flushLinesBulk(void)
     ++count;
   }
 
-
   if (count > 0) {
     glTexSubImage2D(
           GL_TEXTURE_2D,
@@ -524,6 +523,12 @@ GLWaterfallOpenGLContext::pushFFTData(
   } else {
     m_history.push_front(GLLine());
   }
+
+  // If there are more lines than the ones that fit into the screen, we
+  // simply discard the older ones
+  if (m_history.size() > m_rowCount)
+    m_history.pop_back();
+
 
   GLLine &line = m_history.front();
   line.setResolution(size);
