@@ -525,12 +525,6 @@ GLWaterfallOpenGLContext::pushFFTData(
     m_history.push_front(GLLine());
   }
 
-  // We can store up to the latest m_rowCount updates (the only ones we are
-  // going to paint). We can safely discard the rest
-
-  if (m_history.size() > m_rowCount)
-    m_history.pop_back();
-
   GLLine &line = m_history.front();
   line.setResolution(size);
 
