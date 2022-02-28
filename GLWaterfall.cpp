@@ -381,33 +381,86 @@ GLWaterfallOpenGLContext::flushPalette(void)
 }
 
 void
+GLWaterfallOpenGLContext::flushOneLine(void)
+{
+  GLLine &line = m_history.back();
+  int row = m_rowCount - (m_row % m_rowCount) - 1;
+
+  if (m_rowSize == line.resolution()) {
+    glTexSubImage2D(
+          GL_TEXTURE_2D,
+          0,
+          0,
+          row,
+          line.allocation(),
+          1,
+          GL_RED,
+          GL_FLOAT,
+          line.data());
+
+    auto last = m_history.end();
+    --last;
+    m_pool.splice(m_pool.begin(), m_history, last);
+
+    m_row = (m_row + 1) % m_rowCount;
+  } else {
+    // Wrong line size. Just discard.
+    m_history.pop_back();
+  }
+}
+
+void
+GLWaterfallOpenGLContext::flushLinesBulk(void)
+{
+  int row = m_rowCount - (m_row % m_rowCount) - 1;
+  int maxRows = m_rowCount - row;
+  int count = 0;
+  int alloc = GLLine::allocationFor(m_rowSize);
+  std::vector<float> bulkData;
+
+  bulkData.resize(maxRows * alloc);
+
+  for (int i = 0; i < maxRows && !this->m_history.empty(); ++i) {
+    GLLine &line = m_history.back();
+
+    if (m_rowSize != line.resolution()) {
+      m_history.pop_back();
+      break;
+    }
+
+    memcpy(
+          bulkData.data() + i * alloc,
+          line.data(),
+          alloc * sizeof(float));
+    auto last = m_history.end();
+    --last;
+    m_pool.splice(m_pool.begin(), m_history, last);
+  }
+
+  if (count > 0) {
+    m_row = (m_row + count) % m_rowCount;
+
+    glTexSubImage2D(
+          GL_TEXTURE_2D,
+          0,
+          0,
+          row,
+          alloc,
+          count,
+          GL_RED,
+          GL_FLOAT,
+          bulkData.data());
+  }
+}
+
+void
 GLWaterfallOpenGLContext::flushLines(void)
 {
   while (!m_history.empty()) {
-    GLLine &line = m_history.back();
-    int row = m_rowCount - (m_row % m_rowCount) - 1;
-
-    if (m_rowSize == line.resolution()) {
-      glTexSubImage2D(
-            GL_TEXTURE_2D,
-            0,
-            0,
-            row,
-            line.allocation(),
-            1,
-            GL_RED,
-            GL_FLOAT,
-            line.data());
-
-      auto last = m_history.end();
-      --last;
-      m_pool.splice(m_pool.begin(), m_history, last);
-
-      m_row = (m_row + 1) % m_rowCount;
-    } else {
-      // Wrong line size. Just discard.
-      m_history.pop_back();
-    }
+    if (m_history.size() > 2)
+      this->flushLinesBulk();
+    else
+      this->flushOneLine();
   }
 }
 
