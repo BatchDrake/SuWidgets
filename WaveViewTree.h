@@ -37,6 +37,16 @@ struct WaveLimits {
   SUCOMPLEX mean = 0;
   SUFLOAT   envelope = 0;
   SUFLOAT   freq = 0;
+
+  inline bool
+  isInitialized(void) const
+  {
+    return
+           isfinite(SU_C_REAL(min))
+        && isfinite(SU_C_IMAG(min))
+        && isfinite(SU_C_REAL(max))
+        && isfinite(SU_C_IMAG(max));
+  }
 };
 
 typedef std::vector<WaveLimits> WaveLimitVector;
@@ -59,6 +69,18 @@ class WaveViewTree : public QObject, public QList<WaveLimitVector> {
   bool             complete = true;
 
   friend class WaveWorker;
+
+  static void calcLimitsBuf(
+      WaveLimits &limit,
+      const SUCOMPLEX *__restrict buf,
+      size_t len,
+      bool first = false);
+
+  static void calcLimitsBlock(
+      WaveLimits &limit,
+      const WaveLimits *__restrict data,
+      size_t len,
+      SUFLOAT wEnd = 1);
 
 public:
   inline bool
@@ -115,6 +137,12 @@ public:
   bool reprocess(const SUCOMPLEX *, SUSCOUNT newLength);
   bool clear(void);
   void safeCancel(void);
+  void computeLimitsFar(
+      WaveViewTree::const_iterator p,
+      qint64 start,
+      qint64 end,
+      WaveLimits &limits) const;
+  void computeLimits(qint64 start, qint64 end, WaveLimits &limits) const;
 
 signals:
   void ready(void);

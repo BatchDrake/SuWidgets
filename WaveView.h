@@ -333,6 +333,13 @@ public:
     return this->deltaT;
   }
 
+  inline void
+  computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
+  {
+    this->waveTree->computeLimits(start, end, limits);
+  }
+
+
   // Methods
   WaveView();
 

@@ -42,10 +42,13 @@ void
 WaveWorker::buildNextView(
     WaveViewTree::iterator p,
     SUSCOUNT start,
-    SUSCOUNT end)
+    SUSCOUNT end,
+    SUFLOAT  wEnd)
 {
   WaveViewTree::iterator next = p + 1;
   SUSCOUNT length, nextLength;
+  SUFLOAT nextWEnd = 1;
+  SUFLOAT currWend = 1;
 
   start >>= WAVEFORM_BLOCK_BITS;
   start <<= WAVEFORM_BLOCK_BITS;
@@ -66,33 +69,14 @@ WaveWorker::buildNextView(
   for (auto i = start; i <= end; i += WAVEFORM_BLOCK_LENGTH) {
     const WaveLimits *data = p->data() + i;
     WaveLimits thisLimit;
-    quint64 left       = MIN(end + 1 - i, WAVEFORM_BLOCK_LENGTH);
-    SUFLOAT kInv       = 1.f / SU_ASFLOAT(left);
+    quint64 left = MIN(end + 1 - i, WAVEFORM_BLOCK_LENGTH);
 
-    thisLimit.max      = data[0].max;
-    thisLimit.min      = data[0].min;
-
-    for (SUSCOUNT j = 0; j < left; ++j) {
-      if (data[j].max.real() > thisLimit.max.real())
-        thisLimit.max = data[j].max.real() + thisLimit.max.imag() * I;
-      if (data[j].max.imag() > thisLimit.max.imag())
-        thisLimit.max = thisLimit.max.real() + data[j].max.imag() * I;
-
-      if (data[j].min.real() < thisLimit.min.real())
-        thisLimit.min = data[j].min.real() + thisLimit.min.imag() * I;
-      if (data[j].min.imag() < thisLimit.min.imag())
-        thisLimit.min = thisLimit.min.real() + data[j].min.imag() * I;
-
-      if (thisLimit.envelope < data[j].envelope)
-        thisLimit.envelope = data[j].envelope;
-
-      thisLimit.mean += data[j].mean;
-      thisLimit.freq += data[j].freq;
+    if (i + WAVEFORM_BLOCK_LENGTH > end) {
+      currWend = wEnd;
+      nextWEnd = SU_ASFLOAT(left) / WAVEFORM_BLOCK_LENGTH;
     }
 
-    // Compute mean, mean frequency and finish
-    thisLimit.mean *= kInv;
-    thisLimit.freq *= kInv;
+    WaveViewTree::calcLimitsBlock(thisLimit, data, left, currWend);
 
     (*next)[i >> WAVEFORM_BLOCK_BITS] = thisLimit;
   }
@@ -101,7 +85,8 @@ WaveWorker::buildNextView(
     this->buildNextView(
         next,
         start >> WAVEFORM_BLOCK_BITS,
-        end   >> WAVEFORM_BLOCK_BITS);
+        end   >> WAVEFORM_BLOCK_BITS,
+        nextWEnd);
 }
 
 void
@@ -111,6 +96,7 @@ WaveWorker::build(SUSCOUNT start, SUSCOUNT end)
   const SUCOMPLEX *data;
   SUSCOUNT length = m_owner->length;
   SUSCOUNT nextLength;
+  SUFLOAT wEnd = 1;
 
   start >>= WAVEFORM_BLOCK_BITS;
   start <<= WAVEFORM_BLOCK_BITS;
@@ -128,38 +114,13 @@ WaveWorker::build(SUSCOUNT start, SUSCOUNT end)
 
   for (SUSCOUNT i = start; i <= end; i += WAVEFORM_BLOCK_LENGTH) {
     WaveLimits thisLimit;
-    SUFLOAT env2  = 0;
     quint64 left  = MIN(end + 1 - i, WAVEFORM_BLOCK_LENGTH);
-    SUFLOAT kInv  = 1.f / SU_ASFLOAT(left);
-
     data          = m_owner->data + i;
-    thisLimit.min = data[0];
-    thisLimit.max = data[0];
 
-    for (SUSCOUNT j = 0; j < left; ++j) {
-      if (data[j].real() > thisLimit.max.real())
-        thisLimit.max = data[j].real() + thisLimit.max.imag() * I;
-      if (data[j].imag() > thisLimit.max.imag())
-        thisLimit.max = thisLimit.max.real() + data[j].imag() * I;
+    if (i + WAVEFORM_BLOCK_LENGTH > end)
+      wEnd = SU_ASFLOAT(left) / WAVEFORM_BLOCK_LENGTH;
 
-      if (data[j].real() < thisLimit.min.real())
-        thisLimit.min = data[j].real() + thisLimit.min.imag() * I;
-      if (data[j].imag() < thisLimit.min.imag())
-        thisLimit.min = thisLimit.min.real() + data[j].imag() * I;
-
-      env2 = SU_C_REAL(data[j] * SU_C_CONJ(data[j]));
-      if (thisLimit.envelope < env2)
-        thisLimit.envelope = env2;
-
-      if ((i + j) > 0)
-        thisLimit.freq += SU_C_ARG(data[j] * SU_C_CONJ(data[j - 1]));
-
-      thisLimit.mean += data[j];
-    }
-
-    thisLimit.freq *= kInv;
-    thisLimit.mean *= kInv;
-    thisLimit.envelope = sqrt(thisLimit.envelope);
+    WaveViewTree::calcLimitsBuf(thisLimit, data, left);
 
     (*next)[i >> WAVEFORM_BLOCK_BITS] = thisLimit;
   }
@@ -168,7 +129,8 @@ WaveWorker::build(SUSCOUNT start, SUSCOUNT end)
     buildNextView(
           next,
           start >> WAVEFORM_BLOCK_BITS,
-          end   >> WAVEFORM_BLOCK_BITS);
+          end   >> WAVEFORM_BLOCK_BITS,
+          wEnd);
 }
 
 void
@@ -273,6 +235,237 @@ WaveViewTree::safeCancel(void)
     this->currentWorker = nullptr;
   }
 }
+
+void
+WaveViewTree::calcLimitsBlock(
+    WaveLimits &thisLimit,
+    const WaveLimits *__restrict data,
+    size_t len,
+    SUFLOAT wEnd)
+{
+  //
+  // wEnd is a last-block completeness factor (or weight). Can be
+  // from 1 / BLOCK_LENGTH to 1.
+  //
+
+  if (len > 0) {
+    SUFLOAT kInv   = 1.f / (SU_ASFLOAT(len) + wEnd - 1);
+
+    if (!thisLimit.isInitialized()) {
+      thisLimit.min = data[0].min;
+      thisLimit.max = data[0].max;
+    }
+
+    for (SUSCOUNT j = 0; j < len; ++j) {
+      if (data[j].max.real() > thisLimit.max.real())
+        thisLimit.max = data[j].max.real() + thisLimit.max.imag() * I;
+      if (data[j].max.imag() > thisLimit.max.imag())
+        thisLimit.max = thisLimit.max.real() + data[j].max.imag() * I;
+
+      if (data[j].min.real() < thisLimit.min.real())
+        thisLimit.min = data[j].min.real() + thisLimit.min.imag() * I;
+      if (data[j].min.imag() < thisLimit.min.imag())
+        thisLimit.min = thisLimit.min.real() + data[j].min.imag() * I;
+
+      if (thisLimit.envelope < data[j].envelope)
+        thisLimit.envelope = data[j].envelope;
+
+      if (j == len - 1) {
+        thisLimit.mean += wEnd * data[j].mean;
+        thisLimit.freq += wEnd * data[j].freq;
+      } else {
+        thisLimit.mean += data[j].mean;
+        thisLimit.freq += data[j].freq;
+      }
+    }
+
+    // Compute mean, mean frequency and finish
+    thisLimit.mean *= kInv;
+    thisLimit.freq *= kInv;
+  }
+}
+
+void
+WaveViewTree::calcLimitsBuf(
+    WaveLimits &thisLimit,
+    const SUCOMPLEX *__restrict data,
+    size_t len,
+    bool first)
+{
+  if (len > 0) {
+    SUFLOAT env2  = 0;
+    SUFLOAT kInv  = 1.f / SU_ASFLOAT(len);
+
+    thisLimit.envelope *= thisLimit.envelope;
+
+    if (!thisLimit.isInitialized()) {
+      thisLimit.min = data[0];
+      thisLimit.max = data[0];
+    }
+
+    for (SUSCOUNT j = 0; j < len; ++j) {
+      if (data[j].real() > thisLimit.max.real())
+        thisLimit.max = data[j].real() + thisLimit.max.imag() * I;
+      if (data[j].imag() > thisLimit.max.imag())
+        thisLimit.max = thisLimit.max.real() + data[j].imag() * I;
+
+      if (data[j].real() < thisLimit.min.real())
+        thisLimit.min = data[j].real() + thisLimit.min.imag() * I;
+      if (data[j].imag() < thisLimit.min.imag())
+        thisLimit.min = thisLimit.min.real() + data[j].imag() * I;
+
+      env2 = SU_C_REAL(data[j] * SU_C_CONJ(data[j]));
+      if (thisLimit.envelope < env2)
+        thisLimit.envelope = env2;
+
+      if (!first)
+        thisLimit.freq += SU_C_ARG(data[j] * SU_C_CONJ(data[j - 1]));
+
+      thisLimit.mean += data[j];
+    }
+
+    thisLimit.freq *= kInv;
+    thisLimit.mean *= kInv;
+    thisLimit.envelope = sqrt(thisLimit.envelope);
+  }
+}
+
+
+void
+WaveViewTree::computeLimitsFar(
+    WaveViewTree::const_iterator p,
+    qint64 start,
+    qint64 end,
+    WaveLimits &limits) const
+{
+  qint64 blockStart = (start + WAVEFORM_BLOCK_LENGTH - 1) >> WAVEFORM_BLOCK_BITS;
+  qint64 blockEnd   = (end >> WAVEFORM_BLOCK_BITS) - 1;
+  WaveLimits newLimits;
+  int prefixBlocks;
+  int suffixBlocks;
+  qint64 centerBlocks;
+
+  SUCOMPLEX mean_p = 0;
+  SUCOMPLEX mean_s = 0;
+  SUCOMPLEX mean_c = 0;
+  SUFLOAT   wInv = 0;
+
+  if (start > end)
+    return;
+
+  if (end >= SCAST(qint64, p->size()))
+    end = SCAST(qint64, p->size()) - 1;
+
+  prefixBlocks = SCAST(int, (blockStart << WAVEFORM_BLOCK_BITS) - start);
+  suffixBlocks = SCAST(int, end - (blockEnd << WAVEFORM_BLOCK_BITS) - 1);
+  centerBlocks = ((blockEnd - blockStart + 1) << WAVEFORM_BLOCK_BITS);
+
+  if (blockStart < blockEnd) {
+    if (prefixBlocks > 0) {
+      calcLimitsBlock(
+            limits,
+            p->data() + start,
+            SCAST(size_t, prefixBlocks));
+      mean_p = limits.mean;
+      limits.mean = 0;
+    }
+
+    if (suffixBlocks > 0) {
+      calcLimitsBlock(
+            limits,
+            p->data() + end + 1 - suffixBlocks,
+            SCAST(size_t, suffixBlocks));
+      mean_s = limits.mean;
+      limits.mean = 0;
+    }
+
+    if ((p + 1) != this->cend()) {
+      computeLimitsFar(p + 1, blockStart, blockEnd, limits);
+      mean_c = limits.mean;
+      limits.mean = 0;
+    }
+
+    wInv = 1.f / SCAST(SUFLOAT, prefixBlocks + suffixBlocks + centerBlocks);
+
+    limits.mean += mean_p * SCAST(SUFLOAT, prefixBlocks) * wInv;
+    limits.mean += mean_s * SCAST(SUFLOAT, suffixBlocks) * wInv;
+    limits.mean += mean_c * SCAST(SUFLOAT, centerBlocks) * wInv;
+  } else {
+    calcLimitsBlock(
+          limits,
+          p->data() + start,
+          SCAST(size_t, end - start + 1));
+  }
+}
+
+void
+WaveViewTree::computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
+{
+  qint64 blockStart = (start + WAVEFORM_BLOCK_LENGTH - 1) >> WAVEFORM_BLOCK_BITS;
+  qint64 blockEnd   = (end >> WAVEFORM_BLOCK_BITS) - 1;
+  WaveLimits newLimits;
+  int prefixSamples;
+  int suffixSamples;
+  qint64 centerSamples;
+
+  SUCOMPLEX mean_p = 0;
+  SUCOMPLEX mean_s = 0;
+  SUCOMPLEX mean_c = 0;
+  SUFLOAT   wInv = 0;
+
+  if (start > end)
+    return;
+
+  if (start < 0)
+    start = 0;
+
+  if (end >= SCAST(qint64, this->length))
+    end = SCAST(qint64, this->length) - 1;
+
+  prefixSamples = SCAST(int, (blockStart << WAVEFORM_BLOCK_BITS) - start);
+  suffixSamples = SCAST(int, end - (blockEnd << WAVEFORM_BLOCK_BITS) - 1);
+  centerSamples = ((blockEnd - blockStart + 1) << WAVEFORM_BLOCK_BITS);
+
+  if (blockStart < blockEnd) {
+    if (prefixSamples > 0) {
+      calcLimitsBuf(
+            limits,
+            this->data + start,
+            SCAST(size_t, prefixSamples),
+            start == 0);
+      mean_p = limits.mean;
+    }
+
+    if (suffixSamples > 0) {
+      calcLimitsBuf(
+            limits,
+            this->data + end + 1 - suffixSamples,
+            SCAST(size_t, suffixSamples),
+            start == 0);
+      mean_s = limits.mean;
+      limits.mean = 0;
+    }
+
+    if (this->cbegin() != this->cend()) {
+      computeLimitsFar(this->cbegin(), blockStart, blockEnd, limits);
+      mean_c = limits.mean;
+      limits.mean = 0;
+    }
+
+    wInv = 1.f / SCAST(SUFLOAT, prefixSamples + suffixSamples + centerSamples);
+
+    limits.mean += mean_p * SCAST(SUFLOAT, prefixSamples) * wInv;
+    limits.mean += mean_s * SCAST(SUFLOAT, suffixSamples) * wInv;
+    limits.mean += mean_c * SCAST(SUFLOAT, centerSamples) * wInv;
+  } else {
+    calcLimitsBuf(
+          limits,
+          this->data + start,
+          SCAST(size_t, end - start + 1),
+          start == 0);
+  }
+}
+
 
 bool
 WaveViewTree::clear(void)

@@ -37,7 +37,11 @@ class WaveWorker : public QObject {
   QWaitCondition finishedCondition;
 
   // Private methods
-  void buildNextView(WaveViewTree::iterator, SUSCOUNT start, SUSCOUNT end);
+  void buildNextView(
+      WaveViewTree::iterator,
+      SUSCOUNT start,
+      SUSCOUNT end,
+      SUFLOAT wEnd);
   void build(SUSCOUNT start, SUSCOUNT end);
 
 public:

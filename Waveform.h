@@ -326,25 +326,31 @@ public:
     inline void
     setMarkerList(const QList<WaveMarker> &list)
     {
-      this->markerList = list;
-      this->waveDrawn = false;
-      this->invalidate();
+      if (!this->markerList.empty() || !list.empty()) {
+        this->markerList = list;
+        this->waveDrawn = false;
+        this->invalidate();
+      }
     }
 
     inline void
     setVCursorList(const QList<WaveVCursor> &list)
     {
-      this->vCursorList = list;
-      this->waveDrawn = false;
-      this->invalidate();
+      if (!this->vCursorList.empty() || !list.empty()) {
+        this->vCursorList = list;
+        this->waveDrawn = false;
+        this->invalidate();
+      }
     }
 
     inline void
     setACursorList(const QList<WaveACursor> &list)
     {
-      this->aCursorList = list;
-      this->waveDrawn = false;
-      this->invalidate();
+      if (!this->aCursorList.empty() || !list.empty()) {
+        this->aCursorList = list;
+        this->waveDrawn = false;
+        this->invalidate();
+      }
     }
 
     inline qreal
@@ -375,6 +381,17 @@ public:
     cast(SUCOMPLEX z) const
     {
       return this->view.cast(z);
+    }
+
+    inline bool
+    computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
+    {
+      if (this->view.isComplete()) {
+        this->view.computeLimits(start, end, limits);
+        return true;
+      }
+
+      return false;
     }
 
 
