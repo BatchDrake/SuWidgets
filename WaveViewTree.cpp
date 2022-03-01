@@ -413,6 +413,9 @@ WaveViewTree::computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
   SUCOMPLEX mean_c = 0;
   SUFLOAT   wInv = 0;
 
+  if (this->length == 0)
+    return;
+
   if (start > end)
     return;
 
@@ -543,8 +546,11 @@ void
 WaveViewTree::onWorkerFinished(void)
 {
   this->complete = true;
-  this->currentWorker->deleteLater();
-  this->currentWorker = nullptr;
+
+  if (this->currentWorker != nullptr) {
+    this->currentWorker->deleteLater();
+    this->currentWorker = nullptr;
+  }
 
   emit ready();
 }
@@ -553,8 +559,11 @@ void
 WaveViewTree::onWorkerCancelled(void)
 {
   this->complete = false;
-  this->currentWorker->deleteLater();
-  this->currentWorker = nullptr;
+
+  if (this->currentWorker != nullptr) {
+    this->currentWorker->deleteLater();
+    this->currentWorker = nullptr;
+  }
 
   emit ready();
 }
