@@ -1089,7 +1089,6 @@ Waveform::refreshData(void)
     this->view.setHorizontalZoom(lastSample - currSpan, lastSample);
 
   this->waveDrawn = false;
-  printf("Refresh data\n");
 
   this->recalculateDisplayData();
 
