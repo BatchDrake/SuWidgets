@@ -19,7 +19,7 @@
 
 #include "WaveViewTree.h"
 #include "WaveWorker.h"
-
+#include <QDeadlineTimer>
 #include <util/compat-time.h>
 
 #define WAVE_VIEW_TREE_WORKER_PIECE_LENGTH 4096
