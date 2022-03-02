@@ -39,6 +39,7 @@ Decider::decide(
 {
   float arg;
   int sym;
+  SUCOMPLEX rotation;
 
   switch (this->mode) {
     case ARGUMENT:
@@ -57,11 +58,13 @@ Decider::decide(
       break;
 
     case MODULUS:
+      rotation = SU_C_EXP(-I * this->min);
+
       for (unsigned int i = 0; i < len; ++i) {
-        SUWIDGETS_DETECT_MODULUS(arg, data[i]);
+        SUWIDGETS_DETECT_MODULUS(arg, rotation * data[i]);
 
         sym = static_cast<int>(
-              floorf((arg - this->min) / (this->delta)));
+              floorf(arg / (this->delta)));
         if (sym < 0)
           sym = 0;
         else if (sym >= this->intervals)

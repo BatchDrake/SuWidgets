@@ -200,12 +200,11 @@ WaveWorker::run(void)
 void
 WaveWorker::wait()
 {
-  this->mutex.lock();
-
-  while (this->running)
-    this->finishedCondition.wait(&this->mutex);
-
-  this->mutex.unlock();
+  while (this->running) {
+    this->mutex.lock();
+    this->finishedCondition.wait(&this->mutex, QDeadlineTimer(100));
+    this->mutex.unlock();
+  }
 }
 
 ///////////////////////////////// WaveViewTree /////////////////////////////////

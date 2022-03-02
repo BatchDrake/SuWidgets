@@ -270,19 +270,25 @@ Waveform::selectHorizontal(qreal orig, qreal to)
 bool
 Waveform::getHorizontalSelectionPresent(void) const
 {
-  return this->hSelection;
+  return this->getDataLength() > 0 && this->hSelection;
 }
 
 qreal
 Waveform::getHorizontalSelectionStart(void) const
 {
-  return this->hSelStart;
+  if (!this->getHorizontalSelectionPresent())
+    return .0;
+  else
+    return qBound(.0, this->hSelStart, SCAST(qreal, this->getDataLength() - 1));
 }
 
 qreal
 Waveform::getHorizontalSelectionEnd(void) const
 {
-  return this->hSelEnd;
+  if (!this->getHorizontalSelectionPresent())
+    return .0;
+  else
+    return qBound(.0, this->hSelEnd, SCAST(qreal, this->getDataLength() - 1));
 }
 
 void
