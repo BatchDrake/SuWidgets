@@ -2217,8 +2217,8 @@ GLWaterfall::drawAxes(GLDrawingContext &ctx, qint64 StartFreq, qint64 EndFreq)
   m_YAxisWidth = ctx.metrics->horizontalAdvance("-120 ");
   unitWidth    = ctx.metrics->horizontalAdvance(m_unitName);
 #else
-  m_YAxisWidth = metrics.width("-120 ");
-  unitWidth    = metrics.width(m_unitName);
+  m_YAxisWidth = ctx.metrics->width("-120 ");
+  unitWidth    = ctx.metrics->width(m_unitName);
 #endif // QT_VERSION_CHECK
 
   if (unitWidth > m_YAxisWidth)
