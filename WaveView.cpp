@@ -509,7 +509,7 @@ WaveView::drawWave(QPainter &painter)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
     tw = metrics.horizontalAdvance(text);
 #else
-    tw = metrics.width(m->string);
+    tw = metrics.width(text);
 #endif // QT_VERSION_CHECK
 
     rect.setRect(
