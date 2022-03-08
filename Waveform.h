@@ -26,6 +26,7 @@
 
 #include <sigutils/types.h>
 #include "ThrottleableWidget.h"
+#include "WaveView.h"
 
 #define WAVEFORM_DEFAULT_BACKGROUND_COLOR QColor(0x1d, 0x1d, 0x1f)
 #define WAVEFORM_DEFAULT_FOREGROUND_COLOR QColor(0xff, 0xff, 0x00)
@@ -33,7 +34,7 @@
 #define WAVEFORM_DEFAULT_TEXT_COLOR       QColor(0xff, 0xff, 0xff)
 #define WAVEFORM_DEFAULT_SELECTION_COLOR  QColor(0x08, 0x08, 0x08)
 #define WAVEFORM_DEFAULT_ENVELOPE_COLOR   QColor(0x3f, 0x3f, 0x00)
-#define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0x7f, 0x08, 0x08)
+#define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0xff, 0x08, 0x08)
 #define WAVEFORM_MAX_ITERS                20
 #define WAVEFORM_DELTA_LIMIT              9000
 
@@ -43,14 +44,37 @@ struct WaveMarker {
   bool below = false;
 };
 
+struct WaveVCursor {
+  QString string;
+  QColor color = WAVEFORM_DEFAULT_TEXT_COLOR;
+  SUCOMPLEX level;
+};
+
+struct WaveACursor {
+  QString string;
+  QColor color = WAVEFORM_DEFAULT_TEXT_COLOR;
+  SUFLOAT amplitude;
+};
+
 class WaveBuffer {
-  bool loan = false;
+  WaveView *view = nullptr;
   std::vector<SUCOMPLEX> ownBuffer;
   const std::vector<SUCOMPLEX> *buffer = nullptr;
+  bool loan = false;
 
 public:
-  WaveBuffer();
-  WaveBuffer(const std::vector<SUCOMPLEX> *);
+  inline bool
+  isLoan(void) const
+  {
+    return this->loan;
+  }
+
+  void operator = (const WaveBuffer &);
+
+  WaveBuffer(WaveView *view);
+  WaveBuffer(WaveView *view, const std::vector<SUCOMPLEX> *);
+
+  void rebuildViews(void);
 
   bool feed(SUCOMPLEX val);
   bool feed(std::vector<SUCOMPLEX> const &);
@@ -135,37 +159,27 @@ class Waveform : public ThrottleableWidget
   QString horizontalUnits = "s";
   QString verticalUnits = "";
 
-  QList<WaveMarker> markerList;
+  QList<WaveMarker>  markerList;
+  QList<WaveVCursor> vCursorList;
+  QList<WaveACursor> aCursorList;
 
-  qreal sampleRate = 1;
-  qreal deltaT = 1;
   qreal oX = 0;
 
-  bool showWaveform = true;
-  bool showEnvelope = false;
-  bool showPhase = false;
-  bool showPhaseDiff = false;
   bool periodicSelection = false;
-  bool realComponent = true;
 
-  unsigned int phaseDiffOrigin = 0;
-  qreal phaseDiffContrast = 1;
   int divsPerSelection = 1;
-
-  // Palette
-  QColor colorTable[256];
 
   // State
   QSize geometry;
   bool haveGeometry = false;
   bool axesDrawn = false;
   bool waveDrawn = false;
-  bool selectionDrawn = false;
+  bool selUpdated = false;
+  bool enableFeedback = true;
 
   QImage  waveform;
   QPixmap contentPixmap; // Data and vertical axes
   QPixmap axesPixmap;    // Only horizontal axes
-  QPixmap selectionPixmap;
 
   // Interactive state
   qreal savedMin;
@@ -188,24 +202,11 @@ class Waveform : public ThrottleableWidget
   bool haveCursor = false;
   int  currMouseX = 0;
 
+  bool askedToKeepView = false;
 
   // Limits
+  WaveView   view;
   WaveBuffer data;
-  std::vector<SUCOMPLEX> magPhase;
-  bool haveMagPhaseInfo = false;
-
-  qreal t0 = 0; // Time where the buffer begins
-
-  // Sample limits inside data to show. Please note there are two different
-  // paint strategies here. If sampPerPix < 1, we interpolate samples.
-  // Otherwise, we need to compute a small histogram of length = height and
-  // interpolate it. This histogram es compued by rastering lines instead
-  // of points, so we can provide feedback to the user about the amount of
-  // data she's missing while keeping zoom continuity.
-
-  qint64 start = 0;
-  qint64 end = 0;
-  qreal  sampPerPx = 1; // (end - start) / width
 
   // Tick length (in pixels) in which we place a time mark, starting form t0
   qreal hDivSamples;
@@ -215,11 +216,6 @@ class Waveform : public ThrottleableWidget
 
   // Level height (in pixels) in which we place a level mark, from 0
   qreal levelHeight = 0;
-
-  // Max limits
-  qreal min = -1;
-  qreal max =  1;
-  qreal unitsPerPx  = 1; // (max - min) / width
 
   // Horizontal selection (in samples)
   bool  hSelection = false;
@@ -233,20 +229,23 @@ class Waveform : public ThrottleableWidget
 
   // Behavioral properties
   bool autoScroll = false;
-  bool autoFitToEnvelope = false;
+  bool autoFitToEnvelope = true;
 
   void drawHorizontalAxes(void);
   void drawVerticalAxes(void);
   void drawAxes(void);
+  void overlayMarkers(QPainter &);
+  void overlayACursors(QPainter &);
+  void overlayVCursors(QPainter &);
   void drawWave(void);
-  void drawSelection(void);
+  void overlaySelection(QPainter &);
   void overlaySelectionMarkes(QPainter &);
   void recalculateDisplayData(void);
 
   inline bool
   somethingDirty(void) const
   {
-    return !this->waveDrawn || !this->axesDrawn || !this->selectionDrawn;
+    return !this->waveDrawn || !this->axesDrawn || !this->selUpdated;
   }
 
 protected:
@@ -258,88 +257,143 @@ protected:
     void leaveEvent(QEvent *event) override;
 
 public:
+    inline bool
+    isComplete(void) const
+    {
+      return this->view.isComplete();
+    }
+
+    inline bool
+    isRunning(void) const
+    {
+      return this->view.isRunning();
+    }
+
+    inline SUCOMPLEX
+    getDataMax(void) const
+    {
+      return this->view.getDataMax();
+    }
+
+    inline SUCOMPLEX
+    getDataMin(void) const
+    {
+      return this->view.getDataMin();
+    }
+
+    inline SUCOMPLEX
+    getDataMean(void) const
+    {
+      return this->view.getDataMean();
+    }
+
+    inline SUFLOAT
+    getDataRMS(void) const
+    {
+      return this->view.getDataRMS();
+    }
+
+    inline qreal
+    samp2t(qreal samp) const
+    {
+      return this->view.samp2t(samp);
+    }
+
+    inline qreal
+    t2samp(qreal t) const
+    {
+      return this->view.t2samp(t);
+    }
+
+    inline qreal
+    px2samp(qreal px) const
+    {
+      return this->view.px2samp(px);
+    }
+
+    inline qreal
+    samp2px(qreal samp) const
+    {
+      return this->view.samp2px(samp);
+    }
+
     inline qint64
     getVerticalAxisWidth(void) const
     {
       return this->valueTextWidth;
     }
 
-    inline qreal
-    getSamplesPerPixel(void) const
-    {
-      return this->sampPerPx;
-    }
-
     inline void
     setMarkerList(const QList<WaveMarker> &list)
     {
-      this->markerList = list;
-      this->waveDrawn = false;
-      this->invalidate();
+      if (!this->markerList.empty() || !list.empty()) {
+        this->markerList = list;
+        this->waveDrawn = false;
+        this->invalidate();
+      }
     }
 
-    inline qreal
-    samp2t(qreal samp) const
+    inline void
+    setVCursorList(const QList<WaveVCursor> &list)
     {
-      return (samp + this->start) * this->deltaT + this->t0;
+      if (!this->vCursorList.empty() || !list.empty()) {
+        this->vCursorList = list;
+        this->waveDrawn = false;
+        this->invalidate();
+      }
     }
 
-    inline qreal
-    t2samp(qreal t) const
+    inline void
+    setACursorList(const QList<WaveACursor> &list)
     {
-      return (t - this->t0) * this->sampleRate - this->start;
-    }
-
-    inline qreal
-    px2samp(qreal px) const
-    {
-      return px * this->sampPerPx + this->start;
-    }
-
-    inline qreal
-    samp2px(qreal samp) const
-    {
-      return (samp - this->start) / this->sampPerPx;
+      if (!this->aCursorList.empty() || !list.empty()) {
+        this->aCursorList = list;
+        this->waveDrawn = false;
+        this->invalidate();
+      }
     }
 
     inline qreal
     px2t(qreal px) const
     {
-      return this->samp2t(this->px2samp(px));
+      return this->view.px2t(px);
     }
 
     inline qreal
     t2px(qreal t) const
     {
-      return this->samp2px(this->t2samp(t));
+      return this->view.t2px(t);
     }
 
     inline qreal
     px2value(qreal px) const
     {
-      return (this->height() - 1 - px) * this->unitsPerPx + this->min;
+      return this->view.px2value(px);
     }
 
     inline qreal
     value2px(qreal val) const
     {
-      return this->height() - 1 - (val - this->min) / this->unitsPerPx;
+      return this->view.value2px(val);
     }
 
     inline qreal
     cast(SUCOMPLEX z) const
     {
-      return this->realComponent ? SU_C_REAL(z) : SU_C_IMAG(z);
+      return this->view.cast(z);
     }
 
-    inline QColor const &
-    phaseDiff2Color(SUFLOAT diff) const
+    inline bool
+    computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
     {
-      unsigned index = static_cast<unsigned>(
-              this->phaseDiffContrast * diff / (2 * PI) * 255);
+      if (this->view.isComplete()) {
+        this->view.computeLimits(start, end, limits);
+        return true;
+      }
 
-      return this->colorTable[(index + this->phaseDiffOrigin) & 0xff];
+      return false;
     }
+
 
   const inline SUCOMPLEX *
   getData(void) const
@@ -402,7 +456,7 @@ public:
   setSelectionColor(const QColor &c)
   {
     this->selection = c;
-    this->selectionDrawn = false;
+    this->selUpdated = false;
     this->invalidate();
     emit textColorChanged();
   }
@@ -417,7 +471,7 @@ public:
   setSubSelectionColor(const QColor &c)
   {
     this->selection = c;
-    this->selectionDrawn = false;
+    this->selUpdated = false;
     this->invalidate();
     emit textColorChanged();
   }
@@ -432,6 +486,7 @@ public:
   setForegroundColor(const QColor &c)
   {
     this->foreground = c;
+    this->view.setForeground(this->foreground);
     this->axesDrawn = false;
     this->invalidate();
     emit foregroundColorChanged();
@@ -461,7 +516,7 @@ public:
   qreal
   getSampleRate(void) const
   {
-    return this->sampleRate;
+    return this->view.getSampleRate();
   }
 
   void
@@ -470,9 +525,8 @@ public:
     if (rate <= 0)
       rate = static_cast<qreal>(std::numeric_limits<SUFLOAT>::epsilon());
 
-    if (rate != this->sampleRate) {
-      this->sampleRate = rate;
-      this->deltaT = 1. / rate;
+    if (!sufreleq(rate, this->view.getSampleRate(), 1e-5f)) {
+      this->view.setSampleRate(rate);
       this->axesDrawn = false;
       this->recalculateDisplayData();
       this->invalidate();
@@ -517,7 +571,7 @@ public:
       divs = 1;
     this->divsPerSelection = divs;
     if (this->hSelection)
-      this->selectionDrawn = false;
+      this->selUpdated = false;
     this->invalidate();
   }
 
@@ -525,25 +579,37 @@ public:
   inline qint64
   getSampleStart(void) const
   {
-    return this->start;
+    return this->view.getSampleStart();
   }
 
   inline qint64
   getSampleEnd(void) const
   {
-    return this->end;
+    return this->view.getSampleEnd();
+  }
+
+  inline qreal
+  getSamplesPerPixel(void) const
+  {
+    return this->view.getSamplesPerPixel();
+  }
+
+  inline qreal
+  getUnitsPerPx(void) const
+  {
+    return this->view.getUnitsPerPixel();
   }
 
   inline qreal
   getMax(void) const
   {
-    return this->max;
+    return this->view.getMax();
   }
 
   inline qreal
   getMin(void) const
   {
-    return this->min;
+    return this->view.getMin();
   }
 
   inline qreal
@@ -555,16 +621,11 @@ public:
   void
   setPalette(const QColor *table)
   {
-    unsigned int i;
+    this->view.setPalette(table);
 
-    for (i = 0; i < 256; ++i)
-      this->colorTable[i] = table[i];
-
-    if (this->showEnvelope && this->showPhase && this->showPhaseDiff) {
-      this->waveDrawn = false;
-      this->axesDrawn = false;
-      this->invalidate();
-    }
+    this->waveDrawn = false;
+    this->axesDrawn = false;
+    this->invalidate();
   }
 
   void
@@ -573,9 +634,26 @@ public:
     this->oX = origin;
   }
 
+
+  inline void
+  setEnableFeedback(bool enable)
+  {
+    this->enableFeedback = enable;
+  }
+
+  inline qreal
+  getEnvelope(void) const
+  {
+    return this->view.getEnvelope();
+  }
+
   Waveform(QWidget *parent = nullptr);
 
-  void setData(const std::vector<SUCOMPLEX> *, bool keepView = false);
+  void setData(
+      const std::vector<SUCOMPLEX> *,
+      bool keepView = false,
+      bool flush = false);
+  void reuseDisplayData(Waveform *);
   void draw(void) override;
   void paint(void) override;
   void zoomHorizontalReset(void); // To show full wave or to sampPerPix = 1
@@ -590,8 +668,6 @@ public:
   qreal getHorizontalSelectionStart(void) const;
   qreal getHorizontalSelectionEnd(void) const;
   void setAutoScroll(bool);
-
-  SUCOMPLEX getMagPhase(qint64 sample);
 
   void setShowEnvelope(bool);
   void setShowPhase(bool);
@@ -638,6 +714,10 @@ signals:
   void horizontalSelectionChanged(qreal start, qreal end);
   void verticalSelectionChanged(qreal min, qreal max);
   void hoverTime(qreal);
+  void waveViewChanged(void);
+
+public slots:
+  void onWaveViewChanges(void);
 };
 
 #endif

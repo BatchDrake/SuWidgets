@@ -28,8 +28,8 @@
  * authors and should not be interpreted as representing official policies, either expressed
  * or implied, of Moe Wheatley.
  */
-#ifndef PLOTTER_H
-#define PLOTTER_H
+#ifndef GL_WATERFALL_H
+#define GL_WATERFALL_H
 
 #include <QtGui>
 #include <QFont>
@@ -40,13 +40,190 @@
 #include <QMap>
 #include <QOpenGLWidget>
 
-#define WATERFALL_BOOKMARKS_SUPPORT
+#define GL_WATERFALL_BOOKMARKS_SUPPORT
 
 #include "WFHelpers.h"
 
-class Waterfall : public QFrame
+struct GLDrawingContext {
+  QPainter     *painter;
+  QFontMetrics *metrics;
+  int width;
+  int height;
+
+};
+
+
+//
+// CX:       1 bin,  1 level
+// BBCX:     2 bins, 2 levels
+// AAAABBCX: 4 bins, 3 levels
+//
+
+class GLLine : public std::vector<float>
+{
+  int levels = 0;
+
+public:
+  inline void
+  initialize(void)
+  {
+    assign(size(), 0);
+  }
+
+  static inline int
+  allocationFor(int res)
+  {
+    return res << 1;
+  }
+
+  static inline int
+  resolutionFor(int alloc)
+  {
+    return alloc >> 1;
+  }
+
+  inline void
+  setResolution(int res)
+  {
+    levels = static_cast<int>(ceil(log2(res))) + 1;
+    resize(static_cast<size_t>(allocationFor(res)));
+    initialize();
+  }
+
+  inline int
+  allocation(void) const
+  {
+    return static_cast<int>(this->size());
+  }
+
+  inline int
+  resolution(void) const
+  {
+    return resolutionFor(allocation());
+  }
+
+  inline void
+  setValueMax(int index, float val)
+  {
+    int p = 0;
+    int res = resolution();
+    int l = this->levels;
+    float *data = this->data();
+    size_t i;
+
+#pragma GCC unroll 4
+    while (l-- > 0) {
+      i = static_cast<size_t>(p + index);
+      data[i] = fmaxf(val, data[i]);
+
+      p += res;
+
+      index >>= 1;
+      res   >>= 1;
+    }
+  }
+
+  inline void
+  setValueMean(int index, float val)
+  {
+    int p = 0;
+    int res = resolution();
+    int l = this->levels;
+    float *data = this->data();
+    float k = 1.;
+    size_t i;
+
+#pragma GCC unroll 4
+    while (l-- > 0) {
+      i = static_cast<size_t>(p + index);
+      data[i] += k * val;
+
+      p += res;
+
+      index >>= 1;
+      res   >>= 1;
+      k     *= .5f;
+    }
+  }
+
+  void normalize(void);
+
+  void rescaleMean(void);
+  void rescaleMax(void);
+
+  void assignMean(const float *values);
+  void assignMax(const float *values);
+
+  void reduceMean(const float *values, int length);
+  void reduceMax(const float *values, int length);
+};
+
+typedef std::list<GLLine> GLLineHistory;
+
+struct GLWaterfallOpenGLContext {
+  QOpenGLVertexArrayObject m_vao;
+  QOpenGLBuffer            m_vbo;
+  QOpenGLBuffer            m_ibo;
+  QOpenGLShaderProgram     m_program;
+  QOpenGLTexture          *m_waterfall      = nullptr;
+  QOpenGLTexture          *m_palette        = nullptr;
+  QOpenGLShader           *m_vertexShader   = nullptr;
+  QOpenGLShader           *m_fragmentShader = nullptr;
+  GLLineHistory            m_history, m_pool;
+  std::vector<uint8_t>     m_paletBuf;
+  GLLine                   m_accum;
+  bool                     m_firstAccum = true;
+
+  // Texture geometry
+  int                      m_row        = 0;
+  int                      m_rowSize    = 8192;
+  int                      m_rowCount   = 2048;
+  int                      m_maxRowSize = 0;
+  bool                     m_useMaxBlending = false;
+
+  // Level adjustment
+  float                    m            = 1.f;
+  float                    x0           = 0.f;
+  bool                     m_updatePalette = false;
+
+  // Geometric parameters
+  float                    c_x0     = 0;
+  float                    c_x1     = 0;
+  float                    m_zoom   = 1;
+  int                      m_width  = 0;
+  int                      m_height = 0;
+
+  GLWaterfallOpenGLContext();
+  ~GLWaterfallOpenGLContext();
+
+  void                     initialize();
+  void                     finalize();
+
+  void                     recalcGeometric(int, int, float);
+  void                     setPalette(const QColor *table);
+  void                     pushFFTData(const float *fftData, int size);
+  void                     averageFFTData(const float *fftData, int size);
+  void                     commitFFTData(void);
+  void                     flushOneLine(void);
+  void                     disposeLastLine(void);
+  void                     flushLinesBulk(void);
+  void                     flushLines(void);
+  void                     flushLinePool(void);
+  void                     flushPalette(void);
+  void                     setDynamicRange(float, float);
+  void                     resetWaterfall();
+  void                     render(int, int, int, int, float, float);
+};
+
+
+class GLWaterfall : public QOpenGLWidget
 {
     Q_OBJECT
+
+    GLWaterfallOpenGLContext glCtx;
+
+    void initLayout(void);
+    void initDefaults(void);
 
     inline qint64 boundCenterFreq(qint64 f) const
     {
@@ -56,15 +233,29 @@ class Waterfall : public QFrame
       return f;
     }
 
+
 public:
-    explicit Waterfall(QWidget *parent = 0);
-    ~Waterfall();
+    explicit GLWaterfall(QWidget *parent = 0);
+    ~GLWaterfall();
 
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
 
+    void initializeGL(void);
+    void paintGL(void);
+    void resizeGL(int, int);
+
+    void drawFATs(GLDrawingContext &, qint64, qint64);
+    void drawBookmarks(GLDrawingContext &, qint64, qint64, int xAxisTop);
+    void drawFilterBox(QPainter &painter, int height);
+    void drawFilterBox(GLDrawingContext &);
+    void drawFilterCutOff(QPainter &painter, int forceHeight);
+
+    void drawAxes(GLDrawingContext &, qint64, qint64);
+
     //void SetSdrInterface(CSdrInterface* ptr){m_pSdrInterface = ptr;}
-    void draw(bool everything = true);		//call to draw new fft data onto screen plot
+    void draw();		//call to draw new fft data onto screen plot
+    void drawSpectrum(QPainter &, int forceHeight = -1);
     void setLocked(bool locked) { m_Locked = locked; }
     void setRunningState(bool running) { m_Running = running; }
     void setClickResolution(int clickres) { m_ClickResolution = clickres; }
@@ -81,10 +272,10 @@ public:
       m_freqDragBtn = (enabled) ? Qt::LeftButton :Qt::MidButton;
     }
 
-#ifdef WATERFALL_BOOKMARKS_SUPPORT
+#ifdef GL_WATERFALL_BOOKMARKS_SUPPORT
     void setBookmarkSource(BookmarkSource *src) { m_BookmarkSource = src; }
 
-#endif // WATERFALL_BOOKMARKS_SUPPORT
+#endif // GL_WATERFALL_BOOKMARKS_SUPPORT
     bool removeFAT(std::string const &);
     void pushFAT(const FrequencyAllocationTable *);
     void setFATsVisible(bool);
@@ -109,16 +300,7 @@ public:
 
     void setPalette(const QColor *table)
     {
-      unsigned int i;
-
-      for (i = 0; i < 256; ++i) {
-        this->m_ColorTbl[i] = table[i];
-        this->m_UintColorTbl[i] = qRgb(
-              table[i].red(),
-              table[i].green(),
-              table[i].blue());
-      }
-
+      this->glCtx.setPalette(table);
       this->update();
     }
 
@@ -174,6 +356,8 @@ public:
         *HiCut = m_DemodHiCutFreq;
     }
 
+    void setMaxBlending(bool val) { this->glCtx.m_useMaxBlending = val; }
+
     void setDemodRanges(
         qint64 FLowCmin,
         qint64 FLowCmax,
@@ -195,6 +379,7 @@ public:
     void setGain(float gain)
     {
       m_gain = gain;
+      this->glCtx.setDynamicRange(m_WfMindB - m_gain, m_WfMaxdB - m_gain);
     }
 
     void setUnitName(QString const &name)
@@ -237,8 +422,7 @@ public:
     /* Determines full bandwidth. */
     void setSampleRate(float rate)
     {
-        if (rate > 0.0)
-        {
+        if (rate > 0.0) {
             m_SampleFreq = rate;
             drawOverlay();
         }
@@ -258,8 +442,8 @@ public:
     void    setWaterfallSpan(quint64 span_ms);
     quint64 getWfTimeRes(void);
     void    setFftRate(int rate_hz);
-    void    clearWaterfall(void);
-    bool    saveWaterfall(const QString & filename) const;
+    void    clearGLWaterfall(void);
+    bool    saveGLWaterfall(const QString & filename) const;
     void    setFrequencyLimits(qint64 min, qint64 max);
     void    setFrequencyLimitsEnabled(bool);
 
@@ -287,7 +471,6 @@ public slots:
     void setFftTextColor(const QColor color);
     void setFilterBoxColor(const QColor color);
     void setTimeStampColor(const QColor color);
-
     void setFftFill(bool enabled);
     void setPeakHold(bool enabled);
     void setFftRange(float min, float max);
@@ -328,6 +511,7 @@ private:
     void        makeFrequencyStrs();
     int         xFromFreq(qint64 freq);
     qint64      freqFromX(int x);
+    qint64      fftFreqFromX(int x);
     void        zoomStepX(float factor, int x);
     qint64      roundFreq(qint64 freq, int resolution);
     quint64     msecFromY(int y);
@@ -347,11 +531,10 @@ private:
     bool        m_PeakHoldActive;
     bool        m_PeakHoldValid;
     qint32      m_fftbuf[MAX_SCREENSIZE];
-    quint8      m_wfbuf[MAX_SCREENSIZE]; // used for accumulating waterfall data at high time spans
     qint32      m_fftPeakHoldBuf[MAX_SCREENSIZE];
-    float      *m_fftData;     /*! pointer to incoming FFT data */
-    float      *m_wfData;
-    int         m_fftDataSize;
+    float      *m_fftData = nullptr;     /*! pointer to incoming FFT data */
+    float      *m_wfData = nullptr;
+    int         m_fftDataSize = 0;
 
     int         m_XAxisYCenter;
     int         m_YAxisWidth;
@@ -359,9 +542,7 @@ private:
     eCapturetype    m_CursorCaptured;
     QPixmap     m_2DPixmap;
     QPixmap     m_OverlayPixmap;
-    QImage      m_WaterfallImage;
-    QColor      m_ColorTbl[256];
-    uint32_t    m_UintColorTbl[256];
+    QImage      m_GLWaterfallImage;
     QSize       m_Size;
     QString     m_Str;
     QString     m_HDivText[HORZ_DIVS_MAX+1];
@@ -405,9 +586,9 @@ private:
     float       m_dBPerUnit = 1.;
     QString     m_unitName = "dBFS";
 
-#ifdef WATERFALL_BOOKMARKS_SUPPORT
+#ifdef GL_WATERFALL_BOOKMARKS_SUPPORT
     BookmarkSource *m_BookmarkSource = nullptr;
-#endif // WATERFALL_BOOKMARKS_SUPPORT
+#endif // GL_WATERFALL_BOOKMARKS_SUPPORT
     qint64      m_Span;
     float       m_SampleFreq;    /*!< Sample rate. */
     qint32      m_FreqUnits;
@@ -435,7 +616,7 @@ private:
     float       m_PeakDetection;
     QMap<int,int>   m_Peaks;
 
-#ifdef WATERFALL_BOOKMARKS_SUPPORT
+#ifdef GL_WATERFALL_BOOKMARKS_SUPPORT
     QList< QPair<QRect, BookmarkInfo> >     m_BookmarkTags;
 #endif
 
@@ -457,10 +638,9 @@ private:
     quint64     wf_span;            // waterfall span in milliseconds (0 = auto)
     int         fft_rate;           // expected FFT rate (needed when WF span is auto)
     int         m_expectedRate;
-
     // Frequency allocations
     bool m_ShowFATs = false;
     std::map<std::string, const FrequencyAllocationTable *> m_FATs;
 };
 
-#endif // PLOTTER_H
+#endif // GL_WATERFALL_H

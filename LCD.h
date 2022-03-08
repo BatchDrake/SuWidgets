@@ -1,5 +1,5 @@
 //
-//    filename: description
+//    LCD.h: Liquid Crystal Display (7-segment display)
 //    Copyright (C) 2018 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -116,19 +116,20 @@ class LCD : public QFrame
   bool    dirty = false;
   bool    geometryChanged = false;
   bool    haveGeometry = false;
-  bool    pad[2];
+  bool    locked = false;
 
   // Cached data
   int width;
   int height;
   int glyphWidth;
   int glyphHeight;
-  int pad2;
   qreal segBoxThickness;
   qreal segBoxLength;
   qreal segThickness;
   qreal segLength;
   qreal margin;
+  QRectF lockRect;
+  bool haveLockRect = false;
 
   // Blinking timer
   QTimer *timer = nullptr;
@@ -140,6 +141,7 @@ class LCD : public QFrame
 
   // Private methods
   void drawSegAt(int x, int y, bool flip);
+  void drawLockAt(QPainter &, int x, bool locked);
   void recalculateDisplayData(void);
   void drawContent(void);
   void draw(void);

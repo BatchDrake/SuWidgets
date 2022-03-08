@@ -28,34 +28,6 @@
  * or implied, of Moe Wheatley.
  */
 #include <cmath>
-
-#ifndef _MSC_VER
-#include <sys/time.h>
-#else
-#include <Windows.h>
-#include <cstdint>
-
-int gettimeofday(struct timeval * tp, struct timezone * tzp)
-{
-    // Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
-    static const uint64_t EPOCH = ((uint64_t) 116444736000000000ULL);
-
-    SYSTEMTIME  system_time;
-    FILETIME    file_time;
-    uint64_t    time;
-
-    GetSystemTime( &system_time );
-    SystemTimeToFileTime( &system_time, &file_time );
-    time =  ((uint64_t)file_time.dwLowDateTime )      ;
-    time += ((uint64_t)file_time.dwHighDateTime) << 32;
-
-    tp->tv_sec  = (long) ((time - EPOCH) / 10000000L);
-    tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
-    return 0;
-}
-
-#endif
-
 #include <QColor>
 #include <QDateTime>
 #include <QDebug>
@@ -70,117 +42,10 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 // Comment out to enable plotter debug messages
 //#define PLOTTER_DEBUG
 
-
-#define CUR_CUT_DELTA 5		//cursor capture delta in pixels
-
-#define FFT_MIN_DB     -120.f
-#define FFT_MAX_DB      40.f
-
-// Colors of type QRgb in 0xAARRGGBB format (unsigned int)
-#define PLOTTER_BGD_COLOR           0xFF1F1D1D
-#define PLOTTER_GRID_COLOR          0xFF444242
-#define PLOTTER_TEXT_COLOR          0xFFDADADA
-#define PLOTTER_CENTER_LINE_COLOR   0xFF788296
-#define PLOTTER_FILTER_LINE_COLOR   0xFFFF7171
-#define PLOTTER_FILTER_BOX_COLOR    0xFFA0A0A4
-// FIXME: Should cache the QColors also
-
-static inline bool val_is_out_of_range(float val, float min, float max)
-{
-    return (val < min || val > max);
-}
-
-static inline bool out_of_range(float min, float max)
-{
-    return (val_is_out_of_range(min, FFT_MIN_DB, FFT_MAX_DB) ||
-            val_is_out_of_range(max, FFT_MIN_DB, FFT_MAX_DB) ||
-            max < min + 10.f);
-}
-
-/** Current time in milliseconds since Epoch */
-static inline quint64 time_ms(void)
-{
-    struct timeval  tval;
-
-    gettimeofday(&tval, NULL);
-
-    return 1e3 * tval.tv_sec + 1e-3 * tval.tv_usec;
-}
-
 #define STATUS_TIP \
     "Click, drag or scroll on spectrum to tune. " \
     "Drag and scroll X and Y axes for pan and zoom. " \
     "Drag filter edges to adjust filter."
-
-////////////////////////// BookmarkSource //////////////////////////////////////
-BookmarkSource::~BookmarkSource()
-{
-
-}
-
-/////////////////////////// FrequencyBand //////////////////////////////////////
-FrequencyAllocationTable::FrequencyAllocationTable()
-{
-
-}
-
-FrequencyAllocationTable::FrequencyAllocationTable(std::string const &name)
-{
-  this->name = name;
-}
-
-void
-FrequencyAllocationTable::pushBand(FrequencyBand const &band)
-{
-  this->allocation[band.min] = band;
-}
-
-void
-FrequencyAllocationTable::pushBand(qint64 min, qint64 max, std::string const &desc)
-{
-  FrequencyBand band;
-
-  band.min = min;
-  band.max = max;
-  band.primary = desc;
-  band.color = QColor::fromRgb(255, 0, 0);
-
-  this->pushBand(band);
-}
-
-FrequencyBandIterator
-FrequencyAllocationTable::cbegin(void) const
-{
-  return this->allocation.cbegin();
-}
-
-FrequencyBandIterator
-FrequencyAllocationTable::cend(void) const
-{
-  return this->allocation.cend();
-}
-
-FrequencyBandIterator
-FrequencyAllocationTable::find(qint64 freq) const
-{
-  if (this->allocation.size() == 0)
-    return this->allocation.cend();
-
-  auto lower = this->allocation.lower_bound(freq);
-
-  if (lower == this->cend()) // If none found, return the last one.
-      return std::prev(lower);
-
-  if (lower == this->cbegin())
-      return lower;
-
-  // Check which one is closest.
-  auto previous = std::prev(lower);
-  if ((freq - previous->first) < (lower->first - freq))
-      return previous;
-
-  return lower;
-}
 
 ///////////////////////////// Waterfall ////////////////////////////////////////
 Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
@@ -283,6 +148,7 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     setFftBgColor(QColor(PLOTTER_BGD_COLOR));
     setFftAxesColor(QColor(PLOTTER_GRID_COLOR));
     setFilterBoxColor(QColor(PLOTTER_FILTER_BOX_COLOR));
+    setTimeStampColor(QColor(0xFF,0xFF,0xFF,0xFF));
 
     setFftFill(false);
 
@@ -465,6 +331,9 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
             if (event->buttons() & m_freqDragBtn)
             {
               if (!m_Locked) {
+                qint64 centerFreq = boundCenterFreq(m_CenterFreq + delta_hz);
+                delta_hz = centerFreq - m_CenterFreq;
+
                 m_CenterFreq += delta_hz;
                 m_DemodCenterFreq += delta_hz;
 
@@ -473,7 +342,8 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
                 ///
                 m_tentativeCenterFreq += delta_hz;
 
-                emit newCenterFreq(m_CenterFreq);
+                if (delta_hz != 0)
+                  emit newCenterFreq(m_CenterFreq);
               }
             } else {
               setFftCenterFreq(m_FftCenter + delta_hz);
@@ -773,7 +643,9 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             {
               if (!m_Locked) {
                 // set center freq
-                m_CenterFreq = roundFreq(freqFromX(pt.x()), m_ClickResolution);
+                m_CenterFreq
+                    = boundCenterFreq(roundFreq(freqFromX(pt.x()), m_ClickResolution));
+
                 m_DemodCenterFreq = m_CenterFreq;
                 emit newCenterFreq(m_CenterFreq);
                 emit newDemodFreq(m_DemodCenterFreq, m_DemodCenterFreq - m_CenterFreq);
@@ -1018,6 +890,7 @@ void Waterfall::paintEvent(QPaintEvent *)
             painter,
             QRect(2, y, this->width(), this->height()));
     }
+
 }
 
 void Waterfall::paintTimeStamps(
@@ -1041,7 +914,7 @@ void Waterfall::paintTimeStamps(
   if (m_TimeStampMaxHeight < where.height())
     m_TimeStampMaxHeight = where.height();
 
-  painter.setPen(QPen(m_ColorTbl[255]));
+  painter.setPen(m_TimeStampColor);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
   leftSpacing = metrics.horizontalAdvance("00:00:00.000");
@@ -1438,13 +1311,10 @@ void Waterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
     m_BinMax = (qint32)((float)stopFreq * (float)m_FFTSize / m_SampleFreq);
     m_BinMax += (m_FFTSize/2);
 
-    minbin = m_BinMin < 0 ? 0 : m_BinMin;
-    if (m_BinMin > m_FFTSize)
-        m_BinMin = m_FFTSize - 1;
-    if (m_BinMax <= m_BinMin)
-        m_BinMax = m_BinMin + 1;
-    maxbin = m_BinMax < m_FFTSize ? m_BinMax : m_FFTSize;
-    bool largeFft = (m_BinMax-m_BinMin) > plotWidth; // true if more fft point than plot points
+    minbin = qBound(0, m_BinMin, m_FFTSize - 1);
+    maxbin = qBound(0, m_BinMax, m_FFTSize - 1);
+
+    bool largeFft = (maxbin - minbin) > plotWidth; // true if more fft point than plot points
 
     if (largeFft)
     {
@@ -2034,6 +1904,8 @@ void Waterfall::setDemodRanges(qint64 FLowCmin, qint64 FLowCmax,
 
 void Waterfall::setCenterFreq(qint64 f)
 {
+    f = boundCenterFreq(f);
+
     if(m_CenterFreq == f)
         return;
 
@@ -2043,6 +1915,23 @@ void Waterfall::setCenterFreq(qint64 f)
     updateOverlay();
 
     m_PeakHoldValid = false;
+}
+
+void Waterfall::setFrequencyLimits(qint64 min, qint64 max)
+{
+  this->m_lowerFreqLimit = min;
+  this->m_upperFreqLimit = max;
+
+  if (this->m_enforceFreqLimits)
+    this->setCenterFreq(this->m_CenterFreq);
+}
+
+void Waterfall::setFrequencyLimitsEnabled(bool enabled)
+{
+  this->m_enforceFreqLimits = enabled;
+
+  if (this->m_enforceFreqLimits)
+    this->setCenterFreq(this->m_CenterFreq);
 }
 
 // Ensure overlay is updated by either scheduling or forcing a redraw
@@ -2099,6 +1988,13 @@ void Waterfall::setFftPlotColor(const QColor color)
 void Waterfall::setFilterBoxColor(const QColor color)
 {
   m_FilterBoxColor = color;
+  updateOverlay();
+}
+
+/** Set timestamp color */
+void Waterfall::setTimeStampColor(const QColor color)
+{
+  m_TimeStampColor = color;
   updateOverlay();
 }
 

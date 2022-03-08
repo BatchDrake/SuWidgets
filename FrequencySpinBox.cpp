@@ -192,12 +192,14 @@ FrequencySpinBox::refreshUi(void)
 void
 FrequencySpinBox::setValue(double val)
 {
-  this->currValue = val;
+  if (fabs(val - this->currValue) >= 1.) {
+    this->currValue = val;
 
-  if (this->autoUnitMultiplier)
-    this->adjustUnitMultiplier();
+    if (this->autoUnitMultiplier)
+      this->adjustUnitMultiplier();
 
-  this->refreshUi();
+    this->refreshUi();
+  }
 }
 
 double

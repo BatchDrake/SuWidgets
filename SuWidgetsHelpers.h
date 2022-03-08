@@ -30,16 +30,41 @@ class QWidget;
 class QLayout;
 
 #define SUWIDGETS_DEFAULT_PRECISION 3
+#define SCAST(type, value) static_cast<type>(value)
 
 class SuWidgetsHelpers {
 
     static void abiErrorAbort(unsigned int);
 
   public:
+    struct KahanState {
+      SUCOMPLEX meanSum = 0;
+      SUCOMPLEX meanC = 0;
+
+      SUFLOAT rmsSum = 0;
+      SUFLOAT rmsC = 0;
+
+      SUSCOUNT count = 0;
+    };
+
     static QString formatBinaryQuantity(qint64 value, QString units = "B");
     static int getWidgetTextWidth(const QWidget *widget, QString const &text);
     static QLayout *findParentLayout(const QWidget *);
     static QLayout *findParentLayout(const QWidget *, const QLayout *);
+
+    static void kahanMeanAndRms(
+        SUCOMPLEX *mean,
+        SUFLOAT *rms,
+        const SUCOMPLEX *data,
+        SUSCOUNT length,
+        KahanState *prevState = nullptr);
+
+    static void calcLimits(
+        SUCOMPLEX *oMin,
+        SUCOMPLEX *oMax,
+        const SUCOMPLEX *data,
+        SUSCOUNT length,
+        bool inPlace = false);
 
     static QString formatQuantity(
         qreal value,

@@ -1,0 +1,10 @@
+build/
+release/
+debug/
+Makefile
+Makefile.Release
+Makefile.Debug
+.qmake.stash
+object_script*
+suwidgets_resource.rc
+ui_*

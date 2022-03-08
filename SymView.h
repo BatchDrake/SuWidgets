@@ -68,6 +68,10 @@ class SymView : public ThrottleableWidget
   int stride = 1;           // Image stride
   int hoverX = -1;
   int hoverY = -1;
+  bool selecting  = false;
+  qint64 selStart = 0;
+  qint64 selEnd = 0;
+
   unsigned int pad2;
   QImage viewPort;          // Current view. Matches geometry
 
@@ -84,7 +88,8 @@ class SymView : public ThrottleableWidget
       unsigned int zoom = 1,
       unsigned int stride = 0,
       unsigned int skip = 0,
-      unsigned int lineStart = 0);
+      unsigned int lineStart = 0,
+      bool showSelection = false);
 
 public:
   enum FileFormat {
@@ -99,6 +104,8 @@ public:
 
   void clear(void);
   void save(QString const &dest, FileFormat format);
+
+  qint64 coordToOffset(int x, int y);
 
   unsigned long
   getLength(void) const
@@ -290,16 +297,18 @@ public:
   void scrollToBottom(void);
   void feed(std::vector<Symbol> const &x);
   void feed(const Symbol *data, unsigned int length);
+  void copyToClipboard(void);
 
   // Virtual overrides
-  void draw(void);
-  void paint(void);
-  void mousePressEvent(QMouseEvent *event);
-  void mouseMoveEvent(QMouseEvent *event);
-  void keyPressEvent(QKeyEvent *event);
-  void wheelEvent(QWheelEvent *event);
+  void draw(void) override;
+  void paint(void) override;
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseReleaseEvent(QMouseEvent *event) override;
+  void mouseMoveEvent(QMouseEvent *event) override;
+  void keyPressEvent(QKeyEvent *event) override;
+  void wheelEvent(QWheelEvent *event) override;
 
-  signals:
+signals:
   void offsetChanged(unsigned int);
   void hOffsetChanged(int);
   void strideChanged(unsigned int);
