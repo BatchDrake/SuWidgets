@@ -114,7 +114,7 @@ GLLine::normalize(void)
   int res = resolution();
   float *data = this->data();
 
-#pragma GCC unroll 4
+#pragma GCC ivdep
   for (i = 0; i < res; ++i)
     data[i] = (data[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR;
 
@@ -2141,7 +2141,7 @@ GLWaterfall::drawAxes(GLDrawingContext &ctx, qint64 StartFreq, qint64 EndFreq)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
    tw = ctx.metrics->horizontalAdvance(label) + ctx.metrics->horizontalAdvance("O");
 #else
-   tw = metrics.width(label) + metrics.width("O");
+   tw = ctx.metrics->width(label) + ctx.metrics->width("O");
 #endif // QT_VERSION_CHECK
 
   calcDivSize(
