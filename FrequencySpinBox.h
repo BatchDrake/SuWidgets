@@ -88,6 +88,7 @@ public:
   void incFrequencyUnitMultiplier(void);
   void decFrequencyUnitMultiplier(void);
 
+  void setFocus();
   bool eventFilter(QObject *, QEvent *) override;
 
 signals:
