@@ -188,6 +188,21 @@ public:
   }
 
   bool
+  isLocked(void) const {
+    return this->locked;
+  }
+
+  void
+  setLocked(bool locked) {
+    if (this->locked != locked) {
+      this->locked = locked;
+      this->dirty  = true;
+      this->draw();
+      emit lockStateChanged();
+    }
+  }
+
+  bool
   setMaxSilent(qint64 max) {
     auto value = this->value;
     if (max < this->min)
@@ -386,6 +401,7 @@ signals:
   void foregroundColorChanged();
   void maxChanged();
   void minChanged();
+  void lockStateChanged();
 
 public slots:
   void onTimerTimeout();

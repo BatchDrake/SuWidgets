@@ -343,13 +343,9 @@ LCD::paintEvent(QPaintEvent *)
 void
 LCD::mousePressEvent(QMouseEvent *ev)
 {
-  if (this->haveLockRect) {
-    if (this->lockRect.contains(ev->x(), ev->y())) {
-      this->locked = !this->locked;
-      this->dirty = true;
-      this->draw();
-    }
-  }
+  if (this->haveLockRect)
+    if (this->lockRect.contains(ev->x(), ev->y()))
+      this->setLocked(!this->isLocked());
 
   if (this->glyphWidth > 0)
     this->selectDigit((this->width - ev->x()) / this->glyphWidth);
@@ -498,7 +494,7 @@ LCD::keyPressEvent(QKeyEvent *event)
       break;
 
     case Qt::Key_L:
-      this->locked = !this->locked;
+      this->setLocked(!this->isLocked());
       break;
 
     default:
