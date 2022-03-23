@@ -113,7 +113,7 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     m_CenterLineEnabled = true;
     m_BookmarksEnabled = true;
     m_Locked = false;
-
+    m_freqDragLocked = false;
     m_Span = 96000;
     m_SampleFreq = 96000;
 
@@ -330,7 +330,7 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
             qint64 delta_hz = delta_px * m_Span / m_OverlayPixmap.width();
             if (event->buttons() & m_freqDragBtn)
             {
-              if (!m_Locked) {
+              if (!m_Locked && !m_freqDragLocked) {
                 qint64 centerFreq = boundCenterFreq(m_CenterFreq + delta_hz);
                 delta_hz = centerFreq - m_CenterFreq;
 
@@ -641,7 +641,7 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
             }
             else if (event->buttons() == Qt::MidButton)
             {
-              if (!m_Locked) {
+              if (!m_Locked && !m_freqDragLocked) {
                 // set center freq
                 m_CenterFreq
                     = boundCenterFreq(roundFreq(freqFromX(pt.x()), m_ClickResolution));

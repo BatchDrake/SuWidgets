@@ -257,6 +257,7 @@ public:
     void draw();		//call to draw new fft data onto screen plot
     void drawSpectrum(QPainter &, int forceHeight = -1);
     void setLocked(bool locked) { m_Locked = locked; }
+    void setFreqDragLocked(bool locked) { m_freqDragLocked = locked; }
     void setRunningState(bool running) { m_Running = running; }
     void setClickResolution(int clickres) { m_ClickResolution = clickres; }
     void setExpectedRate(int rate) { m_expectedRate = rate; }
@@ -558,6 +559,7 @@ private:
     bool        m_TooltipsEnabled;     /*!< Tooltips enabled */
     bool        m_BookmarksEnabled;   /*!< Show/hide bookmarks on spectrum */
     bool        m_Locked; /* Prevent manual adjust of center frequency */
+    bool        m_freqDragLocked;
     qint64      m_DemodHiCutFreq;
     qint64      m_DemodLowCutFreq;
     int         m_DemodFreqX;		//screen coordinate x position
