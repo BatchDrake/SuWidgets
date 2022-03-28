@@ -22,6 +22,7 @@
 #include <QPainterPath>
 #include <QColormap>
 #include <SuWidgetsHelpers.h>
+#include <assert.h>
 
 ////////////////////////// WaveBuffer methods //////////////////////////////////
 void

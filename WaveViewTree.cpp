@@ -202,7 +202,7 @@ WaveWorker::wait()
 {
   while (this->running) {
     this->mutex.lock();
-    this->finishedCondition.wait(&this->mutex, QDeadlineTimer(100));
+    this->finishedCondition.wait(&this->mutex, 100);
     this->mutex.unlock();
   }
 }

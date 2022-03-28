@@ -114,7 +114,7 @@ GLLine::normalize(void)
   int res = resolution();
   float *data = this->data();
 
-#pragma GCC unroll 4
+#pragma GCC ivdep
   for (i = 0; i < res; ++i)
     data[i] = (data[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR;
 
@@ -742,7 +742,7 @@ GLWaterfall::initDefaults(void)
   m_CenterLineEnabled = true;
   m_BookmarksEnabled = true;
   m_Locked = false;
-
+  m_freqDragLocked = false;
   m_Span = 96000;
   m_SampleFreq = 96000;
 
@@ -950,7 +950,7 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
       int delta_px = m_Xzero - pt.x();
       qint64 delta_hz = delta_px * m_Span / m_OverlayPixmap.width();
       if (event->buttons() & m_freqDragBtn) {
-        if (!m_Locked) {
+        if (!m_Locked && !m_freqDragLocked) {
           qint64 centerFreq = boundCenterFreq(m_CenterFreq + delta_hz);
           delta_hz = centerFreq - m_CenterFreq;
 
@@ -1174,7 +1174,7 @@ GLWaterfall::mousePressEvent(QMouseEvent * event)
           updateOverlay();
         }
       } else if (event->buttons() == Qt::MidButton) {
-        if (!m_Locked) {
+        if (!m_Locked && !m_freqDragLocked) {
           // set center freq
           m_CenterFreq
               = boundCenterFreq(roundFreq(freqFromX(pt.x()), m_ClickResolution));
@@ -2141,7 +2141,7 @@ GLWaterfall::drawAxes(GLDrawingContext &ctx, qint64 StartFreq, qint64 EndFreq)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
    tw = ctx.metrics->horizontalAdvance(label) + ctx.metrics->horizontalAdvance("O");
 #else
-   tw = metrics.width(label) + metrics.width("O");
+   tw = ctx.metrics->width(label) + ctx.metrics->width("O");
 #endif // QT_VERSION_CHECK
 
   calcDivSize(
@@ -2217,8 +2217,8 @@ GLWaterfall::drawAxes(GLDrawingContext &ctx, qint64 StartFreq, qint64 EndFreq)
   m_YAxisWidth = ctx.metrics->horizontalAdvance("-120 ");
   unitWidth    = ctx.metrics->horizontalAdvance(m_unitName);
 #else
-  m_YAxisWidth = metrics.width("-120 ");
-  unitWidth    = metrics.width(m_unitName);
+  m_YAxisWidth = ctx.metrics->width("-120 ");
+  unitWidth    = ctx.metrics->width(m_unitName);
 #endif // QT_VERSION_CHECK
 
   if (unitWidth > m_YAxisWidth)
