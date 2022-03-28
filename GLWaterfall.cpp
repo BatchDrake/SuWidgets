@@ -251,6 +251,8 @@ GLWaterfallOpenGLContext::GLWaterfallOpenGLContext() :
 
 GLWaterfallOpenGLContext::~GLWaterfallOpenGLContext(void)
 {
+  this->finalize();
+
   delete m_vertexShader;
   delete m_fragmentShader;
   delete m_waterfall;
@@ -585,10 +587,16 @@ GLWaterfallOpenGLContext::setDynamicRange(float mindB, float maxdB)
 void
 GLWaterfallOpenGLContext::finalize()
 {
-  m_vao.destroy();
+  if (m_vao.isCreated())
+    m_vao.destroy();
+
   m_vbo.destroy();
-  m_waterfall->destroy();
-  m_palette->destroy();
+
+  if (m_waterfall != nullptr && m_waterfall->isCreated())
+    m_waterfall->destroy();
+
+  if (m_palette != nullptr && m_palette->isCreated())
+    m_palette->destroy();
 }
 
 void

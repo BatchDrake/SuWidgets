@@ -756,7 +756,6 @@ Waveform::drawHorizontalAxes(void)
   p.setFont(font);
 
   this->valueTextWidth = 0;
-
   if (this->vDivUnits > 0) {
     axis = static_cast<int>(std::floor(this->getMin() / this->vDivUnits));
 
