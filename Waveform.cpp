@@ -1089,6 +1089,7 @@ Waveform::refreshData(void)
   qint64 currSpan = this->view.getViewSampleInterval();
   qint64 lastSample = this->getDataLength() - 1;
 
+  this->askedToKeepView = true;
   this->data.rebuildViews();
 
   if (this->autoScroll && this->getSampleEnd() <= lastSample)
