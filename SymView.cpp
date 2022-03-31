@@ -601,7 +601,7 @@ SymView::wheelEvent(QWheelEvent *event)
   unsigned int lineSize = static_cast<unsigned>(this->stride);
   unsigned int lineCount = static_cast<unsigned>(this->height()) / this->zoom;
   unsigned int pageSize = lineSize * lineCount;
-  int count = (event->delta() + 119) / 120;
+  int count = (event->angleDelta().y() + 119) / 120;
 
   if (event->modifiers() & Qt::ControlModifier) {
     if (count <= 0) {
