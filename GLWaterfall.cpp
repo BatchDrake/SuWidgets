@@ -40,6 +40,7 @@
 #include <QDesktopWidget>
 #include <cstring>
 
+#include "SuWidgetsHelpers.h"
 #include "GLWaterfall.h"
 #include "gradient.h"
 
@@ -528,7 +529,7 @@ GLWaterfallOpenGLContext::pushFFTData(
 
   // If there are more lines than the ones that fit into the screen, we
   // simply discard the older ones
-  if (m_history.size() > m_rowCount)
+  if (m_history.size() > SCAST(unsigned, m_rowCount))
     m_history.pop_back();
 
 
@@ -1297,22 +1298,29 @@ void
 GLWaterfall::wheelEvent(QWheelEvent * event)
 {
   QOpenGLWidget::wheelEvent(event);
-  QPoint pt = event->pos();
-  int numDegrees = event->delta() / 8;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    QPointF pt = event->position();
+#else
+    QPointF pt = event->pos();
+#endif // QT_VERSION
+  int numDegrees = event->angleDelta().y() / 8;
   int numSteps = numDegrees / 15;  /** FIXME: Only used for direction **/
 
   /** FIXME: zooming could use some optimisation **/
   if (m_CursorCaptured == YAXIS) {
     // Vertical zoom. Wheel down: zoom out, wheel up: zoom in
     // During zoom we try to keep the point (dB or kHz) under the cursor fixed
-    float zoom_fac = event->delta() < 0 ? 1. / .9 : 0.9;
-    float ratio = (float)pt.y() / (float)m_OverlayPixmap.height();
-    float db_range = m_PandMaxdB - m_PandMindB;
-    float y_range = (float)m_OverlayPixmap.height();
-    float db_per_pix = db_range / y_range;
-    float fixed_db = m_PandMaxdB - pt.y() * db_per_pix;
+    qreal zoom_fac = event->angleDelta().y() < 0 ? 1. / .9 : 0.9;
+    qreal ratio = pt.y() / m_OverlayPixmap.height();
+    qreal db_range = m_PandMaxdB - m_PandMindB;
+    qreal y_range = m_OverlayPixmap.height();
+    qreal db_per_pix = db_range / y_range;
+    qreal fixed_db = m_PandMaxdB - pt.y() * db_per_pix;
 
-    db_range = qBound(10.f, db_range * zoom_fac, FFT_MAX_DB - FFT_MIN_DB);
+    db_range = qBound(
+          10.,
+          db_range * zoom_fac,
+          SCAST(qreal, FFT_MAX_DB - FFT_MIN_DB));
     m_PandMaxdB = fixed_db + ratio * db_range;
     if (m_PandMaxdB > FFT_MAX_DB)
       m_PandMaxdB = FFT_MAX_DB;
@@ -1322,7 +1330,7 @@ GLWaterfall::wheelEvent(QWheelEvent * event)
 
     emit pandapterRangeChanged(m_PandMindB, m_PandMaxdB);
   } else if (m_CursorCaptured == XAXIS) {
-    zoomStepX(event->delta() < 0 ? 1.1 : 0.9, pt.x());
+    zoomStepX(event->angleDelta().y() < 0 ? 1.1 : 0.9, pt.x());
   } else if (event->modifiers() & Qt::ControlModifier) {
     // filter width
     m_DemodLowCutFreq -= numSteps * m_ClickResolution;
