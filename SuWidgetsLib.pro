@@ -6,7 +6,7 @@ VERSION     = 0.3.0
 darwin: QMAKE_SONAME_PREFIX = @rpath
 
 greaterThan(QT_MAJOR_VERSION, 4) {
-    QT += widgets
+    QT += widgets opengl
 }
 
 isEmpty(PREFIX) {
