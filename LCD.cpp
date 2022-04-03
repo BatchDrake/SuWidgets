@@ -343,13 +343,9 @@ LCD::paintEvent(QPaintEvent *)
 void
 LCD::mousePressEvent(QMouseEvent *ev)
 {
-  if (this->haveLockRect) {
-    if (this->lockRect.contains(ev->x(), ev->y())) {
-      this->locked = !this->locked;
-      this->dirty = true;
-      this->draw();
-    }
-  }
+  if (this->haveLockRect)
+    if (this->lockRect.contains(ev->x(), ev->y()))
+      this->setLocked(!this->isLocked());
 
   if (this->glyphWidth > 0)
     this->selectDigit((this->width - ev->x()) / this->glyphWidth);
@@ -388,8 +384,13 @@ void
 LCD::wheelEvent(QWheelEvent *ev)
 {
   if (this->glyphWidth > 0) {
-    int amount = ev->delta() > 0 ? 1 : -1;
-    int digit = (this->width - ev->x()) / this->glyphWidth;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    int x = SCAST(int, ev->position().x());
+#else
+    int x = ev->x();
+#endif // QT_VERSION
+    int amount = ev->angleDelta().y() > 0 ? 1 : -1;
+    int digit = (this->width - x) / this->glyphWidth;
     this->scrollDigit(digit, amount);
     ev->accept();
   }
@@ -498,7 +499,7 @@ LCD::keyPressEvent(QKeyEvent *event)
       break;
 
     case Qt::Key_L:
-      this->locked = !this->locked;
+      this->setLocked(!this->isLocked());
       break;
 
     default:

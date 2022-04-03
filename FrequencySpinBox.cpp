@@ -318,6 +318,12 @@ FrequencySpinBox::editable(void) const
   return !this->ui->frequencySpin->isReadOnly();
 }
 
+void
+FrequencySpinBox::setFocus(void)
+{
+  this->ui->frequencySpin->setFocus();
+  this->ui->frequencySpin->selectAll();
+}
 
 ///////////////////////////////// Slots ///////////////////////////////////////
 void

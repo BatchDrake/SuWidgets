@@ -120,7 +120,7 @@ WaveWorker::build(SUSCOUNT start, SUSCOUNT end)
     if (i + WAVEFORM_BLOCK_LENGTH > end)
       wEnd = SU_ASFLOAT(left) / WAVEFORM_BLOCK_LENGTH;
 
-    WaveViewTree::calcLimitsBuf(thisLimit, data, left);
+    WaveViewTree::calcLimitsBuf(thisLimit, data, left, start == 0);
 
     (*next)[i >> WAVEFORM_BLOCK_BITS] = thisLimit;
   }

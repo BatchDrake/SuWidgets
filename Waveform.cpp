@@ -473,19 +473,28 @@ Waveform::mouseReleaseEvent(QMouseEvent *event)
 void
 Waveform::wheelEvent(QWheelEvent *event)
 {
+  int delta = event->angleDelta().y();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    int x = SCAST(int, event->position().x());
+    int y = SCAST(int, event->position().y());
+#else
+    int x = event->x();
+    int y = event->y();
+#endif // QT_VERSION
+
   // In some barely-reproducible cases, the first scroll produces a
   // delta value that is so big that jumps straight to the maximum
   // zoom level. The causes for this are yet to be determined.
 
-  if (event->delta() >= -WAVEFORM_DELTA_LIMIT
-      && event->delta() <= WAVEFORM_DELTA_LIMIT) {
+  if (delta >= -WAVEFORM_DELTA_LIMIT
+      && delta <= WAVEFORM_DELTA_LIMIT) {
     qreal amount = std::pow(
           static_cast<qreal>(1.1),
-          static_cast<qreal>(-event->delta() / 120.));
-    if (event->x() < this->valueTextWidth)
-      this->zoomVertical(static_cast<qint64>(event->y()), amount);
+          static_cast<qreal>(-delta / 120.));
+    if (x < this->valueTextWidth)
+      this->zoomVertical(static_cast<qint64>(y), amount);
     else
-      this->zoomHorizontal(static_cast<qint64>(event->x()), amount);
+      this->zoomHorizontal(static_cast<qint64>(x), amount);
 
     this->invalidate();
   }
@@ -756,7 +765,6 @@ Waveform::drawHorizontalAxes(void)
   p.setFont(font);
 
   this->valueTextWidth = 0;
-
   if (this->vDivUnits > 0) {
     axis = static_cast<int>(std::floor(this->getMin() / this->vDivUnits));
 
@@ -1090,6 +1098,7 @@ Waveform::refreshData(void)
   qint64 currSpan = this->view.getViewSampleInterval();
   qint64 lastSample = this->getDataLength() - 1;
 
+  this->askedToKeepView = true;
   this->data.rebuildViews();
 
   if (this->autoScroll && this->getSampleEnd() <= lastSample)
