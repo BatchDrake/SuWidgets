@@ -159,6 +159,10 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     wf_span = 0;
     fft_rate = 15;
     memset(m_wfbuf, 255, MAX_SCREENSIZE);
+
+    m_fftData = nullptr;
+    m_wfData  = nullptr;
+    m_fftDataSize = 0;
 }
 
 Waterfall::~Waterfall()
@@ -976,7 +980,6 @@ void Waterfall::draw(bool everything)
     }
 
     QPoint LineBuf[MAX_SCREENSIZE];
-
 
     // get/draw the waterfall
     w = m_WaterfallImage.width();

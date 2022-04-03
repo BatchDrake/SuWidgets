@@ -795,6 +795,10 @@ GLWaterfall::initDefaults(void)
   msec_per_wfline = 0;
   wf_span = 0;
   fft_rate = 15;
+
+  m_fftData = nullptr;
+  m_wfData  = nullptr;
+  m_fftDataSize = 0;
 }
 
 ///////////////////////////// GLWaterfall ////////////////////////////////////////
