@@ -451,7 +451,11 @@ Waveform::mousePressEvent(QMouseEvent *event)
     this->clickX = event->x();
     this->clickY = event->y();
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (event->button() == Qt::MiddleButton
+#else
     if (event->button() == Qt::MidButton
+#endif // QT_VERSION
         || this->clickY >= this->geometry.height() - this->frequencyTextHeight)
       this->frequencyDragging = true;
     else if (this->clickX < this->valueTextWidth)

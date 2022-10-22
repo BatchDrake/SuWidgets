@@ -257,14 +257,14 @@ WaveViewTree::calcLimitsBlock(
 
     for (SUSCOUNT j = 0; j < len; ++j) {
       if (data[j].max.real() > thisLimit.max.real())
-        thisLimit.max = data[j].max.real() + thisLimit.max.imag() * I;
+        thisLimit.max = data[j].max.real() + thisLimit.max.imag() * SU_I;
       if (data[j].max.imag() > thisLimit.max.imag())
-        thisLimit.max = thisLimit.max.real() + data[j].max.imag() * I;
+        thisLimit.max = thisLimit.max.real() + data[j].max.imag() * SU_I;
 
       if (data[j].min.real() < thisLimit.min.real())
-        thisLimit.min = data[j].min.real() + thisLimit.min.imag() * I;
+        thisLimit.min = data[j].min.real() + thisLimit.min.imag() * SU_I;
       if (data[j].min.imag() < thisLimit.min.imag())
-        thisLimit.min = thisLimit.min.real() + data[j].min.imag() * I;
+        thisLimit.min = thisLimit.min.real() + data[j].min.imag() * SU_I;
 
       if (thisLimit.envelope < data[j].envelope)
         thisLimit.envelope = data[j].envelope;
@@ -304,14 +304,14 @@ WaveViewTree::calcLimitsBuf(
 
     for (SUSCOUNT j = 0; j < len; ++j) {
       if (data[j].real() > thisLimit.max.real())
-        thisLimit.max = data[j].real() + thisLimit.max.imag() * I;
+        thisLimit.max = data[j].real() + thisLimit.max.imag() * SU_I;
       if (data[j].imag() > thisLimit.max.imag())
-        thisLimit.max = thisLimit.max.real() + data[j].imag() * I;
+        thisLimit.max = thisLimit.max.real() + data[j].imag() * SU_I;
 
       if (data[j].real() < thisLimit.min.real())
-        thisLimit.min = data[j].real() + thisLimit.min.imag() * I;
+        thisLimit.min = data[j].real() + thisLimit.min.imag() * SU_I;
       if (data[j].imag() < thisLimit.min.imag())
-        thisLimit.min = thisLimit.min.real() + data[j].imag() * I;
+        thisLimit.min = thisLimit.min.real() + data[j].imag() * SU_I;
 
       env2 = SU_C_REAL(data[j] * SU_C_CONJ(data[j]));
       if (thisLimit.envelope < env2)

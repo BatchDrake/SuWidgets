@@ -37,7 +37,6 @@
 #include <QToolTip>
 #include <QDebug>
 #include <QApplication>
-#include <QDesktopWidget>
 #include <cstring>
 
 #include "SuWidgetsHelpers.h"
@@ -957,7 +956,12 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
       }
     }
   } else if (XAXIS == m_CursorCaptured) {
-    if (event->buttons() & (Qt::LeftButton | Qt::MidButton)) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (event->buttons() & (Qt::LeftButton | Qt::MiddleButton))
+#else
+    if (event->buttons() & (Qt::LeftButton | Qt::MidButton))
+#endif // QT_VERSION
+    {
       setCursor(QCursor(Qt::ClosedHandCursor));
       // pan viewable range or move center frequency
       int delta_px = m_Xzero - pt.x();
@@ -1186,7 +1190,13 @@ GLWaterfall::mousePressEvent(QMouseEvent * event)
           m_GrabPosition = 1;
           updateOverlay();
         }
-      } else if (event->buttons() == Qt::MidButton) {
+      }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      else if (event->buttons() == Qt::MiddleButton)
+#else
+      else if (event->buttons() == Qt::MidButton)
+#endif // QT_VERSION
+      {
         if (!m_Locked && !m_freqDragLocked) {
           // set center freq
           m_CenterFreq
@@ -2043,13 +2053,19 @@ GLWaterfall::drawBookmarks(
       level = 0;
 
     tagEnd[level] = x + nameWidth + slant - 1;
-    m_BookmarkTags.append(
-          qMakePair<QRect, BookmarkInfo>(
-            QRect(
-              x,
-              yMin + level * levelHeight,
-              nameWidth + slant, fontHeight),
-            bookmarks[i]));
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            BookmarkInfo bookmark = bookmarks[i];
+            m_BookmarkTags.append(
+                  qMakePair<QRect, BookmarkInfo>(
+                    QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
+                    std::move(bookmark))); // Be more Cobol every day
+#else
+            m_BookmarkTags.append(
+                  qMakePair<QRect, BookmarkInfo>(
+                    QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
+                    bookmarks[i]));
+#endif // QT_VERSION
 
     QColor color = QColor(bookmarks[i].color);
     color.setAlpha(0x60);

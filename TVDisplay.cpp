@@ -21,7 +21,12 @@
 
 #include <sigutils/tvproc.h>
 
+#ifdef I
+#  undef I
+#endif // I
+
 #include <QResizeEvent>
+#include <QFile>
 #include "TVDisplay.h"
 
 void
