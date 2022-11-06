@@ -245,8 +245,8 @@ GLWaterfallOpenGLContext::GLWaterfallOpenGLContext() :
     if (p->geometry().height() > maxHeight)
       maxHeight = p->geometry().height();
 
-  this->m_paletBuf.resize(256 * 4);
-  this->m_rowCount = maxHeight;
+  m_paletBuf.resize(256 * 4);
+  m_rowCount = maxHeight;
 }
 
 GLWaterfallOpenGLContext::~GLWaterfallOpenGLContext(void)
@@ -264,7 +264,7 @@ GLWaterfallOpenGLContext::initialize(void)
 {
   GLint texSize;
   QImage firstPal = QImage(256, 1, QImage::Format_RGBX8888);
-  this->m_paletBuf.resize(256);
+  m_paletBuf.resize(256);
 
   for (int i = 0; i < 256; ++i) {
     firstPal.setPixel(
@@ -437,7 +437,7 @@ GLWaterfallOpenGLContext::flushLinesBulk(void)
 
   bulkData.resize(maxRows * alloc);
 
-  for (int i = 0; i < maxRows && !this->m_history.empty(); ++i) {
+  for (int i = 0; i < maxRows && !m_history.empty(); ++i) {
     GLLine &line = m_history.back();
 
     if (m_rowSize != line.resolution()) {
@@ -537,12 +537,12 @@ GLWaterfallOpenGLContext::pushFFTData(
 
   /////////////////// Set line data ////////////////////
   if (size == dataSize) {
-    if (this->m_useMaxBlending)
+    if (m_useMaxBlending)
       line.assignMax(fftData);
     else
       line.assignMean(fftData);
   } else {
-    if (this->m_useMaxBlending)
+    if (m_useMaxBlending)
       line.reduceMax(fftData, dataSize);
     else
       line.reduceMean(fftData, dataSize);
@@ -1458,6 +1458,19 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
 
   painter.drawPixmap(0, 0, m_2DPixmap);
 
+  // Draw named channels
+  for (auto p = m_namedChannels.begin(); p != m_namedChannels.end(); ++p) {
+    this->drawChannelBox(
+          painter,
+          y,
+          p->frequency + p->lowFreqCut,
+          p->frequency + p->highFreqCut,
+          p->frequency,
+          p->boxColor,
+          p->markerColor,
+          p->cutOffColor);
+  }
+
   // Draw demod filter box
   if (m_FilterBoxEnabled)
     this->drawFilterBox(painter, y);
@@ -1529,12 +1542,18 @@ GLWaterfall::paintTimeStamps(
     m_TimeStamps.removeLast();
 }
 
-
 void
-GLWaterfall::drawFilterCutOff(QPainter &painter, int y)
+GLWaterfall::drawChannelCutoff(
+    QPainter &painter,
+    int y,
+    int x_fMin,
+    int x_fMax,
+    int x_fCenter,
+    QColor markerColor,
+    QColor cutOffColor)
 {
   int h = painter.device()->height();
-  QPen pen = QPen(m_TimeStampColor);
+  QPen pen = QPen(cutOffColor);
   pen.setStyle(Qt::DashLine);
   pen.setWidth(1);
 
@@ -1543,18 +1562,88 @@ GLWaterfall::drawFilterCutOff(QPainter &painter, int y)
   painter.setOpacity(1);
 
   painter.drawLine(
-        m_DemodLowCutFreqX,
+        x_fMin,
         y,
-        m_DemodLowCutFreqX,
+        x_fMin,
         h - 1);
 
   painter.drawLine(
-        m_DemodHiCutFreqX,
+        x_fMax,
         y,
-        m_DemodHiCutFreqX,
+        x_fMax,
         h - 1);
+
+  pen.setColor(markerColor);
+  painter.setPen(pen);
+
+  painter.drawLine(
+        x_fCenter,
+        y,
+        x_fCenter,
+        h - 1);
+
   painter.restore();
 }
+
+void
+GLWaterfall::drawChannelBox(
+    QPainter &painter,
+    int h,
+    qint64 fMin,
+    qint64 fMax,
+    qint64 fCenter,
+    QColor boxColor,
+    QColor markerColor,
+    QColor cutOffColor)
+{
+  int x_fCenter = xFromFreq(fCenter);
+  int x_fMin = xFromFreq(fMin);
+  int x_fMax = xFromFreq(fMax);
+
+  int dw = x_fMax - x_fMin;
+
+  painter.save();
+  painter.setOpacity(0.3);
+  painter.fillRect(x_fMin, 0, dw, h, boxColor);
+  painter.setPen(markerColor);
+  painter.setOpacity(1);
+  painter.drawLine(x_fCenter, 0, x_fCenter, h);
+  painter.restore();
+
+  drawChannelCutoff(
+        painter,
+        h,
+        x_fMin,
+        x_fMax,
+        x_fCenter,
+        markerColor,
+        cutOffColor);
+}
+
+void
+GLWaterfall::drawFilterBox(QPainter &painter, int h)
+{
+  m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
+  m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
+  m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
+
+  drawChannelBox(
+        painter,
+        h,
+        m_DemodCenterFreq + m_DemodLowCutFreq,
+        m_DemodCenterFreq + m_DemodHiCutFreq,
+        m_DemodCenterFreq,
+        m_FilterBoxColor,
+        QColor(PLOTTER_FILTER_LINE_COLOR),
+        m_TimeStampColor);
+}
+
+void
+GLWaterfall::drawFilterBox(GLDrawingContext &ctx)
+{
+  drawFilterBox(*ctx.painter, ctx.height);
+}
+
 
 void
 GLWaterfall::drawSpectrum(QPainter &painter, int forceHeight)
@@ -1749,7 +1838,7 @@ GLWaterfall::setNewFftData(
 
     ts.counter = m_TimeStampCounter;
     ts.timeStampText =
-        this->m_lastFft.toString("hh:mm:ss.zzz")
+        m_lastFft.toString("hh:mm:ss.zzz")
           + " - "
           + t.toString("hh:mm:ss.zzz");
     ts.marker = true;
@@ -1781,12 +1870,12 @@ GLWaterfall::setNewFftData(
       if (tnow_ms - tlast_wf_ms >= msec_per_wfline) {
         tlast_wf_ms = tnow_ms;
         this->glCtx.commitFFTData();
-        ++this->m_TimeStampCounter;
+        ++m_TimeStampCounter;
       }
     } else {
       tlast_wf_ms = tnow_ms;
       this->glCtx.pushFFTData(m_wfData, m_fftDataSize);
-      ++this->m_TimeStampCounter;
+      ++m_TimeStampCounter;
     }
   }
 
@@ -1936,7 +2025,7 @@ GLWaterfall::drawFATs(
   QString label;
   QRect rect;
 
-  for (auto fat : this->m_FATs) {
+  for (auto fat : m_FATs) {
     if (fat.second != nullptr) {
       FrequencyBandIterator p = fat.second->find(StartFreq);
 
@@ -2031,7 +2120,7 @@ GLWaterfall::drawBookmarks(
   const int nLevels = 10;
 
   QList<BookmarkInfo> bookmarks =
-      this->m_BookmarkSource->getBookmarksInRange(
+      m_BookmarkSource->getBookmarksInRange(
         StartFreq,
         EndFreq);
   int tagEnd[nLevels] = {0};
@@ -2045,7 +2134,7 @@ GLWaterfall::drawBookmarks(
 #endif
 
     int level = 0;
-    int yMin = static_cast<int>(this->m_FATs.size()) * ctx.metrics->height();
+    int yMin = static_cast<int>(m_FATs.size()) * ctx.metrics->height();
     while (level < nLevels && tagEnd[level] > x)
       level++;
 
@@ -2102,31 +2191,6 @@ GLWaterfall::drawBookmarks(
           Qt::AlignVCenter | Qt::AlignHCenter,
           bookmarks[i].name);
   }
-}
-
-void
-GLWaterfall::drawFilterBox(QPainter &painter, int h)
-{
-  m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
-  m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
-  m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
-
-  int dw = m_DemodHiCutFreqX - m_DemodLowCutFreqX;
-
-  painter.setOpacity(0.3);
-  painter.fillRect(m_DemodLowCutFreqX, 0, dw, h, m_FilterBoxColor);
-
-  painter.setOpacity(1.0);
-  painter.setPen(QColor(PLOTTER_FILTER_LINE_COLOR));
-  painter.drawLine(m_DemodFreqX, 0, m_DemodFreqX, h);
-
-  drawFilterCutOff(painter, h);
-}
-
-void
-GLWaterfall::drawFilterBox(GLDrawingContext &ctx)
-{
-  drawFilterBox(*ctx.painter, ctx.height);
 }
 
 void
@@ -2280,7 +2344,7 @@ GLWaterfall::drawAxes(GLDrawingContext &ctx, qint64 StartFreq, qint64 EndFreq)
   ctx.painter->drawText(rect, Qt::AlignRight|Qt::AlignVCenter, m_unitName);
 
 #ifdef GL_WATERFALL_BOOKMARKS_SUPPORT
-  if (m_BookmarksEnabled && this->m_BookmarkSource != nullptr)
+  if (m_BookmarksEnabled && m_BookmarkSource != nullptr)
     this->drawBookmarks(ctx, StartFreq, EndFreq, xAxisTop);
 #endif // GL_WATERFALL_BOOKMARKS_SUPPORT
 }
@@ -2311,7 +2375,7 @@ GLWaterfall::drawOverlay()
   this->drawAxes(ctx, StartFreq, EndFreq);
 
   // Draw frequency allocation tables
-  if (this->m_ShowFATs)
+  if (m_ShowFATs)
     this->drawFATs(ctx, StartFreq, EndFreq);
 
   if (!m_Running) {
@@ -2503,19 +2567,59 @@ void GLWaterfall::setCenterFreq(qint64 f)
 
 void GLWaterfall::setFrequencyLimits(qint64 min, qint64 max)
 {
-  this->m_lowerFreqLimit = min;
-  this->m_upperFreqLimit = max;
+  m_lowerFreqLimit = min;
+  m_upperFreqLimit = max;
 
-  if (this->m_enforceFreqLimits)
-    this->setCenterFreq(this->m_CenterFreq);
+  if (m_enforceFreqLimits)
+    this->setCenterFreq(m_CenterFreq);
 }
 
 void GLWaterfall::setFrequencyLimitsEnabled(bool enabled)
 {
-  this->m_enforceFreqLimits = enabled;
+  m_enforceFreqLimits = enabled;
 
-  if (this->m_enforceFreqLimits)
-    this->setCenterFreq(this->m_CenterFreq);
+  if (m_enforceFreqLimits)
+    this->setCenterFreq(m_CenterFreq);
+}
+
+NamedChannel &
+GLWaterfall::addChannel(
+    QString name,
+    qint64 frequency,
+    qint32 fMin,
+    qint32 fMax,
+    QColor boxColor,
+    QColor markerColor,
+    QColor cutOffColor)
+{
+  NamedChannel channel;
+
+  channel.name        = name;
+  channel.frequency   = frequency;
+  channel.lowFreqCut  = fMin;
+  channel.highFreqCut = fMax;
+  channel.boxColor    = boxColor;
+  channel.markerColor = markerColor;
+  channel.cutOffColor = cutOffColor;
+
+  m_namedChannels.append(channel);
+  return m_namedChannels.last();
+}
+
+void
+GLWaterfall::removeChannel(NamedChannel &channel)
+{
+  int namedChannelIndex = m_namedChannels.indexOf(channel);
+
+  assert(namedChannelIndex != -1);
+
+  m_namedChannels.removeOne(channel);
+}
+
+void
+GLWaterfall::refreshChannel(NamedChannel &)
+{
+  this->updateOverlay();
 }
 
 // Ensure overlay is updated by either scheduling or forcing a redraw
@@ -2676,22 +2780,22 @@ void GLWaterfall::calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &
 
 void GLWaterfall::pushFAT(const FrequencyAllocationTable *fat)
 {
-  this->m_FATs[fat->getName()] = fat;
+  m_FATs[fat->getName()] = fat;
 
-  if (this->m_ShowFATs)
+  if (m_ShowFATs)
     this->updateOverlay();
 }
 
 bool GLWaterfall::removeFAT(std::string const &name)
 {
-  auto p = this->m_FATs.find(name);
+  auto p = m_FATs.find(name);
 
-  if (p == this->m_FATs.end())
+  if (p == m_FATs.end())
     return false;
 
-  this->m_FATs.erase(p);
+  m_FATs.erase(p);
 
-  if (this->m_ShowFATs)
+  if (m_ShowFATs)
     this->updateOverlay();
 
   return true;
@@ -2699,6 +2803,6 @@ bool GLWaterfall::removeFAT(std::string const &name)
 
 void GLWaterfall::setFATsVisible(bool visible)
 {
-  this->m_ShowFATs = visible;
+  m_ShowFATs = visible;
   this->updateOverlay();
 }

@@ -241,6 +241,24 @@ class GLWaterfall : public QOpenGLWidget
       return f;
     }
 
+    void drawChannelCutoff(
+        QPainter &painter,
+        int h,
+        int x_fMin,
+        int x_fMax,
+        int x_fCenter,
+        QColor markerColor,
+        QColor cutOffColor);
+
+    void drawChannelBox(
+        QPainter &painter,
+        int h,
+        qint64 fMin,
+        qint64 fMax,
+        qint64 fCenter,
+        QColor boxColor,
+        QColor markerColor,
+        QColor cutOffColor);
 
 public:
     explicit GLWaterfall(QWidget *parent = 0);
@@ -255,9 +273,9 @@ public:
 
     void drawFATs(GLDrawingContext &, qint64, qint64);
     void drawBookmarks(GLDrawingContext &, qint64, qint64, int xAxisTop);
+
     void drawFilterBox(QPainter &painter, int height);
     void drawFilterBox(GLDrawingContext &);
-    void drawFilterCutOff(QPainter &painter, int forceHeight);
 
     void drawAxes(GLDrawingContext &, qint64, qint64);
 
@@ -460,6 +478,17 @@ public:
     void    setFrequencyLimits(qint64 min, qint64 max);
     void    setFrequencyLimitsEnabled(bool);
 
+    NamedChannel &addChannel(
+        QString name,
+        qint64 frequency,
+        qint32 fMin,
+        qint32 fMax,
+        QColor boxColor,
+        QColor markerColor,
+        QColor cutOffColor);
+    void removeChannel(NamedChannel &);
+    void refreshChannel(NamedChannel &);
+
 signals:
     void newCenterFreq(qint64 f);
     void newDemodFreq(qint64 freq, qint64 delta); /* delta is the offset from the center */
@@ -657,9 +686,14 @@ private:
     quint64     wf_span;            // waterfall span in milliseconds (0 = auto)
     int         fft_rate;           // expected FFT rate (needed when WF span is auto)
     int         m_expectedRate;
+
     // Frequency allocations
     bool m_ShowFATs = false;
     std::map<std::string, const FrequencyAllocationTable *> m_FATs;
+
+    // Named channels
+    qint64 m_namedChannelLastUuid = 0;
+    QList<NamedChannel> m_namedChannels;
 };
 
 #endif // GL_WATERFALL_H

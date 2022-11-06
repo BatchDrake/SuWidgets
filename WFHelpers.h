@@ -76,6 +76,22 @@ class BookmarkSource {
     virtual QList<BookmarkInfo> getBookmarksInRange(qint64, qint64) = 0;
 };
 
+struct NamedChannel {
+  QString name;
+  qint64  uuid;
+  qint64  frequency;
+  qint32  lowFreqCut;
+  qint32  highFreqCut;
+
+  QColor  boxColor;
+  QColor  markerColor;
+  QColor  cutOffColor;
+
+  bool
+  operator == (const NamedChannel &b) {
+    return this->uuid == b.uuid;
+  }
+};
 
 struct FrequencyBand {
   qint64 min;
