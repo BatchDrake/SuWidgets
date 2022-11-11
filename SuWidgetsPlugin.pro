@@ -3,6 +3,12 @@ TARGET      = $$qtLibraryTarget(suwidgetsplugin)
 TEMPLATE    = lib
 VERSION     = 0.1.0
 
+
+CONFIG += plugin
+QT +=  designer
+
+include(SuWidgets.pri)
+
 HEADERS     = WFHelpers.h ConstellationPlugin.h TransitionPlugin.h HistogramPlugin.h LCDPlugin.h WaveformPlugin.h SymViewPlugin.h SuWidgets.h \
     FrequencySpinBoxPlugin.h \
     QVerticalLabelPlugin.h \
@@ -23,12 +29,12 @@ RESOURCES   = icons.qrc
 LIBS        += -L.
 
 greaterThan(QT_MAJOR_VERSION, 4) {
-    QT += designer
+CONFIG += plugin
+TEMPLATE = lib
+    QT += widgets
 } else {
     CONFIG += designer
 }
 
 target.path = $$[QT_INSTALL_PLUGINS]/designer
 INSTALLS    += target
-
-include(SuWidgets.pri)

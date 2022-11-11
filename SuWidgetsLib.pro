@@ -5,9 +5,7 @@ VERSION     = 0.3.0
 
 darwin: QMAKE_SONAME_PREFIX = @rpath
 
-greaterThan(QT_MAJOR_VERSION, 4) {
-    QT += widgets opengl
-}
+QT += widgets opengl
 
 isEmpty(PREFIX) {
   SUWIDGETS_INSTALL_LIBS=$$[QT_INSTALL_LIBS]

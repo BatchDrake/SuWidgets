@@ -40,6 +40,14 @@
 #include <QMap>
 #include <QOpenGLWidget>
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#  include <QOpenGLVertexArrayObject>
+#  include <QOpenGLBuffer>
+#  include <QOpenGLTexture>
+#  include <QOpenGLShader>
+#  include <QOpenGLShaderProgram>
+#endif
+
 #define GL_WATERFALL_BOOKMARKS_SUPPORT
 
 #include "WFHelpers.h"
@@ -270,7 +278,11 @@ public:
 
     void setUseLBMdrag(bool enabled)
     {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      m_freqDragBtn = (enabled) ? Qt::LeftButton :Qt::MiddleButton;
+#else
       m_freqDragBtn = (enabled) ? Qt::LeftButton :Qt::MidButton;
+#endif // QT_VERSION
     }
 
 #ifdef GL_WATERFALL_BOOKMARKS_SUPPORT
@@ -528,7 +540,12 @@ private:
                                  qint32 *maxbin, qint32 *minbin);
     void calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &adjlow, qint64 &step, int& divs);
 
-    Qt::MouseButton m_freqDragBtn = Qt::MidButton;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    Qt::MouseButton m_freqDragBtn = Qt::MiddleButton;
+#else
+  Qt::MouseButton m_freqDragBtn = Qt::MidButton;
+#endif // QT_VERSION
+
     bool        m_PeakHoldActive;
     bool        m_PeakHoldValid;
     qint32      m_fftbuf[MAX_SCREENSIZE];

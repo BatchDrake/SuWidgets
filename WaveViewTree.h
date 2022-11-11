@@ -32,8 +32,8 @@
 #define WAVEFORM_CIRCLE_DIM   4
 
 struct WaveLimits {
-  SUCOMPLEX min = +INFINITY + +INFINITY * I;
-  SUCOMPLEX max = -INFINITY + -INFINITY * I;
+  SUCOMPLEX min = +INFINITY + +INFINITY * SU_I;
+  SUCOMPLEX max = -INFINITY + -INFINITY * SU_I;
   SUCOMPLEX mean = 0;
   SUFLOAT   envelope = 0;
   SUFLOAT   freq = 0;

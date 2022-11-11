@@ -26,6 +26,10 @@
 #include "Version.h"
 #include <cmath>
 
+#ifdef I
+#  undef I
+#endif // I
+
 class QWidget;
 class QLayout;
 

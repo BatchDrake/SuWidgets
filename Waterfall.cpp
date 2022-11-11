@@ -327,7 +327,12 @@ void Waterfall::mouseMoveEvent(QMouseEvent* event)
     }
     else if (XAXIS == m_CursorCaptured)
     {
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        if (event->buttons() & (Qt::LeftButton | Qt::MiddleButton))
+#else
         if (event->buttons() & (Qt::LeftButton | Qt::MidButton))
+#endif // QT_VERSION
         {
             setCursor(QCursor(Qt::ClosedHandCursor));
             // pan viewable range or move center frequency
@@ -644,7 +649,11 @@ void Waterfall::mousePressEvent(QMouseEvent * event)
                 updateOverlay();
               }
             }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            else if (event->buttons() == Qt::MiddleButton)
+#else
             else if (event->buttons() == Qt::MidButton)
+#endif // QT_VERSION
             {
               if (!m_Locked && !m_freqDragLocked) {
                 // set center freq
@@ -1667,12 +1676,21 @@ void Waterfall::drawOverlay()
             if(level == nLevels)
                 level = 0;
 
+            
             tagEnd[level] = x + nameWidth + slant - 1;
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            BookmarkInfo bookmark = bookmarks[i];
+            m_BookmarkTags.append(
+                  qMakePair<QRect, BookmarkInfo>(
+                    QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
+                    std::move(bookmark))); // Be more Cobol every day
+#else
             m_BookmarkTags.append(
                   qMakePair<QRect, BookmarkInfo>(
                     QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
                     bookmarks[i]));
-
+#endif // QT_VERSION
             QColor color = QColor(bookmarks[i].color);
             color.setAlpha(0x60);
             // Vertical line

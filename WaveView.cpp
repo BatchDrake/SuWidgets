@@ -69,13 +69,13 @@ phaseToColor(qreal angle)
 static inline SUCOMPLEX
 pointProd(SUCOMPLEX a, SUCOMPLEX b)
 {
-  return a.real() * b.real() + I * (a.imag() * b.imag());
+  return a.real() * b.real() + SU_I * (a.imag() * b.imag());
 }
 
 static inline SUCOMPLEX
 pointAbs(SUCOMPLEX a)
 {
-  return fabs(a.real()) + I * fabs(a.imag());
+  return fabs(a.real()) + SU_I * fabs(a.imag());
 }
 
 WaveView::WaveView()

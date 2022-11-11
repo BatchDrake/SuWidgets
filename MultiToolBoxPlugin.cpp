@@ -36,6 +36,20 @@ MultiToolBoxContainerExtension::addWidget(QWidget *widget)
   myWidget->addPage(widget);
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+bool
+MultiToolBoxContainerExtension::canAddWidget() const
+{
+  return true;
+}
+
+bool
+MultiToolBoxContainerExtension::canRemove(int) const
+{
+  return true;
+}
+#endif
+
 int
 MultiToolBoxContainerExtension::count() const
 {

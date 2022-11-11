@@ -360,6 +360,6 @@ SuWidgetsHelpers::calcLimits(
       maxImag = SU_C_IMAG(data[i]);
   }
 
-  *oMin = minReal + I * minImag;
-  *oMax = maxReal + I * maxImag;
+  *oMin = minReal + SU_I * minImag;
+  *oMax = maxReal + SU_I * maxImag;
 }
