@@ -253,12 +253,25 @@ class GLWaterfall : public QOpenGLWidget
     void drawChannelBox(
         QPainter &painter,
         int h,
+        int x_fMin,
+        int x_fMax,
+        int x_fCenter,
+        QColor boxColor,
+        QColor markerColor,
+        QString text = "",
+        QColor textColor = QColor());
+
+    void drawChannelBoxAndCutoff(
+        QPainter &painter,
+        int h,
         qint64 fMin,
         qint64 fMax,
         qint64 fCenter,
         QColor boxColor,
         QColor markerColor,
-        QColor cutOffColor);
+        QColor cutOffColor,
+        QString text = "",
+        QColor textColor = QColor());
 
 public:
     explicit GLWaterfall(QWidget *parent = 0);
@@ -478,7 +491,7 @@ public:
     void    setFrequencyLimits(qint64 min, qint64 max);
     void    setFrequencyLimitsEnabled(bool);
 
-    NamedChannel &addChannel(
+    NamedChannelSetIterator addChannel(
         QString name,
         qint64 frequency,
         qint32 fMin,
@@ -486,8 +499,13 @@ public:
         QColor boxColor,
         QColor markerColor,
         QColor cutOffColor);
-    void removeChannel(NamedChannel &);
-    void refreshChannel(NamedChannel &);
+
+    void removeChannel(NamedChannelSetIterator);
+    void refreshChannel(NamedChannelSetIterator);
+    NamedChannelSetIterator findChannel(qint64 freq);
+
+    NamedChannelSetIterator channelCBegin() const;
+    NamedChannelSetIterator channelCEnd() const;
 
 signals:
     void newCenterFreq(qint64 f);
@@ -692,8 +710,7 @@ private:
     std::map<std::string, const FrequencyAllocationTable *> m_FATs;
 
     // Named channels
-    qint64 m_namedChannelLastUuid = 0;
-    QList<NamedChannel> m_namedChannels;
+    NamedChannelSet m_channelSet;
 };
 
 #endif // GL_WATERFALL_H

@@ -805,6 +805,15 @@ GLWaterfall::GLWaterfall(QWidget *parent) : QOpenGLWidget(parent)
 {
   this->initLayout();
   this->initDefaults();
+
+  addChannel(
+        "My Channel",
+        915000000,
+        -50000,
+        +50000,
+        QColor::fromRgbF(1, 0, 0),
+        QColor::fromRgbF(1, 0, 0),
+        QColor::fromRgbF(1, 0, 0));
 }
 
 GLWaterfall::~GLWaterfall()
@@ -1453,20 +1462,34 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
 {
   QOpenGLWidget::paintEvent(ev);
   QPainter painter(this);
+  qint64  StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
+  qint64  EndFreq = StartFreq + m_Span;
+
+  m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
+  m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
+  m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
+
   painter.setRenderHint(QPainter::Antialiasing);
   int y = m_Percent2DScreen * m_Size.height() / 100;
 
   painter.drawPixmap(0, 0, m_2DPixmap);
 
-  // Draw named channels
-  for (auto p = m_namedChannels.begin(); p != m_namedChannels.end(); ++p) {
-    this->drawChannelBox(
+  // Draw named channel cutoffs
+  for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
+    auto p = i.value();
+    int x_fCenter = xFromFreq(p->frequency);
+    int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
+    int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
+
+    if (EndFreq < p->frequency + p->lowFreqCut)
+      break;
+
+    this->drawChannelCutoff(
           painter,
           y,
-          p->frequency + p->lowFreqCut,
-          p->frequency + p->highFreqCut,
-          p->frequency,
-          p->boxColor,
+          x_fMin,
+          x_fMax,
+          x_fCenter,
           p->markerColor,
           p->cutOffColor);
   }
@@ -1589,17 +1612,15 @@ void
 GLWaterfall::drawChannelBox(
     QPainter &painter,
     int h,
-    qint64 fMin,
-    qint64 fMax,
-    qint64 fCenter,
+    int x_fMin,
+    int x_fMax,
+    int x_fCenter,
     QColor boxColor,
     QColor markerColor,
-    QColor cutOffColor)
+    QString text,
+    QColor textColor)
 {
-  int x_fCenter = xFromFreq(fCenter);
-  int x_fMin = xFromFreq(fMin);
-  int x_fMax = xFromFreq(fMax);
-
+  const int padding = 3;
   int dw = x_fMax - x_fMin;
 
   painter.save();
@@ -1609,6 +1630,85 @@ GLWaterfall::drawChannelBox(
   painter.setOpacity(1);
   painter.drawLine(x_fCenter, 0, x_fCenter, h);
   painter.restore();
+
+  if (text.length() > 0) {
+    QFont font = QFont(m_Font);
+    font.setBold(true);
+    QFontMetrics metrics(font);
+    int textHeight = metrics.height();
+    int textWidth;
+
+    painter.setFont(font);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    textWidth = metrics.horizontalAdvance(text) + 2 * padding;
+#else
+    textWidth = metrics.width(text) + 2 * padding;
+#endif // QT_VERSION_CHECK
+    painter.save();
+    painter.setOpacity(1);
+    painter.fillRect(
+          x_fCenter - textHeight / 2,
+          (h - textWidth) / 2,
+          textHeight,
+          textWidth,
+          markerColor);
+    painter.setPen(markerColor);
+    painter.setBrush(QBrush(markerColor));
+    painter.drawChord(
+          x_fCenter - textHeight / 2,
+          (h - textWidth) / 2 - textHeight / 2,
+          textHeight,
+          textHeight,
+          0,
+          180 * 16);
+
+    painter.drawChord(
+          x_fCenter - textHeight / 2,
+          (h + textWidth) / 2 - textHeight / 2,
+          textHeight,
+          textHeight,
+          180 * 16,
+          180 * 16);
+
+
+    painter.setPen(textColor);
+
+    painter.translate(x_fCenter, (h + textWidth) / 2);
+    painter.rotate(-90);
+    painter.drawText(padding, textHeight / 3, text);
+    painter.restore();
+  }
+}
+
+void
+GLWaterfall::drawChannelBoxAndCutoff(
+    QPainter &painter,
+    int h,
+    qint64 fMin,
+    qint64 fMax,
+    qint64 fCenter,
+    QColor boxColor,
+    QColor markerColor,
+    QColor cutOffColor,
+    QString text,
+    QColor textColor)
+{
+
+  int x_fCenter = xFromFreq(fCenter);
+  int x_fMin = xFromFreq(fMin);
+  int x_fMax = xFromFreq(fMax);
+
+  drawChannelBox(
+      painter,
+      h,
+      x_fMin,
+      x_fMax,
+      x_fCenter,
+      boxColor,
+      markerColor,
+      text,
+      textColor);
 
   drawChannelCutoff(
         painter,
@@ -1627,7 +1727,7 @@ GLWaterfall::drawFilterBox(QPainter &painter, int h)
   m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
   m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
 
-  drawChannelBox(
+  drawChannelBoxAndCutoff(
         painter,
         h,
         m_DemodCenterFreq + m_DemodLowCutFreq,
@@ -2378,6 +2478,27 @@ GLWaterfall::drawOverlay()
   if (m_ShowFATs)
     this->drawFATs(ctx, StartFreq, EndFreq);
 
+  // Draw named channel (boxes)
+  for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
+    auto p = i.value();
+    int x_fCenter = xFromFreq(p->frequency);
+    int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
+    int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
+
+    if (EndFreq < p->frequency + p->lowFreqCut)
+      break;
+
+    this->drawChannelBox(
+          painter,
+          ctx.height,
+          x_fMin,
+          x_fMax,
+          x_fCenter,
+          p->boxColor,
+          p->markerColor,
+          p->name);
+  }
+
   if (!m_Running) {
     // if not running so is no data updates to draw to screen
     // copy into 2Dbitmap the overlay bitmap.
@@ -2582,8 +2703,7 @@ void GLWaterfall::setFrequencyLimitsEnabled(bool enabled)
     this->setCenterFreq(m_CenterFreq);
 }
 
-NamedChannel &
-GLWaterfall::addChannel(
+NamedChannelSetIterator GLWaterfall::addChannel(
     QString name,
     qint64 frequency,
     qint32 fMin,
@@ -2592,34 +2712,45 @@ GLWaterfall::addChannel(
     QColor markerColor,
     QColor cutOffColor)
 {
-  NamedChannel channel;
+  auto it = m_channelSet.addChannel(
+        name,
+        frequency,
+        fMin,
+        fMax,
+        boxColor,
+        markerColor,
+        cutOffColor);
 
-  channel.name        = name;
-  channel.frequency   = frequency;
-  channel.lowFreqCut  = fMin;
-  channel.highFreqCut = fMax;
-  channel.boxColor    = boxColor;
-  channel.markerColor = markerColor;
-  channel.cutOffColor = cutOffColor;
+  refreshChannel(it);
 
-  m_namedChannels.append(channel);
-  return m_namedChannels.last();
+  return it;
 }
 
-void
-GLWaterfall::removeChannel(NamedChannel &channel)
+void GLWaterfall::removeChannel(NamedChannelSetIterator it)
 {
-  int namedChannelIndex = m_namedChannels.indexOf(channel);
+  m_channelSet.remove(it);
 
-  assert(namedChannelIndex != -1);
-
-  m_namedChannels.removeOne(channel);
+  updateOverlay();
 }
 
-void
-GLWaterfall::refreshChannel(NamedChannel &)
+void GLWaterfall::refreshChannel(NamedChannelSetIterator)
 {
-  this->updateOverlay();
+  updateOverlay();
+}
+
+NamedChannelSetIterator GLWaterfall::findChannel(qint64 freq)
+{
+  return m_channelSet.find(freq);
+}
+
+NamedChannelSetIterator GLWaterfall::channelCBegin() const
+{
+  return m_channelSet.cbegin();
+}
+
+NamedChannelSetIterator GLWaterfall::channelCEnd() const
+{
+  return m_channelSet.cend();
 }
 
 // Ensure overlay is updated by either scheduling or forcing a redraw

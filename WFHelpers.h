@@ -21,6 +21,8 @@
 #define WFHELPERS_H
 
 #include <QList>
+#include <QHash>
+#include <QMultiMap>
 #include <QString>
 #include <QColor>
 #include <map>
@@ -76,23 +78,6 @@ class BookmarkSource {
     virtual QList<BookmarkInfo> getBookmarksInRange(qint64, qint64) = 0;
 };
 
-struct NamedChannel {
-  QString name;
-  qint64  uuid;
-  qint64  frequency;
-  qint32  lowFreqCut;
-  qint32  highFreqCut;
-
-  QColor  boxColor;
-  QColor  markerColor;
-  QColor  cutOffColor;
-
-  bool
-  operator == (const NamedChannel &b) {
-    return this->uuid == b.uuid;
-  }
-};
-
 struct FrequencyBand {
   qint64 min;
   qint64 max;
@@ -137,6 +122,45 @@ public:
 
   FrequencyBandIterator find(qint64 freq) const;
 };
+
+struct NamedChannel {
+  QString name;
+  qint64  frequency;    // Center frequency
+  qint32  lowFreqCut;   // Low frequency cut (with respect to frequency)
+  qint32  highFreqCut;  // Upper frequency cut (with respect to frequency)
+
+  QColor  boxColor;
+  QColor  markerColor;
+  QColor  cutOffColor;
+};
+
+typedef QMultiMap<qint64, NamedChannel *>::const_iterator NamedChannelSetIterator;
+
+class NamedChannelSet {
+  QList<NamedChannel *> m_allocation;
+  QMultiMap<qint64, NamedChannel *> m_sortedChannels;
+
+public:
+  NamedChannelSetIterator addChannel(
+      QString name,
+      qint64 frequency,
+      qint32 fMin,
+      qint32 fMax,
+      QColor boxColor,
+      QColor markerColor,
+      QColor cutOffColor);
+
+  NamedChannelSetIterator relocate(NamedChannelSetIterator);
+  void remove(NamedChannelSetIterator);
+
+  NamedChannelSetIterator cbegin() const;
+  NamedChannelSetIterator cend() const;
+
+  NamedChannelSetIterator find(qint64);
+
+  ~NamedChannelSet();
+};
+
 
 #ifndef _MSC_VER
 # include <sys/time.h>

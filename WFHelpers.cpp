@@ -114,3 +114,81 @@ FrequencyAllocationTable::find(qint64 freq) const
 
   return lower;
 }
+
+//////////////////////////// NamedChannelSet ///////////////////////////////////
+NamedChannelSetIterator
+NamedChannelSet::addChannel(
+    QString name,
+    qint64 frequency,
+    qint32 fMin,
+    qint32 fMax,
+    QColor boxColor,
+    QColor markerColor,
+    QColor cutOffColor)
+{
+  NamedChannelSetIterator it = m_sortedChannels.cend();
+  NamedChannel *channel = new NamedChannel();
+
+  channel->name        = name;
+  channel->frequency   = frequency;
+  channel->lowFreqCut  = fMin;
+  channel->highFreqCut = fMax;
+  channel->boxColor    = boxColor;
+  channel->markerColor = markerColor;
+  channel->cutOffColor = cutOffColor;
+
+  m_allocation.append(channel);
+  it = m_sortedChannels.insert(frequency + fMax, channel);
+
+  return it;
+}
+
+NamedChannelSetIterator
+NamedChannelSet::relocate(NamedChannelSetIterator it)
+{
+  NamedChannel *channel = *it;
+
+  m_sortedChannels.remove(it.key(), it.value());
+
+  it = m_sortedChannels.insert(
+        channel->frequency + channel->highFreqCut,
+        channel);
+
+  return it;
+}
+
+void
+NamedChannelSet::remove(NamedChannelSetIterator it)
+{
+  NamedChannel *channel = it.value();
+
+  if (m_allocation.removeOne(channel)) {
+    free(channel);
+
+    m_sortedChannels.remove(it.key(), it.value());
+  }
+}
+
+NamedChannelSetIterator
+NamedChannelSet::cbegin() const
+{
+  return m_sortedChannels.cbegin();
+}
+
+NamedChannelSetIterator
+NamedChannelSet::cend() const
+{
+  return m_sortedChannels.cend();
+}
+
+NamedChannelSetIterator
+NamedChannelSet::find(qint64 freq)
+{
+  return m_sortedChannels.upperBound(freq);
+}
+
+NamedChannelSet::~NamedChannelSet()
+{
+  for (auto p : m_allocation)
+    delete p;
+}
