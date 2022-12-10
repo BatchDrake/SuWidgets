@@ -26,6 +26,7 @@
 #include <QString>
 #include <QColor>
 #include <map>
+#include <QPainter>
 
 #define CUR_CUT_DELTA 5		//cursor capture delta in pixels
 
@@ -189,6 +190,29 @@ static inline quint64 time_ms(void)
 
     return 1e3 * tval.tv_sec + 1e-3 * tval.tv_usec;
 }
+
+class WFHelpers {
+  public:
+    static void drawChannelCutoff(
+        QPainter &painter,
+        int h,
+        int x_fMin,
+        int x_fMax,
+        int x_fCenter,
+        QColor markerColor,
+        QColor cutOffColor);
+
+    static void drawChannelBox(
+        QPainter &painter,
+        int h,
+        int x_fMin,
+        int x_fMax,
+        int x_fCenter,
+        QColor boxColor,
+        QColor markerColor,
+        QString text = "",
+        QColor textColor = QColor());
+};
 
 #endif // WFHELPERS_H
 

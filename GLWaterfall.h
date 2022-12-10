@@ -241,26 +241,6 @@ class GLWaterfall : public QOpenGLWidget
       return f;
     }
 
-    void drawChannelCutoff(
-        QPainter &painter,
-        int h,
-        int x_fMin,
-        int x_fMax,
-        int x_fCenter,
-        QColor markerColor,
-        QColor cutOffColor);
-
-    void drawChannelBox(
-        QPainter &painter,
-        int h,
-        int x_fMin,
-        int x_fMax,
-        int x_fCenter,
-        QColor boxColor,
-        QColor markerColor,
-        QString text = "",
-        QColor textColor = QColor());
-
     void drawChannelBoxAndCutoff(
         QPainter &painter,
         int h,
@@ -273,6 +253,14 @@ class GLWaterfall : public QOpenGLWidget
         QString text = "",
         QColor textColor = QColor());
 
+    void drawFATs(GLDrawingContext &, qint64, qint64);
+    void drawBookmarks(GLDrawingContext &, qint64, qint64, int xAxisTop);
+
+    void drawFilterBox(QPainter &painter, int height);
+    void drawFilterBox(GLDrawingContext &);
+
+    void drawAxes(GLDrawingContext &, qint64, qint64);
+
 public:
     explicit GLWaterfall(QWidget *parent = 0);
     ~GLWaterfall();
@@ -283,15 +271,7 @@ public:
     void initializeGL(void);
     void paintGL(void);
     void resizeGL(int, int);
-
-    void drawFATs(GLDrawingContext &, qint64, qint64);
-    void drawBookmarks(GLDrawingContext &, qint64, qint64, int xAxisTop);
-
-    void drawFilterBox(QPainter &painter, int height);
-    void drawFilterBox(GLDrawingContext &);
-
-    void drawAxes(GLDrawingContext &, qint64, qint64);
-
+ 
     //void SetSdrInterface(CSdrInterface* ptr){m_pSdrInterface = ptr;}
     void draw();		//call to draw new fft data onto screen plot
     void drawSpectrum(QPainter &, int forceHeight = -1);

@@ -974,6 +974,81 @@ void Waterfall::paintTimeStamps(
     m_TimeStamps.removeLast();
 }
 
+void
+Waterfall::drawChannelBoxAndCutoff(
+    QPainter &painter,
+    int h,
+    qint64 fMin,
+    qint64 fMax,
+    qint64 fCenter,
+    QColor boxColor,
+    QColor markerColor,
+    QColor cutOffColor,
+    QString text,
+    QColor textColor)
+{
+
+  int x_fCenter = xFromFreq(fCenter);
+  int x_fMin = xFromFreq(fMin);
+  int x_fMax = xFromFreq(fMax);
+
+  WFHelpers::drawChannelBox(
+      painter,
+      h,
+      x_fMin,
+      x_fMax,
+      x_fCenter,
+      boxColor,
+      markerColor,
+      text,
+      textColor);
+
+  WFHelpers::drawChannelCutoff(
+        painter,
+        h,
+        x_fMin,
+        x_fMax,
+        x_fCenter,
+        markerColor,
+        cutOffColor);
+}
+
+void
+Waterfall::drawFilterBox(QPainter &painter, int h)
+{
+  m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
+  m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
+  m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
+
+  WFHelpers::drawChannelBox(
+      painter,
+      h,
+      m_DemodLowCutFreqX,
+      m_DemodHiCutFreqX,
+      m_DemodFreqX,
+      m_FilterBoxColor,
+      QColor(PLOTTER_FILTER_LINE_COLOR),
+      "",
+      QColor());
+}
+
+void
+Waterfall::drawFilterCutoff(QPainter &painter, int h)
+{
+  m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
+  m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
+  m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
+
+  WFHelpers::drawChannelCutoff(
+        painter,
+        h,
+        m_DemodLowCutFreqX,
+        m_DemodHiCutFreqX,
+        m_DemodFreqX,
+        QColor(PLOTTER_FILTER_LINE_COLOR),
+        m_TimeStampColor);
+}
+
 // Called to update spectrum data for displaying on the screen
 void Waterfall::draw(bool everything)
 {
@@ -1753,20 +1828,7 @@ void Waterfall::drawOverlay()
 
     // Draw demod filter box
     if (m_FilterBoxEnabled)
-    {
-        m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
-        m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
-        m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
-
-        int dw = m_DemodHiCutFreqX - m_DemodLowCutFreqX;
-
-        painter.setOpacity(0.3);
-        painter.fillRect(m_DemodLowCutFreqX, 0, dw, h, m_FilterBoxColor);
-
-        painter.setOpacity(1.0);
-        painter.setPen(QColor(PLOTTER_FILTER_LINE_COLOR));
-        painter.drawLine(m_DemodFreqX, 0, m_DemodFreqX, h);
-    }
+        this->drawFilterBox(painter, h);
 
     if (!m_Running)
     {

@@ -56,6 +56,20 @@ class Waterfall : public QFrame
       return f;
     }
 
+    void drawChannelBoxAndCutoff(
+        QPainter &painter,
+        int h,
+        qint64 fMin,
+        qint64 fMax,
+        qint64 fCenter,
+        QColor boxColor,
+        QColor markerColor,
+        QColor cutOffColor,
+        QString text = "",
+        QColor textColor = QColor());
+    void drawFilterBox(QPainter &painter, int height);
+    void drawFilterCutoff(QPainter &painter, int height);
+
 public:
     explicit Waterfall(QWidget *parent = 0);
     ~Waterfall();
