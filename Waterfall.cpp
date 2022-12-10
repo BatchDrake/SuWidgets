@@ -907,6 +907,9 @@ void Waterfall::paintEvent(QPaintEvent *)
     painter.drawPixmap(0, 0, m_2DPixmap);
     painter.drawImage(0, y, m_WaterfallImage);
 
+    if (m_FilterBoxEnabled)
+        this->drawFilterCutoff(painter, y);
+
     if (m_TimeStampsEnabled) {
       paintTimeStamps(
             painter,
