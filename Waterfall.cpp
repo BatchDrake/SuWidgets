@@ -163,6 +163,15 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     m_fftData = nullptr;
     m_wfData  = nullptr;
     m_fftDataSize = 0;
+
+      addChannel(
+        "My Channel",
+        915000000,
+        -50000,
+        +50000,
+        QColor::fromRgbF(1, .55, 0),
+        QColor::fromRgbF(1, .55, 0),
+        QColor::fromRgbF(1, .55, 0));
 }
 
 Waterfall::~Waterfall()
@@ -901,11 +910,33 @@ void Waterfall::resizeEvent(QResizeEvent* )
 void Waterfall::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
-    int y = m_Percent2DScreen * m_Size.height() / 100;
+    qint64  StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
+    qint64  EndFreq = StartFreq + m_Span;
 
+    int y = m_Percent2DScreen * m_Size.height() / 100;
 
     painter.drawPixmap(0, 0, m_2DPixmap);
     painter.drawImage(0, y, m_WaterfallImage);
+
+    // Draw named channel cutoffs
+    for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
+        auto p = i.value();
+        int x_fCenter = xFromFreq(p->frequency);
+        int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
+        int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
+
+        if (EndFreq < p->frequency + p->lowFreqCut)
+        break;
+
+        WFHelpers::drawChannelCutoff(
+            painter,
+            y,
+            x_fMin,
+            x_fMax,
+            x_fCenter,
+            p->markerColor,
+            p->cutOffColor);
+    }
 
     if (m_FilterBoxEnabled)
         this->drawFilterCutoff(painter, y);
@@ -1829,6 +1860,27 @@ void Waterfall::drawOverlay()
     rect.setRect(HOR_MARGIN, 0, unitWidth, th);
     painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, m_unitName);
 
+    // Draw named channel (boxes)
+    for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
+        auto p = i.value();
+        int x_fCenter = xFromFreq(p->frequency);
+        int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
+        int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
+
+        if (EndFreq < p->frequency + p->lowFreqCut)
+        break;
+
+        WFHelpers::drawChannelBox(
+            painter,
+            h,
+            x_fMin,
+            x_fMax,
+            x_fCenter,
+            p->boxColor,
+            p->markerColor,
+            p->name);
+    }
+    
     // Draw demod filter box
     if (m_FilterBoxEnabled)
         this->drawFilterBox(painter, h);
@@ -2028,6 +2080,57 @@ void Waterfall::setFrequencyLimitsEnabled(bool enabled)
   if (this->m_enforceFreqLimits)
     this->setCenterFreq(this->m_CenterFreq);
 }
+
+NamedChannelSetIterator Waterfall::addChannel(
+    QString name,
+    qint64 frequency,
+    qint32 fMin,
+    qint32 fMax,
+    QColor boxColor,
+    QColor markerColor,
+    QColor cutOffColor)
+{
+  auto it = m_channelSet.addChannel(
+        name,
+        frequency,
+        fMin,
+        fMax,
+        boxColor,
+        markerColor,
+        cutOffColor);
+
+  refreshChannel(it);
+
+  return it;
+}
+
+void Waterfall::removeChannel(NamedChannelSetIterator it)
+{
+  m_channelSet.remove(it);
+
+  updateOverlay();
+}
+
+void Waterfall::refreshChannel(NamedChannelSetIterator)
+{
+  updateOverlay();
+}
+
+NamedChannelSetIterator Waterfall::findChannel(qint64 freq)
+{
+  return m_channelSet.find(freq);
+}
+
+NamedChannelSetIterator Waterfall::channelCBegin() const
+{
+  return m_channelSet.cbegin();
+}
+
+NamedChannelSetIterator Waterfall::channelCEnd() const
+{
+  return m_channelSet.cend();
+}
+
 
 // Ensure overlay is updated by either scheduling or forcing a redraw
 void Waterfall::updateOverlay()

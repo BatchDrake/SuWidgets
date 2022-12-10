@@ -282,6 +282,22 @@ public:
     void    setFrequencyLimits(qint64 min, qint64 max);
     void    setFrequencyLimitsEnabled(bool);
 
+    NamedChannelSetIterator addChannel(
+        QString name,
+        qint64 frequency,
+        qint32 fMin,
+        qint32 fMax,
+        QColor boxColor,
+        QColor markerColor,
+        QColor cutOffColor);
+
+    void removeChannel(NamedChannelSetIterator);
+    void refreshChannel(NamedChannelSetIterator);
+    NamedChannelSetIterator findChannel(qint64 freq);
+
+    NamedChannelSetIterator channelCBegin() const;
+    NamedChannelSetIterator channelCEnd() const;
+    
 signals:
     void newCenterFreq(qint64 f);
     void newDemodFreq(qint64 freq, qint64 delta); /* delta is the offset from the center */
@@ -486,6 +502,9 @@ private:
     // Frequency allocations
     bool m_ShowFATs = false;
     std::map<std::string, const FrequencyAllocationTable *> m_FATs;
+
+    // Named channels
+    NamedChannelSet m_channelSet;
 };
 
 #endif // PLOTTER_H
