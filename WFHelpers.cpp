@@ -260,6 +260,15 @@ NamedChannelSet::addChannel(
   return it;
 }
 
+bool
+NamedChannelSet::isOutOfPlace(NamedChannelSetIterator it) const
+{
+  auto channel = it.value();
+  auto key = channel->frequency + channel->highFreqCut;
+
+  return it.key() != key;
+}
+
 NamedChannelSetIterator
 NamedChannelSet::relocate(NamedChannelSetIterator it)
 {

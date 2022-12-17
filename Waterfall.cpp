@@ -163,15 +163,6 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     m_fftData = nullptr;
     m_wfData  = nullptr;
     m_fftDataSize = 0;
-
-      addChannel(
-        "My Channel",
-        915000000,
-        -50000,
-        +50000,
-        QColor::fromRgbF(1, .55, 0),
-        QColor::fromRgbF(1, .55, 0),
-        QColor::fromRgbF(1, .55, 0));
 }
 
 Waterfall::~Waterfall()
@@ -2111,8 +2102,12 @@ void Waterfall::removeChannel(NamedChannelSetIterator it)
   updateOverlay();
 }
 
-void Waterfall::refreshChannel(NamedChannelSetIterator)
+void Waterfall::refreshChannel(NamedChannelSetIterator &it)
 {
+
+  if (m_channelSet.isOutOfPlace(it))
+    it = m_channelSet.relocate(it);
+
   updateOverlay();
 }
 

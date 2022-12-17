@@ -805,15 +805,6 @@ GLWaterfall::GLWaterfall(QWidget *parent) : QOpenGLWidget(parent)
 {
   this->initLayout();
   this->initDefaults();
-
-  addChannel(
-        "My Channel",
-        915000000,
-        -50000,
-        +50000,
-        QColor::fromRgbF(1, 0, 0),
-        QColor::fromRgbF(1, 0, 0),
-        QColor::fromRgbF(1, 0, 0));
 }
 
 GLWaterfall::~GLWaterfall()
@@ -2617,8 +2608,12 @@ void GLWaterfall::removeChannel(NamedChannelSetIterator it)
   updateOverlay();
 }
 
-void GLWaterfall::refreshChannel(NamedChannelSetIterator)
+void GLWaterfall::refreshChannel(NamedChannelSetIterator &it)
 {
+  if (m_channelSet.isOutOfPlace(it)) {
+    it = m_channelSet.relocate(it);
+  }
+
   updateOverlay();
 }
 

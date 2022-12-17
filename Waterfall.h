@@ -292,7 +292,7 @@ public:
         QColor cutOffColor);
 
     void removeChannel(NamedChannelSetIterator);
-    void refreshChannel(NamedChannelSetIterator);
+    void refreshChannel(NamedChannelSetIterator &);
     NamedChannelSetIterator findChannel(qint64 freq);
 
     NamedChannelSetIterator channelCBegin() const;

@@ -151,6 +151,7 @@ public:
       QColor markerColor,
       QColor cutOffColor);
 
+  bool isOutOfPlace(NamedChannelSetIterator) const;
   NamedChannelSetIterator relocate(NamedChannelSetIterator);
   void remove(NamedChannelSetIterator);
 
