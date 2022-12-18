@@ -102,16 +102,26 @@ WFHelpers::drawChannelBox(
     QColor textColor)
 {
   const int padding = 3;
+  QPen borderPen = QPen(boxColor, 1, Qt::DashLine);
   int dw = x_fMax - x_fMin;
 
+  // Paint box
   painter.save();
   painter.setOpacity(0.3);
   painter.fillRect(x_fMin, 0, dw, h, boxColor);
+
+  // Draw marker
   painter.setPen(markerColor);
   painter.setOpacity(1);
   painter.drawLine(x_fCenter, 0, x_fCenter, h);
+
+  // Draw border
+  painter.setPen(borderPen);
+  painter.drawLine(x_fMin, 0, x_fMin, h);
+  painter.drawLine(x_fMax, 0, x_fMax, h);
   painter.restore();
 
+  // Draw text (if provided)
   if (text.length() > 0) {
     QFont font;
     font.setBold(true);
