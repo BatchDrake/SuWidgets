@@ -18,6 +18,7 @@
 //
 
 #include "WFHelpers.h"
+#include <cmath>
 
 #ifdef _MSC_VER
 #include <Windows.h>
@@ -90,6 +91,40 @@ WFHelpers::drawChannelCutoff(
 }
 
 void
+WFHelpers::drawLineWithArrow(
+    QPainter &painter,
+    QPointF start,
+    QPointF end,
+    qreal arrowSize)
+{
+  QLineF line(end, start);
+  double angle = std::atan2(-line.dy(), line.dx());
+  QPointF arrowP1 =
+      line.p1() + QPointF(sin(angle + M_PI / 3) * arrowSize,
+      cos(angle + M_PI / 3) * arrowSize);
+  QPointF arrowP2 =
+      line.p1() + QPointF(sin(angle + M_PI - M_PI / 3) * arrowSize,
+      cos(angle + M_PI - M_PI / 3) * arrowSize);
+  QPolygonF arrowHead;
+  QPen pen = painter.pen();
+
+  pen.setStyle(Qt::SolidLine);
+  painter.save();
+
+  arrowHead.clear();
+  arrowHead << line.p1() << arrowP1 << arrowP2;
+  painter.drawLine(line);
+
+  painter.setPen(pen);
+  painter.setBrush(QBrush(pen.color()));
+
+  painter.drawPolygon(arrowHead);
+
+  painter.restore();
+}
+
+
+void
 WFHelpers::drawChannelBox(
     QPainter &painter,
     int h,
@@ -99,11 +134,13 @@ WFHelpers::drawChannelBox(
     QColor boxColor,
     QColor markerColor,
     QString text,
-    QColor textColor)
+    QColor textColor,
+    int horizontalOffset)
 {
   const int padding = 3;
   QPen borderPen = QPen(boxColor, 1, Qt::DashLine);
   int dw = x_fMax - x_fMin;
+  bool bandLike = horizontalOffset >= 0;
 
   // Paint box
   painter.save();
@@ -124,50 +161,75 @@ WFHelpers::drawChannelBox(
   // Draw text (if provided)
   if (text.length() > 0) {
     QFont font;
-    font.setBold(true);
+    font.setBold(!bandLike);
     QFontMetrics metrics(font);
     int textHeight = metrics.height();
     int textWidth;
-
     painter.setFont(font);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0l)
     textWidth = metrics.horizontalAdvance(text) + 2 * padding;
 #else
     textWidth = metrics.width(text) + 2 * padding;
 #endif // QT_VERSION_CHECK
+
     painter.save();
     painter.setOpacity(1);
-    painter.fillRect(
-          x_fCenter - textHeight / 2,
-          (h - textWidth) / 2,
-          textHeight,
-          textWidth,
-          markerColor);
-    painter.setPen(markerColor);
-    painter.setBrush(QBrush(markerColor));
-    painter.drawChord(
-          x_fCenter - textHeight / 2,
-          (h - textWidth) / 2 - textHeight / 2,
-          textHeight,
-          textHeight,
-          0,
-          180 * 16);
 
-    painter.drawChord(
-          x_fCenter - textHeight / 2,
-          (h + textWidth) / 2 - textHeight / 2,
-          textHeight,
-          textHeight,
-          180 * 16,
-          180 * 16);
+    if (bandLike) {
+      int x_start_left  = x_fCenter - textWidth / 2 - textHeight / 2;
+      int x_start_right = x_fCenter + textWidth / 2;
+      int ydispl = textWidth > dw ? textHeight / 2 : 0;
+
+      painter.setPen(borderPen);
+
+      drawLineWithArrow(
+            painter,
+            QPointF(x_start_left, horizontalOffset + ydispl),
+            QPointF(x_fMin, horizontalOffset + ydispl));
+      drawLineWithArrow(
+            painter,
+            QPointF(x_start_right, horizontalOffset + ydispl),
+            QPointF(x_fMax, horizontalOffset + ydispl));
+
+      painter.setPen(textColor);
+      painter.drawText(
+            x_fCenter - textWidth / 2,
+            horizontalOffset + textHeight / 4,
+            text);
+    } else {
+      painter.fillRect(
+            x_fCenter - textHeight / 2,
+            (h - textWidth) / 2,
+            textHeight,
+            textWidth,
+            markerColor);
+      painter.setPen(markerColor);
+      painter.setBrush(QBrush(markerColor));
+      painter.drawChord(
+            x_fCenter - textHeight / 2,
+            (h - textWidth) / 2 - textHeight / 2,
+            textHeight,
+            textHeight,
+            0,
+            180 * 16);
+
+      painter.drawChord(
+            x_fCenter - textHeight / 2,
+            (h + textWidth) / 2 - textHeight / 2,
+            textHeight,
+            textHeight,
+            180 * 16,
+            180 * 16);
 
 
-    painter.setPen(textColor);
+      painter.setPen(textColor);
 
-    painter.translate(x_fCenter, (h + textWidth) / 2);
-    painter.rotate(-90);
-    painter.drawText(padding, textHeight / 3, text);
+      painter.translate(x_fCenter, (h + textWidth) / 2);
+      painter.rotate(-90);
+      painter.drawText(padding, textHeight / 3, text);
+    }
+
     painter.restore();
   }
 }

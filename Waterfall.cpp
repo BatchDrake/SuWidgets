@@ -1545,6 +1545,7 @@ void Waterfall::drawOverlay()
     int     w = m_OverlayPixmap.width();
     int     h = m_OverlayPixmap.height();
     int     x,y;
+    int     bandY = 0;
     float   pixperdiv;
     float   adjoffset;
     float   unitStepSize;
@@ -1710,6 +1711,8 @@ void Waterfall::drawOverlay()
 
           ++count;
         }
+
+      bandY = count + metrics.height() / 2;
     }
 
     // Level grid
@@ -1861,15 +1864,29 @@ void Waterfall::drawOverlay()
         if (EndFreq < p->frequency + p->lowFreqCut)
         break;
 
-        WFHelpers::drawChannelBox(
-            painter,
-            h,
-            x_fMin,
-            x_fMax,
-            x_fCenter,
-            p->boxColor,
-            p->markerColor,
-            p->name);
+        if (p->bandLike) {
+          WFHelpers::drawChannelBox(
+              painter,
+              h,
+              x_fMin,
+              x_fMax,
+              x_fCenter,
+              p->boxColor,
+              p->markerColor,
+              p->name,
+              p->markerColor,
+              bandY);
+        } else {
+          WFHelpers::drawChannelBox(
+              painter,
+              h,
+              x_fMin,
+              x_fMax,
+              x_fCenter,
+              p->boxColor,
+              p->markerColor,
+              p->name);
+        }
     }
     
     // Draw demod filter box

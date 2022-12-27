@@ -1988,7 +1988,7 @@ GLWaterfall::setWaterfallRange(float min, float max)
   // no overlay change is necessary
 }
 
-void
+int
 GLWaterfall::drawFATs(
     GLDrawingContext &ctx,
     qint64 StartFreq,
@@ -2078,6 +2078,8 @@ GLWaterfall::drawFATs(
       ++count;
     }
   }
+
+  return count * ctx.metrics->height();
 }
 
 void
@@ -2331,7 +2333,7 @@ GLWaterfall::drawOverlay()
 {
   if (m_OverlayPixmap.isNull())
     return;
-
+  int             bandY = 0;
   QFontMetrics    metrics(m_Font);
   QPainter        painter(&m_OverlayPixmap);
   GLDrawingContext ctx;
@@ -2351,7 +2353,7 @@ GLWaterfall::drawOverlay()
 
   // Draw frequency allocation tables
   if (m_ShowFATs)
-    this->drawFATs(ctx, StartFreq, EndFreq);
+    bandY = this->drawFATs(ctx, StartFreq, EndFreq);
 
   // Draw named channel (boxes)
   for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
@@ -2363,15 +2365,29 @@ GLWaterfall::drawOverlay()
     if (EndFreq < p->frequency + p->lowFreqCut)
       break;
 
-    WFHelpers::drawChannelBox(
-          painter,
-          ctx.height,
-          x_fMin,
-          x_fMax,
-          x_fCenter,
-          p->boxColor,
-          p->markerColor,
-          p->name);
+    if (p->bandLike) {
+      WFHelpers::drawChannelBox(
+            painter,
+            ctx.height,
+            x_fMin,
+            x_fMax,
+            x_fCenter,
+            p->boxColor,
+            p->markerColor,
+            p->name,
+            p->markerColor,
+            bandY + ctx.metrics->height() / 2);
+    } else {
+      WFHelpers::drawChannelBox(
+            painter,
+            ctx.height,
+            x_fMin,
+            x_fMax,
+            x_fCenter,
+            p->boxColor,
+            p->markerColor,
+            p->name);
+    }
   }
 
   if (!m_Running) {

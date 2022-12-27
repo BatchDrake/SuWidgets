@@ -253,7 +253,7 @@ class GLWaterfall : public QOpenGLWidget
         QString text = "",
         QColor textColor = QColor());
 
-    void drawFATs(GLDrawingContext &, qint64, qint64);
+    int  drawFATs(GLDrawingContext &, qint64, qint64);
     void drawBookmarks(GLDrawingContext &, qint64, qint64, int xAxisTop);
 
     void drawFilterBox(QPainter &painter, int height);

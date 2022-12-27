@@ -133,6 +133,8 @@ struct NamedChannel {
   QColor  boxColor;
   QColor  markerColor;
   QColor  cutOffColor;
+
+  bool    bandLike = false;
 };
 
 typedef QMultiMap<qint64, NamedChannel *>::const_iterator NamedChannelSetIterator;
@@ -194,6 +196,12 @@ static inline quint64 time_ms(void)
 
 class WFHelpers {
   public:
+    static void drawLineWithArrow(
+        QPainter &painter,
+        QPointF start,
+        QPointF end,
+        qreal arrowSize = 5);
+
     static void drawChannelCutoff(
         QPainter &painter,
         int h,
@@ -212,7 +220,8 @@ class WFHelpers {
         QColor boxColor,
         QColor markerColor,
         QString text = "",
-        QColor textColor = QColor());
+        QColor textColor = QColor(),
+        int horizontalOffset = -1);
 };
 
 #endif // WFHELPERS_H
