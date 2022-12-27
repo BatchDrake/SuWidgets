@@ -45,6 +45,133 @@ gettimeofday(struct timeval * tp, struct timezone * tzp)
 
 #endif // _MSC_VER
 
+/////////////////////////////// WFHelpers //////////////////////////////////////
+void
+WFHelpers::drawChannelCutoff(
+    QPainter &painter,
+    int y,
+    int x_fMin,
+    int x_fMax,
+    int x_fCenter,
+    QColor markerColor,
+    QColor cutOffColor)
+{
+  int h = painter.device()->height();
+  QPen pen = QPen(cutOffColor);
+  pen.setStyle(Qt::DashLine);
+  pen.setWidth(1);
+
+  painter.save();
+  painter.setPen(pen);
+  painter.setOpacity(1);
+
+  painter.drawLine(
+        x_fMin,
+        y,
+        x_fMin,
+        h - 1);
+
+  painter.drawLine(
+        x_fMax,
+        y,
+        x_fMax,
+        h - 1);
+
+  pen.setColor(markerColor);
+  painter.setPen(pen);
+
+  painter.drawLine(
+        x_fCenter,
+        y,
+        x_fCenter,
+        h - 1);
+
+  painter.restore();
+}
+
+void
+WFHelpers::drawChannelBox(
+    QPainter &painter,
+    int h,
+    int x_fMin,
+    int x_fMax,
+    int x_fCenter,
+    QColor boxColor,
+    QColor markerColor,
+    QString text,
+    QColor textColor)
+{
+  const int padding = 3;
+  QPen borderPen = QPen(boxColor, 1, Qt::DashLine);
+  int dw = x_fMax - x_fMin;
+
+  // Paint box
+  painter.save();
+  painter.setOpacity(0.3);
+  painter.fillRect(x_fMin, 0, dw, h, boxColor);
+
+  // Draw marker
+  painter.setPen(markerColor);
+  painter.setOpacity(1);
+  painter.drawLine(x_fCenter, 0, x_fCenter, h);
+
+  // Draw border
+  painter.setPen(borderPen);
+  painter.drawLine(x_fMin, 0, x_fMin, h);
+  painter.drawLine(x_fMax, 0, x_fMax, h);
+  painter.restore();
+
+  // Draw text (if provided)
+  if (text.length() > 0) {
+    QFont font;
+    font.setBold(true);
+    QFontMetrics metrics(font);
+    int textHeight = metrics.height();
+    int textWidth;
+
+    painter.setFont(font);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    textWidth = metrics.horizontalAdvance(text) + 2 * padding;
+#else
+    textWidth = metrics.width(text) + 2 * padding;
+#endif // QT_VERSION_CHECK
+    painter.save();
+    painter.setOpacity(1);
+    painter.fillRect(
+          x_fCenter - textHeight / 2,
+          (h - textWidth) / 2,
+          textHeight,
+          textWidth,
+          markerColor);
+    painter.setPen(markerColor);
+    painter.setBrush(QBrush(markerColor));
+    painter.drawChord(
+          x_fCenter - textHeight / 2,
+          (h - textWidth) / 2 - textHeight / 2,
+          textHeight,
+          textHeight,
+          0,
+          180 * 16);
+
+    painter.drawChord(
+          x_fCenter - textHeight / 2,
+          (h + textWidth) / 2 - textHeight / 2,
+          textHeight,
+          textHeight,
+          180 * 16,
+          180 * 16);
+
+
+    painter.setPen(textColor);
+
+    painter.translate(x_fCenter, (h + textWidth) / 2);
+    painter.rotate(-90);
+    painter.drawText(padding, textHeight / 3, text);
+    painter.restore();
+  }
+}
+
 ////////////////////////// BookmarkSource //////////////////////////////////////
 BookmarkSource::~BookmarkSource()
 {
@@ -113,4 +240,91 @@ FrequencyAllocationTable::find(qint64 freq) const
       return previous;
 
   return lower;
+}
+
+//////////////////////////// NamedChannelSet ///////////////////////////////////
+NamedChannelSetIterator
+NamedChannelSet::addChannel(
+    QString name,
+    qint64 frequency,
+    qint32 fMin,
+    qint32 fMax,
+    QColor boxColor,
+    QColor markerColor,
+    QColor cutOffColor)
+{
+  NamedChannelSetIterator it = m_sortedChannels.cend();
+  NamedChannel *channel = new NamedChannel();
+
+  channel->name        = name;
+  channel->frequency   = frequency;
+  channel->lowFreqCut  = fMin;
+  channel->highFreqCut = fMax;
+  channel->boxColor    = boxColor;
+  channel->markerColor = markerColor;
+  channel->cutOffColor = cutOffColor;
+
+  m_allocation.append(channel);
+  it = m_sortedChannels.insert(frequency + fMax, channel);
+
+  return it;
+}
+
+bool
+NamedChannelSet::isOutOfPlace(NamedChannelSetIterator it) const
+{
+  auto channel = it.value();
+  auto key = channel->frequency + channel->highFreqCut;
+
+  return it.key() != key;
+}
+
+NamedChannelSetIterator
+NamedChannelSet::relocate(NamedChannelSetIterator it)
+{
+  NamedChannel *channel = *it;
+
+  m_sortedChannels.remove(it.key(), it.value());
+
+  it = m_sortedChannels.insert(
+        channel->frequency + channel->highFreqCut,
+        channel);
+
+  return it;
+}
+
+void
+NamedChannelSet::remove(NamedChannelSetIterator it)
+{
+  NamedChannel *channel = it.value();
+
+  if (m_allocation.removeOne(channel)) {
+    free(channel);
+
+    m_sortedChannels.remove(it.key(), it.value());
+  }
+}
+
+NamedChannelSetIterator
+NamedChannelSet::cbegin() const
+{
+  return m_sortedChannels.cbegin();
+}
+
+NamedChannelSetIterator
+NamedChannelSet::cend() const
+{
+  return m_sortedChannels.cend();
+}
+
+NamedChannelSetIterator
+NamedChannelSet::find(qint64 freq)
+{
+  return m_sortedChannels.upperBound(freq);
+}
+
+NamedChannelSet::~NamedChannelSet()
+{
+  for (auto p : m_allocation)
+    delete p;
 }
