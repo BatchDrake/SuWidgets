@@ -26,7 +26,7 @@ SOURCES     = ConstellationPlugin.cpp TransitionPlugin.cpp HistogramPlugin.cpp L
     ColorChooserButtonPlugin.cpp \
     MultiToolBoxPlugin.cpp
 RESOURCES   = icons.qrc
-LIBS        += -L.
+LIBS        += -L. -lsuwidgets
 
 greaterThan(QT_MAJOR_VERSION, 4) {
 CONFIG += plugin
