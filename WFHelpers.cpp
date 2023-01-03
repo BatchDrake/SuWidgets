@@ -55,7 +55,8 @@ WFHelpers::drawChannelCutoff(
     int x_fMax,
     int x_fCenter,
     QColor markerColor,
-    QColor cutOffColor)
+    QColor cutOffColor,
+    bool centralLine)
 {
   int h = painter.device()->height();
   QPen pen = QPen(cutOffColor);
@@ -78,14 +79,16 @@ WFHelpers::drawChannelCutoff(
         x_fMax,
         h - 1);
 
-  pen.setColor(markerColor);
-  painter.setPen(pen);
+  if (centralLine) {
+    pen.setColor(markerColor);
+    painter.setPen(pen);
 
-  painter.drawLine(
-        x_fCenter,
-        y,
-        x_fCenter,
-        h - 1);
+    painter.drawLine(
+          x_fCenter,
+          y,
+          x_fCenter,
+          h - 1);
+  }
 
   painter.restore();
 }
@@ -148,11 +151,14 @@ WFHelpers::drawChannelBox(
   painter.fillRect(x_fMin, 0, dw, h, boxColor);
 
   // Draw marker
-  painter.setPen(markerColor);
-  painter.setOpacity(1);
-  painter.drawLine(x_fCenter, 0, x_fCenter, h);
+  if (!bandLike) {
+    painter.setPen(markerColor);
+    painter.setOpacity(1);
+    painter.drawLine(x_fCenter, 0, x_fCenter, h);
+  }
 
   // Draw border
+  painter.setOpacity(1);
   painter.setPen(borderPen);
   painter.drawLine(x_fMin, 0, x_fMin, h);
   painter.drawLine(x_fMax, 0, x_fMax, h);

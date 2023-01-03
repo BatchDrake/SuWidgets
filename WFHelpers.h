@@ -209,7 +209,8 @@ class WFHelpers {
         int x_fMax,
         int x_fCenter,
         QColor markerColor,
-        QColor cutOffColor);
+        QColor cutOffColor,
+        bool centralLine = true);
 
     static void drawChannelBox(
         QPainter &painter,

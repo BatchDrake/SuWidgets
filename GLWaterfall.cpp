@@ -1482,7 +1482,8 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
           x_fMax,
           x_fCenter,
           p->markerColor,
-          p->cutOffColor);
+          p->cutOffColor,
+          !p->bandLike);
   }
 
   // Draw demod filter box

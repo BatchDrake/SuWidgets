@@ -926,7 +926,8 @@ void Waterfall::paintEvent(QPaintEvent *)
             x_fMax,
             x_fCenter,
             p->markerColor,
-            p->cutOffColor);
+            p->cutOffColor,
+            !p->bandLike);
     }
 
     if (m_FilterBoxEnabled)
