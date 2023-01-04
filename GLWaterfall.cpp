@@ -2357,11 +2357,14 @@ GLWaterfall::drawOverlay()
     bandY = this->drawFATs(ctx, StartFreq, EndFreq);
 
   // Draw named channel (boxes)
-  for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
+  for (auto i = m_channelSet.find(StartFreq - m_Span); i != m_channelSet.cend(); ++i) {
     auto p = i.value();
     int x_fCenter = xFromFreq(p->frequency);
     int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
     int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
+
+    if (p->frequency + p->highFreqCut < StartFreq)
+      continue;
 
     if (EndFreq < p->frequency + p->lowFreqCut)
       break;
@@ -2377,7 +2380,8 @@ GLWaterfall::drawOverlay()
             p->markerColor,
             p->name,
             p->markerColor,
-            bandY + ctx.metrics->height() / 2);
+            ctx.metrics->height() / 2,
+            bandY + p->nestLevel * ctx.metrics->height());
     } else {
       WFHelpers::drawChannelBox(
             painter,
@@ -2387,7 +2391,10 @@ GLWaterfall::drawOverlay()
             x_fCenter,
             p->boxColor,
             p->markerColor,
-            p->name);
+            p->name,
+            QColor(),
+            -1,
+            bandY + p->nestLevel * ctx.metrics->height());
     }
   }
 

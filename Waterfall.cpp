@@ -1856,14 +1856,18 @@ void Waterfall::drawOverlay()
     painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, m_unitName);
 
     // Draw named channel (boxes)
-    for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
+    for (auto i = m_channelSet.find(StartFreq - m_Span); i != m_channelSet.cend(); ++i) {
         auto p = i.value();
         int x_fCenter = xFromFreq(p->frequency);
         int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
         int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
 
+        if (p->frequency + p->highFreqCut < StartFreq)
+          continue;
+
         if (EndFreq < p->frequency + p->lowFreqCut)
-        break;
+          break;
+
 
         if (p->bandLike) {
           WFHelpers::drawChannelBox(
@@ -1876,7 +1880,8 @@ void Waterfall::drawOverlay()
               p->markerColor,
               p->name,
               p->markerColor,
-              bandY);
+              0,
+              bandY + p->nestLevel * metrics.height());
         } else {
           WFHelpers::drawChannelBox(
               painter,
@@ -1886,7 +1891,10 @@ void Waterfall::drawOverlay()
               x_fCenter,
               p->boxColor,
               p->markerColor,
-              p->name);
+              p->name,
+              QColor(),
+              -1,
+              bandY + p->nestLevel * metrics.height());
         }
     }
     

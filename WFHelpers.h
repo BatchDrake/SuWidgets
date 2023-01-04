@@ -135,6 +135,7 @@ struct NamedChannel {
   QColor  cutOffColor;
 
   bool    bandLike = false;
+  int     nestLevel = 0;
 };
 
 typedef QMultiMap<qint64, NamedChannel *>::const_iterator NamedChannelSetIterator;
@@ -222,7 +223,8 @@ class WFHelpers {
         QColor markerColor,
         QString text = "",
         QColor textColor = QColor(),
-        int horizontalOffset = -1);
+        int horizontalOffset = -1,
+        int verticalOffset = 0);
 };
 
 #endif // WFHELPERS_H

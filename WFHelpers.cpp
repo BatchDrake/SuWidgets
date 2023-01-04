@@ -138,30 +138,34 @@ WFHelpers::drawChannelBox(
     QColor markerColor,
     QString text,
     QColor textColor,
-    int horizontalOffset)
+    int horizontalOffset,
+    int verticalOffset)
 {
   const int padding = 3;
   QPen borderPen = QPen(boxColor, 1, Qt::DashLine);
   int dw = x_fMax - x_fMin;
   bool bandLike = horizontalOffset >= 0;
+  int y = verticalOffset;
 
   // Paint box
   painter.save();
   painter.setOpacity(0.3);
-  painter.fillRect(x_fMin, 0, dw, h, boxColor);
+  painter.fillRect(x_fMin, y, dw, h, boxColor);
 
   // Draw marker
   if (!bandLike) {
     painter.setPen(markerColor);
     painter.setOpacity(1);
-    painter.drawLine(x_fCenter, 0, x_fCenter, h);
+    painter.drawLine(x_fCenter, y, x_fCenter, h);
   }
 
   // Draw border
   painter.setOpacity(1);
   painter.setPen(borderPen);
-  painter.drawLine(x_fMin, 0, x_fMin, h);
-  painter.drawLine(x_fMax, 0, x_fMax, h);
+  painter.drawLine(x_fMin, y, x_fMin, h);
+  painter.drawLine(x_fMax, y, x_fMax, h);
+  if (y > 0)
+    painter.drawLine(x_fMin, y, x_fMax, y);
   painter.restore();
 
   // Draw text (if provided)
@@ -180,6 +184,9 @@ WFHelpers::drawChannelBox(
 #endif // QT_VERSION_CHECK
 
     painter.save();
+
+    painter.translate(0, y);
+    h -= y;
     painter.setOpacity(1);
 
     if (bandLike) {
@@ -333,7 +340,7 @@ NamedChannelSet::addChannel(
   channel->cutOffColor = cutOffColor;
 
   m_allocation.append(channel);
-  it = m_sortedChannels.insert(frequency + fMax, channel);
+  it = m_sortedChannels.insert(frequency + fMin, channel);
 
   return it;
 }
@@ -342,7 +349,7 @@ bool
 NamedChannelSet::isOutOfPlace(NamedChannelSetIterator it) const
 {
   auto channel = it.value();
-  auto key = channel->frequency + channel->highFreqCut;
+  auto key = channel->frequency + channel->lowFreqCut;
 
   return it.key() != key;
 }
@@ -355,7 +362,7 @@ NamedChannelSet::relocate(NamedChannelSetIterator it)
   m_sortedChannels.remove(it.key(), it.value());
 
   it = m_sortedChannels.insert(
-        channel->frequency + channel->highFreqCut,
+        channel->frequency + channel->lowFreqCut,
         channel);
 
   return it;
