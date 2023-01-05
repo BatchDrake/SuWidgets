@@ -374,7 +374,7 @@ NamedChannelSet::remove(NamedChannelSetIterator it)
   NamedChannel *channel = it.value();
 
   if (m_allocation.removeOne(channel)) {
-    free(channel);
+    delete channel;
 
     m_sortedChannels.remove(it.key(), it.value());
   }
