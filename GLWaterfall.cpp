@@ -1637,6 +1637,10 @@ GLWaterfall::drawSpectrum(QPainter &painter, int forceHeight)
       painter.translate(0.5, 0.5);
 #endif
 
+  // Do we have valid FFT data?
+  if (m_fftDataSize < 1)
+    return;
+
   // get new scaled fft data
   getScreenIntegerFFTData(
         h,
@@ -1651,7 +1655,8 @@ GLWaterfall::drawSpectrum(QPainter &painter, int forceHeight)
             -limit,
             m_tentativeCenterFreq + m_FftCenter,
             limit) + (qint64)m_Span/2,
-          m_fftData, m_fftbuf,
+          m_fftData,
+          m_fftbuf,
           &xmin,
           &xmax);
 
