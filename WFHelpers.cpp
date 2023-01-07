@@ -164,7 +164,7 @@ WFHelpers::drawChannelBox(
   painter.setPen(borderPen);
   painter.drawLine(x_fMin, y, x_fMin, h);
   painter.drawLine(x_fMax, y, x_fMax, h);
-  if (y > 0)
+  if (y > 0 && !bandLike)
     painter.drawLine(x_fMin, y, x_fMax, y);
   painter.restore();
 
