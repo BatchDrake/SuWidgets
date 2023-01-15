@@ -1083,6 +1083,7 @@ void Waterfall::draw(bool everything)
     int     h;
     int     xmin, xmax;
     qint64 limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
+    bool valid = m_fftDataSize > 0;
 
     if (m_DrawOverlay) {
         drawOverlay();
@@ -1096,7 +1097,7 @@ void Waterfall::draw(bool everything)
     h = m_WaterfallImage.height();
 
     // no need to draw if pixmap is invisible
-    if (w != 0 && h != 0 && everything)
+    if (w != 0 && h != 0 && valid && everything)
     {
         quint64     tnow_ms = time_ms();
 
@@ -1174,7 +1175,7 @@ void Waterfall::draw(bool everything)
     w = m_2DPixmap.width();
     h = m_2DPixmap.height();
 
-    if (w != 0 && h != 0)
+    if (w != 0 && h != 0 && valid)
     {
         // first copy into 2Dbitmap the overlay bitmap.
         m_2DPixmap = m_OverlayPixmap.copy(0,0,w,h);
