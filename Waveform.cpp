@@ -459,7 +459,7 @@ Waveform::mousePressEvent(QMouseEvent *event)
         || this->clickY >= this->geometry.height() - this->frequencyTextHeight)
       this->frequencyDragging = true;
     else if (this->clickX < this->valueTextWidth)
-      this->valueDragging = true;
+      this->valueDragging = !this->autoFitToEnvelope && true;
     else
       this->hSelDragging = true;
   }
@@ -525,10 +525,12 @@ Waveform::wheelEvent(QWheelEvent *event)
     qreal amount = std::pow(
           static_cast<qreal>(1.1),
           static_cast<qreal>(-delta / 120.));
-    if (x < this->valueTextWidth)
-      this->zoomVertical(static_cast<qint64>(y), amount);
-    else
+    if (x < this->valueTextWidth) {
+      if (!this->autoFitToEnvelope)
+        this->zoomVertical(static_cast<qint64>(y), amount);
+    } else {
       this->zoomHorizontal(static_cast<qint64>(x), amount);
+    }
 
     this->invalidate();
   }
