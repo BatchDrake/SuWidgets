@@ -253,8 +253,12 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+
     void wheelEvent(QWheelEvent *event) override;
     void leaveEvent(QEvent *event) override;
+
+    bool event(QEvent *event) override;
 
 public:
     inline bool
@@ -715,6 +719,9 @@ signals:
   void verticalSelectionChanged(qreal min, qreal max);
   void hoverTime(qreal);
   void waveViewChanged(void);
+  void pointClicked(qreal, qreal);
+
+  void toolTipAt(int x, int y, qreal, qreal);
 
 public slots:
   void onWaveViewChanges(void);

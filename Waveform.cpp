@@ -475,6 +475,36 @@ Waveform::mouseReleaseEvent(QMouseEvent *event)
 }
 
 void
+Waveform::mouseDoubleClickEvent(QMouseEvent *event)
+{
+  int x = event->pos().x();
+  int y = event->pos().y();
+  qreal t = px2samp(x);
+  qreal v = px2value(y);
+
+  emit pointClicked(t, v);
+}
+
+bool
+Waveform::event(QEvent *event)
+{
+  if (event->type() == QEvent::ToolTip) {
+    QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
+
+    int x = helpEvent->globalPos().x();
+    int y = helpEvent->globalPos().y();
+    qreal t = px2samp(helpEvent->pos().x());
+    qreal v = px2value(helpEvent->pos().y());
+
+    emit toolTipAt(x, y, t, v);
+
+    return true;
+  }
+
+  return QWidget::event(event);
+}
+
+void
 Waveform::wheelEvent(QWheelEvent *event)
 {
   int delta = event->angleDelta().y();
