@@ -719,7 +719,7 @@ signals:
   void verticalSelectionChanged(qreal min, qreal max);
   void hoverTime(qreal);
   void waveViewChanged(void);
-  void pointClicked(qreal, qreal);
+  void pointClicked(qreal, qreal, Qt::KeyboardModifiers);
 
   void toolTipAt(int x, int y, qreal, qreal);
 

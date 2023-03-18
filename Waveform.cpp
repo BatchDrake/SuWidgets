@@ -482,7 +482,7 @@ Waveform::mouseDoubleClickEvent(QMouseEvent *event)
   qreal t = px2samp(x);
   qreal v = px2value(y);
 
-  emit pointClicked(t, v);
+  emit pointClicked(t, v, event->modifiers());
 }
 
 bool
