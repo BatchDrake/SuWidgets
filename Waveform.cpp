@@ -940,6 +940,18 @@ Waveform::overlaySelectionMarkes(QPainter &p)
     }
   } else {
     QPen pen;
+    QRect rect;
+    QFont font;
+    QFontMetrics metrics(font);
+    int tw;
+    qint64 px = xEnd;
+    int ypx = 0;
+    QString text =
+        "Δt = " +
+        SuWidgetsHelpers::formatQuantity(
+          this->samp2t(this->hSelEnd) - this->samp2t(this->hSelStart),
+          4,
+          "s");
 
     pen.setStyle(Qt::DashLine);
     pen.setColor(this->text);
@@ -947,6 +959,22 @@ Waveform::overlaySelectionMarkes(QPainter &p)
     p.setPen(pen);
     p.drawLine(xStart, 0, xStart, this->geometry.height() - 1);
     p.drawLine(xEnd,   0, xEnd, this->geometry.height() - 1);
+
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    tw = metrics.horizontalAdvance(text);
+#else
+    tw = metrics.width(text);
+#endif // QT_VERSION_CHECK
+
+    rect.setRect(
+          px + metrics.height() / 2,
+          ypx,
+          tw,
+          metrics.height());
+    p.setOpacity(1);
+    p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, text);
+
   }
 }
 
