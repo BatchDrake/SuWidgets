@@ -172,7 +172,11 @@ WaveWorker::run(void)
           length,
           &m_owner->state);
 
-    build(i, i + length - 1);
+    try {
+      build(i, i + length - 1);
+    } catch (std::bad_alloc &) {
+      cancelFlag = true;
+    }
 
     gettimeofday(&tv, nullptr);
     timersub(&tv, &otv, &diff);
