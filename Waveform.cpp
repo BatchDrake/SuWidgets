@@ -28,99 +28,127 @@
 void
 WaveBuffer::operator=(const WaveBuffer &prev)
 {
-  this->view      = prev.view;
-  this->ownBuffer = prev.ownBuffer;
-  this->loan      = prev.loan;
+  m_view      = prev.m_view;
+  m_ownBuffer = prev.m_ownBuffer;
+  m_loan      = prev.m_loan;
+  m_ro        = prev.m_ro;
 
-  if (!this->isLoan())
-    this->buffer = &this->ownBuffer;
+  m_ro_data   = prev.m_ro_data;
+  m_ro_size   = prev.m_ro_size;
+
+  if (!isLoan())
+    m_buffer = &m_ownBuffer;
   else
-    this->buffer = prev.buffer;
+    m_buffer = prev.m_buffer;
 }
 
+// Constructor by allocation of new buffer
 WaveBuffer::WaveBuffer(WaveView *view)
 {
-  this->view   = view;
-  this->buffer = &this->ownBuffer;
-  this->loan   = false;
+  m_view   = view;
+  m_buffer = &m_ownBuffer;
+  m_loan   = false;
+  m_ro     = false;
 
-  assert(this->isLoan() || this->buffer == &this->ownBuffer);
+  assert(isLoan() || m_buffer == &m_ownBuffer);
 
-  if (view != nullptr)
-    this->view->setBuffer(this->buffer);
+  updateBuffer();
 }
 
+// Constructor by loan (read / write)
 WaveBuffer::WaveBuffer(WaveView *view, const std::vector<SUCOMPLEX> *vec)
 {
-  this->view = view;
-  this->loan = true;
-  this->buffer = vec;
+  m_view   = view;
+  m_loan   = true;
+  m_ro     = false;
+  m_buffer = vec;
 
-  if (view != nullptr)
-    this->view->setBuffer(this->buffer);
+  updateBuffer();
+}
+
+// Constructor by loan (read only)
+WaveBuffer::WaveBuffer(WaveView *view, const SUCOMPLEX *data, size_t size)
+{
+  m_view    = view;
+  m_buffer  = nullptr;
+  m_loan    = true;
+  m_ro      = true;
+
+  m_ro_data = data;
+  m_ro_size = size;
+
+  updateBuffer();
 }
 
 bool
 WaveBuffer::feed(SUCOMPLEX val)
 {
-  if (this->loan)
+  if (m_loan)
     return false;
 
-  this->ownBuffer.push_back(val);
+  m_ownBuffer.push_back(val);
 
-  if (view != nullptr)
-    this->view->refreshBuffer(&ownBuffer);
+  if (m_view != nullptr)
+    m_view->refreshBuffer(&m_ownBuffer);
 
   return true;
 }
 
 void
-WaveBuffer::rebuildViews(void)
+WaveBuffer::rebuildViews()
 {
-  if (this->view != nullptr)
-    this->view->refreshBuffer(this->buffer);
+  refreshBufferCache();
+
+  if (m_view != nullptr)
+    m_view->refreshBuffer(m_ro_data, m_ro_size);
 }
 
 bool
 WaveBuffer::feed(std::vector<SUCOMPLEX> const &vec)
 {
-  if (this->loan)
+  if (m_loan)
     return false;
 
-  this->ownBuffer.insert(this->ownBuffer.end(), vec.begin(), vec.end());
+  m_ownBuffer.insert(m_ownBuffer.end(), vec.begin(), vec.end());
+  refreshBufferCache();
 
-  if (view != nullptr)
-    this->view->refreshBuffer(&ownBuffer);
+  if (m_view != nullptr)
+    m_view->refreshBuffer(&m_ownBuffer);
 
   return true;
 }
 
 size_t
-WaveBuffer::length(void) const
+WaveBuffer::length() const
 {
-  assert(this->isLoan() || this->buffer == &this->ownBuffer);
-  return this->buffer->size();
+  assert(isLoan() || m_buffer == &m_ownBuffer);
+
+  return m_ro ? m_ro_size : m_buffer->size();
 }
 
 const SUCOMPLEX *
-WaveBuffer::data(void) const
+WaveBuffer::data() const
 {
-  assert(this->isLoan() || this->buffer == &this->ownBuffer);
-  return this->buffer->data();
+  assert(this->isLoan() || m_buffer == &m_ownBuffer);
+
+  return m_ro ? m_ro_data : m_buffer->data();
 }
 
 const std::vector<SUCOMPLEX> *
-WaveBuffer::loanedBuffer(void) const
+WaveBuffer::loanedBuffer() const
 {
-  if (!this->loan)
+  if (!m_loan)
     return nullptr;
 
-  return this->buffer;
+  if (m_ro)
+    return nullptr;
+
+  return m_buffer;
 }
 
 ////////////////////////// Geometry methods ////////////////////////////////////
 void
-Waveform::recalculateDisplayData(void)
+Waveform::recalculateDisplayData()
 {
   qreal range;
   qreal divLen;
@@ -132,7 +160,7 @@ Waveform::recalculateDisplayData(void)
   //  7.141 ... 2 ...  3. Only 3 divs if rounding to the 1e-3.
   //  7.141 ...15 ... 20 ... 25 ... 30. 5 divs if rounding to de 5e-4!
 
-  range = this->view.getViewInterval();
+  range = m_view.getViewInterval();
   divLen = pow(10, std::floor(std::log10(range)));
 
   // We progressively divide the division length, until we find a good match
@@ -147,10 +175,10 @@ Waveform::recalculateDisplayData(void)
     }
   }
 
-  this->hDivSamples = divLen * this->view.getSampleRate();
+  this->hDivSamples = divLen * m_view.getSampleRate();
 
   // Same procedure for vertical axis
-  range = this->view.getViewRange();
+  range = m_view.getViewRange();
   divLen = pow(10, std::floor(std::log10(range)));
   if (range / divLen < 5) {
     divLen /= 2;
@@ -167,10 +195,10 @@ Waveform::recalculateDisplayData(void)
 }
 
 void
-Waveform::zoomHorizontalReset(void)
+Waveform::zoomHorizontalReset()
 {
   if (this->haveGeometry) {
-    qint64 length = SCAST(qint64, this->data.length());
+    qint64 length = SCAST(qint64, m_data.length());
 
     if (length > 0)
       this->zoomHorizontal(SCAST(qint64, 0), length - 1);
@@ -196,7 +224,7 @@ Waveform::zoomHorizontal(qint64 x, qreal amount)
   //
 
   fixedSamp = std::round(this->px2samp(x));
-  newRange  = std::ceil(amount * this->view.getViewSampleInterval());
+  newRange  = std::ceil(amount * m_view.getViewSampleInterval());
 
   this->zoomHorizontal(
         static_cast<qint64>(std::floor(fixedSamp - relPoint * newRange)),
@@ -218,7 +246,7 @@ Waveform::zoomHorizontal(qint64 start, qint64 end)
   qint64 currEnd   = this->getSampleEnd();
 
   if (start != currStart || end != currEnd) {
-    this->view.setHorizontalZoom(start, end);
+    m_view.setHorizontalZoom(start, end);
     if (this->hSelection)
       this->selUpdated = false;
     this->axesDrawn = false;
@@ -228,7 +256,7 @@ Waveform::zoomHorizontal(qint64 start, qint64 end)
 }
 
 void
-Waveform::saveHorizontal(void)
+Waveform::saveHorizontal()
 {
   this->savedStart = this->getSampleStart();
   this->savedEnd   = this->getSampleEnd();
@@ -269,13 +297,13 @@ Waveform::selectHorizontal(qreal orig, qreal to)
 }
 
 bool
-Waveform::getHorizontalSelectionPresent(void) const
+Waveform::getHorizontalSelectionPresent() const
 {
   return this->getDataLength() > 0 && this->hSelection;
 }
 
 qreal
-Waveform::getHorizontalSelectionStart(void) const
+Waveform::getHorizontalSelectionStart() const
 {
   if (!this->getHorizontalSelectionPresent())
     return .0;
@@ -284,7 +312,7 @@ Waveform::getHorizontalSelectionStart(void) const
 }
 
 qreal
-Waveform::getHorizontalSelectionEnd(void) const
+Waveform::getHorizontalSelectionEnd() const
 {
   if (!this->getHorizontalSelectionPresent())
     return .0;
@@ -300,7 +328,7 @@ Waveform::setAutoScroll(bool value)
 }
 
 void
-Waveform::zoomVerticalReset(void)
+Waveform::zoomVerticalReset()
 {
   this->zoomVertical(-1., 1.);
 }
@@ -318,7 +346,7 @@ Waveform::zoomVertical(qint64 y, qreal amount)
 void
 Waveform::zoomVertical(qreal min, qreal max)
 {
-  this->view.setVerticalZoom(min, max);
+  m_view.setVerticalZoom(min, max);
   this->axesDrawn = false;
 
   this->recalculateDisplayData();
@@ -326,7 +354,7 @@ Waveform::zoomVertical(qreal min, qreal max)
 }
 
 void
-Waveform::saveVertical(void)
+Waveform::saveVertical()
 {
   this->savedMin = this->getMin();
   this->savedMax = this->getMax();
@@ -367,27 +395,27 @@ Waveform::selectVertical(qint64 orig, qint64 to)
 }
 
 bool
-Waveform::getVerticalSelectionPresent(void) const
+Waveform::getVerticalSelectionPresent() const
 {
   return this->vSelection;
 }
 
 qreal
-Waveform::getVerticalSelectionStart(void) const
+Waveform::getVerticalSelectionStart() const
 {
   return this->vSelStart;
 }
 
 qreal
-Waveform::getVerticalSelectionEnd(void) const
+Waveform::getVerticalSelectionEnd() const
 {
   return this->vSelEnd;
 }
 
 void
-Waveform::fitToEnvelope(void)
+Waveform::fitToEnvelope()
 {
-  qreal envelope = this->view.getEnvelope();
+  qreal envelope = m_view.getEnvelope();
 
   if (envelope > 0)
     this->zoomVertical(-envelope, envelope);
@@ -403,7 +431,7 @@ Waveform::setAutoFitToEnvelope(bool autoFit)
 
 
 void
-Waveform::resetSelection(void)
+Waveform::resetSelection()
 {
   this->hSelection = this->vSelection = false;
   this->selUpdated = false;
@@ -707,27 +735,27 @@ Waveform::overlayACursors(QPainter &p)
 }
 
 void
-Waveform::drawWave(void)
+Waveform::drawWave()
 {
   waveform.fill(Qt::transparent);
   QPainter p(&this->waveform);
 
   this->overlayACursors(p);
-  this->view.drawWave(p);
+  m_view.drawWave(p);
   this->overlayMarkers(p);
   this->overlayVCursors(p);
   p.end();
 }
 
 void
-Waveform::drawVerticalAxes(void)
+Waveform::drawVerticalAxes()
 {
   QFont font;
   QPainter p(&this->axesPixmap);
   QFontMetrics metrics(font);
   QRect rect;
   QPen pen(this->axes);
-  qreal deltaT = this->view.getDeltaT();
+  qreal deltaT = m_view.getDeltaT();
   int axis;
   int px;
 
@@ -787,7 +815,7 @@ Waveform::drawVerticalAxes(void)
 }
 
 void
-Waveform::drawHorizontalAxes(void)
+Waveform::drawHorizontalAxes()
 {
   QFont font;
   QPainter p(&this->axesPixmap);
@@ -842,7 +870,7 @@ Waveform::drawHorizontalAxes(void)
 
         if (tw > this->valueTextWidth) {
           this->valueTextWidth = tw;
-          this->view.setLeftMargin(tw);
+          m_view.setLeftMargin(tw);
         }
 
         p.fillRect(rect, this->background);
@@ -856,7 +884,7 @@ Waveform::drawHorizontalAxes(void)
 }
 
 void
-Waveform::drawAxes(void)
+Waveform::drawAxes()
 {
   this->axesPixmap.fill(Qt::transparent);
   this->drawHorizontalAxes();
@@ -923,7 +951,7 @@ Waveform::overlaySelectionMarkes(QPainter &p)
 }
 
 void
-Waveform::draw(void)
+Waveform::draw()
 {
   if (!this->size().isValid())
     return;
@@ -935,7 +963,7 @@ Waveform::draw(void)
   QRect rect(0, 0, this->size().width(), this->size().height());
 
   if (this->geometry != this->size()) {
-    this->view.setGeometry(this->size().width(), this->size().height());
+    m_view.setGeometry(this->size().width(), this->size().height());
 
     this->geometry = this->size();
     if (!this->haveGeometry) {
@@ -997,7 +1025,7 @@ Waveform::draw(void)
 }
 
 void
-Waveform::paint(void)
+Waveform::paint()
 {
   QPainter painter(this);
   painter.drawPixmap(0, 0, this->contentPixmap);
@@ -1017,7 +1045,7 @@ Waveform::paint(void)
 void
 Waveform::reuseDisplayData(Waveform *other)
 {
-  this->view.borrowTree(other->view);
+  m_view.borrowTree(other->m_view);
 }
 
 void
@@ -1026,8 +1054,8 @@ Waveform::setData(
     bool keepView,
     bool flush)
 {
-  bool   appending  = data != nullptr && data == this->data.loanedBuffer();
-  qint64 prevLength = SCAST(qint64, this->view.getLength());
+  bool   appending  = data != nullptr && data == m_data.loanedBuffer();
+  qint64 prevLength = SCAST(qint64, m_view.getLength());
   qint64 newLength  = data == nullptr ? 0 : static_cast<qint64>(data->size());
   qint64 extra      = newLength - prevLength;
 
@@ -1037,23 +1065,53 @@ Waveform::setData(
     // The current wavebuffer holds a reference to the same data vector,
     // we only inform the view to recalculate the new samples
     if (flush) {
-      this->view.setBuffer(data);
+      m_view.setBuffer(data);
     } else if (extra > 0) {
-      this->view.refreshBuffer(data);
+      m_view.refreshBuffer(data);
     }
 
   } else {
     if (data != nullptr)
-      this->data = WaveBuffer(&this->view, data);
+      m_data = WaveBuffer(&m_view, data);
     else
-      this->data = WaveBuffer(&this->view);
+      m_data = WaveBuffer(&m_view);
+  }
+}
+
+void
+Waveform::setData(
+    const SUCOMPLEX *data,
+    size_t size,
+    bool keepView,
+    bool flush,
+    bool appending)
+{
+  qint64 prevLength = SCAST(qint64, m_view.getLength());
+  qint64 extra      = size - prevLength;
+
+  this->askedToKeepView = keepView;
+
+  if (appending) {
+    // The current wavebuffer holds a reference to the same data vector,
+    // we only inform the view to recalculate the new samples
+    if (flush) {
+      m_view.setBuffer(data, size);
+    } else if (extra > 0) {
+      m_view.refreshBuffer(data, size);
+    }
+
+  } else {
+    if (data != nullptr)
+      m_data = WaveBuffer(&m_view, data, size);
+    else
+      m_data = WaveBuffer(&m_view);
   }
 }
 
 void
 Waveform::setRealComponent(bool real)
 {
-  this->view.setRealComponent(real);
+  m_view.setRealComponent(real);
   this->fitToEnvelope();
   this->invalidate();
 }
@@ -1061,7 +1119,7 @@ Waveform::setRealComponent(bool real)
 void
 Waveform::setShowEnvelope(bool show)
 {
-  this->view.setShowEnvelope(show);
+  m_view.setShowEnvelope(show);
   this->waveDrawn = false;
   this->axesDrawn = false;
   this->invalidate();
@@ -1070,8 +1128,8 @@ Waveform::setShowEnvelope(bool show)
 void
 Waveform::setShowPhase(bool show)
 {
-  this->view.setShowPhase(show);
-  if (this->view.isEnvelopeVisible()) {
+  m_view.setShowPhase(show);
+  if (m_view.isEnvelopeVisible()) {
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
@@ -1081,9 +1139,9 @@ Waveform::setShowPhase(bool show)
 void
 Waveform::setShowPhaseDiff(bool show)
 {
-  this->view.setShowPhaseDiff(show);
+  m_view.setShowPhaseDiff(show);
 
-  if (this->view.isEnvelopeVisible()) {
+  if (m_view.isEnvelopeVisible()) {
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
@@ -1093,11 +1151,11 @@ Waveform::setShowPhaseDiff(bool show)
 void
 Waveform::setPhaseDiffOrigin(unsigned origin)
 {
-  this->view.setPhaseDiffOrigin(origin);
+  m_view.setPhaseDiffOrigin(origin);
 
-  if (this->view.isEnvelopeVisible()
-      && this->view.isPhaseEnabled()
-      && this->view.isPhaseDiffEnabled()) {
+  if (m_view.isEnvelopeVisible()
+      && m_view.isPhaseEnabled()
+      && m_view.isPhaseDiffEnabled()) {
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
@@ -1107,11 +1165,11 @@ Waveform::setPhaseDiffOrigin(unsigned origin)
 void
 Waveform::setPhaseDiffContrast(qreal contrast)
 {
-  this->view.setPhaseDiffContrast(contrast);
+  m_view.setPhaseDiffContrast(contrast);
 
-  if (this->view.isEnvelopeVisible()
-      && this->view.isPhaseEnabled()
-      && this->view.isPhaseDiffEnabled()) {
+  if (m_view.isEnvelopeVisible()
+      && m_view.isPhaseEnabled()
+      && m_view.isPhaseDiffEnabled()) {
     this->waveDrawn = false;
     this->axesDrawn = false;
     this->invalidate();
@@ -1121,7 +1179,7 @@ Waveform::setPhaseDiffContrast(qreal contrast)
 void
 Waveform::setShowWaveform(bool show)
 {
-  this->view.setShowWaveform(show);
+  m_view.setShowWaveform(show);
 
   this->waveDrawn = false;
   this->axesDrawn = false;
@@ -1129,16 +1187,16 @@ Waveform::setShowWaveform(bool show)
 }
 
 void
-Waveform::refreshData(void)
+Waveform::refreshData()
 {
-  qint64 currSpan = this->view.getViewSampleInterval();
+  qint64 currSpan = m_view.getViewSampleInterval();
   qint64 lastSample = this->getDataLength() - 1;
 
   this->askedToKeepView = true;
-  this->data.rebuildViews();
+  m_data.rebuildViews();
 
   if (this->autoScroll && this->getSampleEnd() <= lastSample)
-    this->view.setHorizontalZoom(lastSample - currSpan, lastSample);
+    m_view.setHorizontalZoom(lastSample - currSpan, lastSample);
 
   this->waveDrawn = false;
 
@@ -1152,11 +1210,11 @@ Waveform::refreshData(void)
 
 Waveform::Waveform(QWidget *parent) :
   ThrottleableWidget(parent),
-  data(&this->view)
+  m_data(&m_view)
 {
   std::vector<QColor> colorTable;
 
-  this->view.setSampleRate(1024000);
+  m_view.setSampleRate(1024000);
 
   colorTable.resize(256);
 
@@ -1189,27 +1247,27 @@ Waveform::Waveform(QWidget *parent) :
   this->subSelection = WAVEFORM_DEFAULT_SUBSEL_COLOR;
   this->envelope     = WAVEFORM_DEFAULT_ENVELOPE_COLOR;
 
-  this->view.setPalette(colorTable.data());
-  this->view.setForeground(this->foreground);
+  m_view.setPalette(colorTable.data());
+  m_view.setForeground(this->foreground);
 
   connect(
-        &this->view,
+        &m_view,
         SIGNAL(ready()),
         this,
-        SLOT(onWaveViewChanges(void)));
+        SLOT(onWaveViewChanges()));
 
   connect(
-        &this->view,
+        &m_view,
         SIGNAL(progress()),
         this,
-        SLOT(onWaveViewChanges(void)));
+        SLOT(onWaveViewChanges()));
 
   this->setMouseTracking(true);
   this->invalidate();
 }
 
 void
-Waveform::onWaveViewChanges(void)
+Waveform::onWaveViewChanges()
 {
   if (!this->isComplete() && !this->enableFeedback)
     return;

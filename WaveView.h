@@ -353,8 +353,10 @@ public:
   void borrowTree(WaveView &);
   void drawWave(QPainter &painter);
   void setBuffer(const std::vector<SUCOMPLEX> *);
-  void refreshBuffer(const std::vector<SUCOMPLEX> *);
+  void setBuffer(const SUCOMPLEX *, size_t);
 
+  void refreshBuffer(const std::vector<SUCOMPLEX> *);
+  void refreshBuffer(const SUCOMPLEX *, size_t);
   // Slots
 public slots:
   void onReady(void);

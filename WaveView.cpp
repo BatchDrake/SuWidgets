@@ -556,17 +556,29 @@ WaveView::drawWave(QPainter &painter)
 void
 WaveView::setBuffer(const std::vector<SUCOMPLEX> *buf)
 {
+  setBuffer(buf->data(), buf->size());
+}
+
+void
+WaveView::setBuffer(const SUCOMPLEX *data, size_t size)
+{
   if (this->waveTree == &this->ownWaveTree) {
     this->waveTree->clear();
-    this->waveTree->reprocess(buf->data(), buf->size());
+    this->waveTree->reprocess(data, size);
   }
 }
 
 void
 WaveView::refreshBuffer(const std::vector<SUCOMPLEX> *buf)
 {
+  refreshBuffer(buf->data(), buf->size());
+}
+
+void
+WaveView::refreshBuffer(const SUCOMPLEX *data, size_t size)
+{
   if (this->waveTree == &this->ownWaveTree)
-    this->waveTree->reprocess(buf->data(), buf->size());
+    this->waveTree->reprocess(data, size);
 }
 
 ///////////////////////////////////// Slots ////////////////////////////////////
