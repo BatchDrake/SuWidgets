@@ -524,7 +524,8 @@ Waveform::event(QEvent *event)
 
     int x = helpEvent->globalPos().x();
     int y = helpEvent->globalPos().y();
-    qreal t = px2samp(helpEvent->pos().x());
+
+    qreal t = px2t(helpEvent->pos().x());
     qreal v = px2value(helpEvent->pos().y());
 
     emit toolTipAt(x, y, t, v);
