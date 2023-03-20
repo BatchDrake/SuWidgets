@@ -224,6 +224,8 @@ class Waveform : public ThrottleableWidget
   qint64 clickX;
   qint64 clickY;
 
+  qint64 clickSample;
+
   int  frequencyTextHeight;
   bool frequencyDragging = false;
 
@@ -274,6 +276,8 @@ class Waveform : public ThrottleableWidget
   void overlaySelection(QPainter &);
   void overlaySelectionMarkes(QPainter &);
   void recalculateDisplayData();
+
+  void triggerMouseMoveHere();
 
   inline bool
   somethingDirty() const

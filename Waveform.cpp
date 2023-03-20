@@ -21,6 +21,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QColormap>
+#include <QApplication>
 #include <SuWidgetsHelpers.h>
 #include <assert.h>
 
@@ -458,7 +459,7 @@ Waveform::mouseMoveEvent(QMouseEvent *event)
     this->scrollVertical(this->clickY, event->y());
   else if (this->hSelDragging)
     this->selectHorizontal(
-          static_cast<qint64>(this->px2samp(this->clickX)),
+          static_cast<qint64>(this->px2samp(this->samp2px(this->clickSample))),
           static_cast<qint64>(this->px2samp(event->x())));
 
   emit hoverTime(this->px2t(this->currMouseX));
@@ -478,6 +479,8 @@ Waveform::mousePressEvent(QMouseEvent *event)
 
     this->clickX = event->x();
     this->clickY = event->y();
+
+    this->clickSample = this->px2samp(this->clickX);
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     if (event->button() == Qt::MiddleButton
@@ -1215,6 +1218,24 @@ Waveform::setShowWaveform(bool show)
 }
 
 void
+Waveform::triggerMouseMoveHere()
+{
+  QPoint pos = QCursor::pos();
+
+  QMouseEvent *event = new QMouseEvent(
+        QEvent::Type::MouseMove,
+        QPointF(this->mapFromGlobal(pos)),
+        QPointF(pos),
+        Qt::NoButton,
+        QApplication::mouseButtons(),
+        QApplication::keyboardModifiers());
+
+  mouseMoveEvent(event);
+
+  delete event;
+}
+
+void
 Waveform::refreshData()
 {
   qint64 currSpan = m_view.getViewSampleInterval();
@@ -1223,8 +1244,12 @@ Waveform::refreshData()
   this->askedToKeepView = true;
   m_data.rebuildViews();
 
-  if (this->autoScroll && this->getSampleEnd() <= lastSample)
+  if (this->autoScroll && this->getSampleEnd() <= lastSample) {
     m_view.setHorizontalZoom(lastSample - currSpan, lastSample);
+
+    if (this->hSelDragging)
+      triggerMouseMoveHere();
+  }
 
   this->waveDrawn = false;
 
