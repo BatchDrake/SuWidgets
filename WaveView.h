@@ -136,13 +136,13 @@ public:
   inline qreal
   px2samp(qreal px) const
   {
-    return px * this->sampPerPx + static_cast<qreal>(this->start);
+    return (px - this->leftMargin) * this->sampPerPx + static_cast<qreal>(this->start);
   }
 
   inline qreal
   samp2px(qreal samp) const
   {
-    return (samp - static_cast<qreal>(this->start)) / this->sampPerPx;
+    return (samp - static_cast<qreal>(this->start)) / this->sampPerPx + this->leftMargin;
   }
 
   inline qreal

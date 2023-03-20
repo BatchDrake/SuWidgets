@@ -217,7 +217,7 @@ Waveform::zoomHorizontal(qint64 x, qreal amount)
 {
   qreal newRange;
   qreal fixedSamp;
-  qreal relPoint = static_cast<qreal>(x) / this->geometry.width();
+  qreal relPoint = static_cast<qreal>(x - this->valueTextWidth) / (this->geometry.width());
 
   //
   // This means that position at x remains the same, while the others shrink
