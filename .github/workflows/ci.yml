@@ -65,6 +65,25 @@ jobs:
     - name: Build (SuWidgets)
       run: make -j 2 -C SuWidgets
 
+    - name: Get short hash
+      id: vars
+      run: cd ${{github.workspace}}/SuWidgets/ && echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Make Debian packages
+      run: cd ${{github.workspace}}/SuWidgets/ && ./makedeb.sh 0.3.0-${{steps.vars.outputs.sha_short}}
+
+    - name: Upload lib deb artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: libsuwidgets_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+        path: ${{github.workspace}}/SuWidgets/libsuwidgets_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+
+    - name: Upload lib dev deb artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: libsuwidgets-dev_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+        path: ${{github.workspace}}/SuWidgets/libsuwidgets-dev_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+
   build-macos:
     runs-on: macos-latest
     steps:
