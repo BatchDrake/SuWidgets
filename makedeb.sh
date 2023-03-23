@@ -27,8 +27,8 @@ PKG_ARCH=`dpkg --print-architecture`
 PKG_DEPENDS='libsigutils (>= 0.3.0-1), libqt5core5a (>= 5.15.2+dfsg-9)'
 PKG_DEV_DEPENDS='libsigutils-dev (>= 0.3.0-1), qtcreator (>= 4.14.1-1)'
 
-BINDIR=libsigutils_${PKG_VERSION}_${PKG_ARCH}
-DEVDIR=libsigutils-dev_${PKG_VERSION}_${PKG_ARCH}
+BINDIR=libsuwidgets_${PKG_VERSION}_${PKG_ARCH}
+DEVDIR=libsuwidgets-dev_${PKG_VERSION}_${PKG_ARCH}
 ############################ Binary package ####################################
 # create structure
 rm -Rf $BINDIR

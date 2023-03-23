@@ -51,8 +51,6 @@ jobs:
     - name: Checkout (SuWidgets)
       uses: actions/checkout@v2
       with:
-        repository: BatchDrake/SuWidgets
-        ref: refs/heads/develop
         path: SuWidgets
 
     - name: QMake (SuWidgets)
@@ -67,10 +65,10 @@ jobs:
 
     - name: Get short hash
       id: vars
-      run: cd ${{github.workspace}}/SuWidgets/ && echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      run: cd SuWidgets && echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
     - name: Make Debian packages
-      run: cd ${{github.workspace}}/SuWidgets/ && ./makedeb.sh 0.3.0-${{steps.vars.outputs.sha_short}}
+      run: cd SuWidgets && ./makedeb.sh 0.3.0-${{steps.vars.outputs.sha_short}}
 
     - name: Upload lib deb artifact
       uses: actions/upload-artifact@v2
