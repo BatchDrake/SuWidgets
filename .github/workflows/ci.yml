@@ -24,7 +24,7 @@ jobs:
       run: sudo apt-get update
 
     - name: Install Qt
-      run: sudo apt-get install qtbase5-dev
+      run: sudo apt-get install qtbase5-dev qttools5-dev qttools5-dev-tools
 
     - name: Install sndfile
       run: sudo apt-get install libsndfile1-dev
