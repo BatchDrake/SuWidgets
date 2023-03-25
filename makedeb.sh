@@ -24,7 +24,7 @@ fi
 
 PKG_VERSION=$1
 PKG_ARCH=`dpkg --print-architecture`
-PKG_DEPENDS='libsigutils (>= 0.3.0-1), libqt5core5a (>= 5.15.2+dfsg-9)'
+PKG_DEPENDS='libsigutils (>= 0.3.0-1), libqt5core5a (>= 5.15.2+dfsg-9), libqt5widgets5 (>= 5.15.2+dfsg-9)'
 PKG_DEV_DEPENDS='libsigutils-dev (>= 0.3.0-1), qtcreator (>= 4.14.1-1)'
 
 BINDIR=libsuwidgets_${PKG_VERSION}_${PKG_ARCH}
