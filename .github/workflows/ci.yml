@@ -20,8 +20,11 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
+    - name: Update apt sources
+      run: sudo apt-get update
+
     - name: Install Qt
-      uses: jurplel/install-qt-action@v2
+      run: sudo apt-get install qtbase5-dev
 
     - name: Install sndfile
       run: sudo apt-get install libsndfile1-dev
