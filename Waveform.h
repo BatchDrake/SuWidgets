@@ -394,6 +394,12 @@ public:
       }
     }
 
+    inline void
+    setTimeStart(qreal s)
+    {
+      m_view.setTimeStart(s);
+    }
+
     inline qreal
     px2t(qreal px) const
     {

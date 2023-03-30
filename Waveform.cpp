@@ -762,6 +762,7 @@ Waveform::drawVerticalAxes()
   qreal deltaT = m_view.getDeltaT();
   int axis;
   int px;
+  bool unixTime = this->horizontalUnits == "unix";
 
   pen.setStyle(Qt::DotLine);
   p.setPen(pen);
@@ -794,10 +795,16 @@ Waveform::drawVerticalAxes()
         QString label;
         int tw;
 
-        label = SuWidgetsHelpers::formatQuantityFromDelta(
-              (this->oX + axis * this->hDivSamples - rem) * deltaT,
-              this->hDivSamples * deltaT,
-              this->horizontalUnits);
+        if (unixTime)
+          label = SuWidgetsHelpers::formatQuantity(
+                (this->oX + axis * this->hDivSamples - rem) * deltaT + m_view.samp2t(0),
+                0,
+                this->horizontalUnits);
+        else
+          label = SuWidgetsHelpers::formatQuantityFromDelta(
+                (this->oX + axis * this->hDivSamples - rem) * deltaT,
+                this->hDivSamples * deltaT,
+                this->horizontalUnits);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
         tw = metrics.horizontalAdvance(label);

@@ -147,7 +147,7 @@ SuWidgetsHelpers::formatQuantity(
     if (u == "s") {
       qint64 seconds = static_cast<qint64>(std::floor(value));
       qreal  frac    = value - seconds;
-      qint64 minutes, hours;
+      qint64 minutes, hours, days;
       int    decimalPart = 0;
 
       if (precision > 0) {
@@ -161,11 +161,27 @@ SuWidgetsHelpers::formatQuantity(
 
       minutes = seconds / 60;
       hours   = minutes / 60;
+      days    = hours / 24;
 
       seconds %= 60;
       minutes %= 60;
+      hours   %= 24;
 
-      if (hours > 0) {
+      if (days > 0) {
+        asString += QString::asprintf(
+              "%lldd %lld:%02lld:%02lld",
+              days,
+              hours,
+              minutes,
+              seconds);
+        if (days >= 10) {
+          precision -= 8;
+          decimalPart /= 10000000;
+        } else {
+          precision -= 7;
+          decimalPart /= 1000000;
+        }
+      } else if (hours > 0) {
         asString += QString::asprintf(
               "%lld:%02lld:%02lld",
               hours,
@@ -207,6 +223,36 @@ SuWidgetsHelpers::formatQuantity(
       // No hh:mm:ss or mm::ss, add suffix to make things clear.
       if (minutes == 0 && hours == 0)
         asString += " s";
+    } else if (u == "unix") {
+      qint64 seconds = static_cast<qint64>(std::floor(value));
+      char buf[sizeof "XXXX/XX/XX XX:XX:XX"];
+      time_t unixTime;
+      struct tm tm;
+      qreal  frac    = value - seconds;
+      int    decimalPart = 0;
+
+      if (precision > 0) {
+        multiplier = std::pow(10., precision - 1);
+        decimalPart = static_cast<int>(std::round(multiplier * frac));
+        if (std::fabs(decimalPart - multiplier) < 1) {
+          decimalPart = 0;
+          ++seconds;
+        }
+      }
+
+      unixTime = static_cast<time_t>(seconds);
+      localtime_r(&unixTime, &tm);
+      strftime(buf, sizeof(buf), "%Y/%m/%d %H:%M:%S", &tm);
+      asString += buf;
+
+      if (precision > 0) {
+        asString +=
+            QStringLiteral(".%1").arg(
+              decimalPart,
+              precision,
+              10,
+              QLatin1Char('0'));
+      }
     } else if (u == "deg") {
       unsigned int deg, min, seconds;
 
