@@ -763,6 +763,7 @@ Waveform::drawVerticalAxes()
   int axis;
   int px;
   bool unixTime = this->horizontalUnits == "unix";
+  int previousLabel = -1;
 
   pen.setStyle(Qt::DotLine);
   p.setPen(pen);
@@ -812,12 +813,15 @@ Waveform::drawVerticalAxes()
         tw = metrics.width(label);
 #endif // QT_VERSION_CHECK
 
-        rect.setRect(
-              px - tw / 2,
-              this->geometry.height() - this->frequencyTextHeight,
-              tw,
-              this->frequencyTextHeight);
-        p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, label);
+        if (previousLabel == -1 || previousLabel < px - tw / 2) {
+          rect.setRect(
+                px - tw / 2,
+                this->geometry.height() - this->frequencyTextHeight,
+                tw,
+                this->frequencyTextHeight);
+          p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, label);
+          previousLabel = px + tw / 2;
+        }
       }
       ++axis;
     }
