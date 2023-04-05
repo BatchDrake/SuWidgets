@@ -2501,7 +2501,7 @@ void GLWaterfall::makeFrequencyStrs()
                   StartFreq,
                   m_FreqPerDiv,
                   "Hz",
-                  true);
+                  false);
           } else {
             m_HDivText[i] = SuWidgetsHelpers::formatQuantityFromDelta(
                   (i - centerDiv) * m_FreqPerDiv,
