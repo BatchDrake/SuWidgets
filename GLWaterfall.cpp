@@ -2444,7 +2444,8 @@ void GLWaterfall::makeFrequencyStrs()
 {
     qint64  StartFreq = m_StartFreqAdj;
     float   freq;
-    int     i,j;
+    int     i,j, centerDiv;
+    bool    deltaRep;
 
     if ((1 == m_FreqUnits) || (m_FreqDigits == 0))
     {
@@ -2465,6 +2466,7 @@ void GLWaterfall::makeFrequencyStrs()
         m_HDivText[i].setNum(freq,'f', m_FreqDigits);
         StartFreq += m_FreqPerDiv;
     }
+
     // now find the division text with the longest non-zero digit
     // to the right of the decimal point.
     int max = 0;
@@ -2480,14 +2482,43 @@ void GLWaterfall::makeFrequencyStrs()
         if ((j - dp) > max)
             max = j - dp;
     }
+
+    // Decide whether we should use the delta representation here. We identify
+    // this situation if log10(m_FreqPerDiv) - log10(m_FreqUnits) <= -m_FreqDigits.
+    // This is, if the division in axis units requires more decimals than
+    // the current representation, settle for delta representation
+
+    deltaRep = log10(m_FreqPerDiv) - log10(m_FreqUnits) <= -m_FreqDigits;
+
     // truncate all strings to maximum fractional length
-    StartFreq = m_StartFreqAdj;
-    for (i = 0; i <= m_HorDivs; i++)
-    {
-        freq = (float)StartFreq/(float)m_FreqUnits;
-        m_HDivText[i].setNum(freq,'f', max);
-        m_HDivText[i] += formatFreqUnits(m_FreqUnits);
-        StartFreq += m_FreqPerDiv;
+    StartFreq  = m_StartFreqAdj;
+    centerDiv  = m_HorDivs / 2;
+
+    if (deltaRep) {
+      for (i = 0; i <= m_HorDivs; i++) {
+          if (i == centerDiv) {
+            m_HDivText[i] = SuWidgetsHelpers::formatQuantityFromDelta(
+                  StartFreq,
+                  m_FreqPerDiv,
+                  "Hz",
+                  true);
+          } else {
+            m_HDivText[i] = SuWidgetsHelpers::formatQuantityFromDelta(
+                  (i - centerDiv) * m_FreqPerDiv,
+                  m_FreqPerDiv,
+                  "Hz",
+                  true);
+          }
+
+          StartFreq += m_FreqPerDiv;
+      }
+    } else {
+      for (i = 0; i <= m_HorDivs; i++) {
+          freq = (float)StartFreq/(float)m_FreqUnits;
+          m_HDivText[i].setNum(freq,'f', max);
+          m_HDivText[i] += formatFreqUnits(m_FreqUnits);
+          StartFreq += m_FreqPerDiv;
+      }
     }
 }
 
