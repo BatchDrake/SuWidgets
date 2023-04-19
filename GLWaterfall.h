@@ -519,6 +519,9 @@ public slots:
     void setPeakDetection(bool enabled, float c);
     void updateOverlay();
 
+    void setInfoText(QString const &);
+    void setInfoTextColor(QColor const &);
+
     void setPercent2DScreen(int percent)
     {
         m_Percent2DScreen = percent;
@@ -691,6 +694,10 @@ private:
 
     // Named channels
     NamedChannelSet m_channelSet;
+
+    // Infotext
+    QString m_infoText;
+    QColor  m_infoTextColor;
 };
 
 #endif // GL_WATERFALL_H

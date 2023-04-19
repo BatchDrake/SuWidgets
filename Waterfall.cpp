@@ -163,6 +163,8 @@ Waterfall::Waterfall(QWidget *parent) : QFrame(parent)
     m_fftData = nullptr;
     m_wfData  = nullptr;
     m_fftDataSize = 0;
+
+    m_infoTextColor = m_FftTextColor;
 }
 
 Waterfall::~Waterfall()
@@ -1537,6 +1539,18 @@ void Waterfall::setWaterfallRange(float min, float max)
     // no overlay change is necessary
 }
 
+void Waterfall::setInfoText(QString const &text)
+{
+  m_infoText = text;
+  updateOverlay();
+}
+
+void Waterfall::setInfoTextColor(QColor const &color)
+{
+  m_infoTextColor = color;
+  updateOverlay();
+}
+
 // Called to draw an overlay bitmap containing grid and text that
 // does not need to be recreated every fft data update.
 void Waterfall::drawOverlay()
@@ -1902,6 +1916,26 @@ void Waterfall::drawOverlay()
     // Draw demod filter box
     if (m_FilterBoxEnabled)
         this->drawFilterBox(painter, h);
+
+
+    // Draw info text (if enabled)
+    if (!m_infoText.isEmpty()) {
+      int flags = Qt::AlignRight |  Qt::AlignTop | Qt::TextWordWrap;
+      QRectF pixRect = m_OverlayPixmap.rect();
+
+      pixRect.setWidth(pixRect.width() - 10);
+
+      QRectF rect = painter.boundingRect(
+            pixRect,
+            flags,
+            m_infoText);
+
+      rect.setX(pixRect.width() - rect.width());
+      rect.setY(0);
+
+      painter.setPen(QPen(m_infoTextColor, 2, Qt::SolidLine));
+      painter.drawText(rect, flags, m_infoText);
+    }
 
     if (!m_Running)
     {

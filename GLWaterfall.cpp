@@ -798,6 +798,8 @@ GLWaterfall::initDefaults(void)
   m_fftData = nullptr;
   m_wfData  = nullptr;
   m_fftDataSize = 0;
+
+  m_infoTextColor = QColor(0xFF,0xFF,0xFF,0xFF);
 }
 
 ///////////////////////////// GLWaterfall ////////////////////////////////////////
@@ -1994,6 +1996,18 @@ GLWaterfall::setWaterfallRange(float min, float max)
   // no overlay change is necessary
 }
 
+void GLWaterfall::setInfoText(QString const &text)
+{
+  m_infoText = text;
+  updateOverlay();
+}
+
+void GLWaterfall::setInfoTextColor(QColor const &color)
+{
+  m_infoTextColor = color;
+  updateOverlay();
+}
+
 int
 GLWaterfall::drawFATs(
     GLDrawingContext &ctx,
@@ -2401,6 +2415,25 @@ GLWaterfall::drawOverlay()
             -1,
             bandY + p->nestLevel * ctx.metrics->height());
     }
+  }
+
+  // Draw info text (if enabled)
+  if (!m_infoText.isEmpty()) {
+    int flags = Qt::AlignRight |  Qt::AlignTop | Qt::TextWordWrap;
+    QRectF pixRect = m_OverlayPixmap.rect();
+
+    pixRect.setWidth(pixRect.width() - 10);
+
+    QRectF rect = painter.boundingRect(
+          pixRect,
+          flags,
+          m_infoText);
+
+    rect.setX(pixRect.width() - rect.width());
+    rect.setY(0);
+
+    painter.setPen(QPen(m_infoTextColor, 2, Qt::SolidLine));
+    painter.drawText(rect, flags, m_infoText);
   }
 
   if (!m_Running) {
