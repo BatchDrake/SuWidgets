@@ -1530,8 +1530,10 @@ GLWaterfall::paintTimeStamps(
 #endif // QT_VERSION_CHECK
 
   while (y < m_TimeStampMaxHeight + textHeight && it != m_TimeStamps.end()) {
+    QString const &timeStampText =
+        m_TimeStampsUTC ? it->utcTimeStampText : it->timeStampText;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-    textWidth = metrics.horizontalAdvance(it->timeStampText);
+    textWidth = metrics.horizontalAdvance(timeStampText);
 #else
     textWidth = metrics.width(it->timeStampText);
 #endif // QT_VERSION_CHECK
@@ -1540,10 +1542,10 @@ GLWaterfall::paintTimeStamps(
       painter.drawText(
             where.x() + where.width() - textWidth - 2,
             y - 2,
-            it->timeStampText);
+            timeStampText);
       painter.drawLine(where.x() + leftSpacing, y, where.width() - 1, y);
     } else {
-      painter.drawText(where.x(), y - 2, it->timeStampText);
+      painter.drawText(where.x(), y - 2, timeStampText);
       painter.drawLine(where.x(), y, textWidth + where.x(), y);
     }
 
@@ -1821,9 +1823,13 @@ GLWaterfall::setNewFftData(
 
     ts.counter = m_TimeStampCounter;
     ts.timeStampText =
-        m_lastFft.toString("hh:mm:ss.zzz")
+        m_lastFft.toLocalTime().toString("hh:mm:ss.zzz")
           + " - "
-          + t.toString("hh:mm:ss.zzz");
+          + t.toLocalTime().toString("hh:mm:ss.zzz");
+    ts.utcTimeStampText =
+        m_lastFft.toUTC().toString("hh:mm:ss.zzzZ")
+          + " - "
+          + t.toUTC().toString("hh:mm:ss.zzzZ");
     ts.marker = true;
 
     m_TimeStamps.push_front(ts);
@@ -1840,7 +1846,8 @@ GLWaterfall::setNewFftData(
     TimeStamp ts;
 
     ts.counter = m_TimeStampCounter;
-    ts.timeStampText = t.toString("hh:mm:ss.zzz");
+    ts.timeStampText = t.toLocalTime().toString("hh:mm:ss.zzz");
+    ts.utcTimeStampText = t.toUTC().toString("hh:mm:ss.zzzZ");
 
     m_TimeStamps.push_front(ts);
     m_TimeStampCounter = 0;

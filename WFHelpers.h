@@ -91,6 +91,7 @@ struct FrequencyBand {
 struct TimeStamp {
   int counter;
   QString timeStampText;
+  QString utcTimeStampText;
   bool marker = false;
 };
 

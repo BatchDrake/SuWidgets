@@ -90,6 +90,7 @@ public:
     void setTooltipsEnabled(bool enabled) { m_TooltipsEnabled = enabled; }
     void setBookmarksEnabled(bool enabled) { m_BookmarksEnabled = enabled; }
     void setTimeStampsEnabled(bool enabled) { m_TimeStampsEnabled = enabled; }
+    void setTimeStampsUTC(bool utc) { m_TimeStampsUTC = utc; drawOverlay(); }
 
     void setUseLBMdrag(bool enabled)
     {
@@ -486,6 +487,7 @@ private:
     QDateTime   m_lastFft;
     QList<TimeStamp> m_TimeStamps;
     bool        m_TimeStampsEnabled = true;
+    bool        m_TimeStampsUTC = true;
     int         m_TimeStampSpacing = 64;
     int         m_TimeStampCounter = 64;
     int         m_TimeStampMaxHeight = 0;
