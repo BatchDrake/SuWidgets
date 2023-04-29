@@ -54,6 +54,21 @@ QString
 FrequencySpinBox::freqSuffix(void) const
 {
   switch (this->UnitMultiplier) {
+    case MUL_FEMTO:
+      return "f" + this->fUnits;
+
+    case MUL_PICO:
+      return "p" + this->fUnits;
+
+    case MUL_NANO:
+      return "n" + this->fUnits;
+
+    case MUL_MICRO:
+      return "µ" + this->fUnits;
+
+    case MUL_MILLI:
+      return "m" + this->fUnits;
+
     case MUL_NONE:
       return this->fUnits;
 
@@ -77,6 +92,21 @@ double
 FrequencySpinBox::freqMultiplier(void) const
 {
   switch (this->UnitMultiplier) {
+    case MUL_FEMTO:
+      return 1e-15;
+
+    case MUL_PICO:
+      return 1e-12;
+
+    case MUL_NANO:
+      return 1e-9;
+
+    case MUL_MICRO:
+      return 1e-6;
+
+    case MUL_MILLI:
+      return 1e-3;
+
     case MUL_NONE:
       return 1;
 
@@ -159,8 +189,24 @@ FrequencySpinBox::adjustUnitMultiplier(void)
     this->setFrequencyUnitMultiplier(MUL_MEGA);
   else if (absValue >= 1e3)
     this->setFrequencyUnitMultiplier(MUL_KILO);
-  else
-    this->setFrequencyUnitMultiplier(MUL_NONE);
+  else {
+    if (this->allowSubMultiples) {
+      if (absValue >= 1)
+        this->setFrequencyUnitMultiplier(MUL_NONE);
+      else if (absValue >= 1e-3)
+        this->setFrequencyUnitMultiplier(MUL_MILLI);
+      else if (absValue >= 1e-6)
+        this->setFrequencyUnitMultiplier(MUL_MICRO);
+      else if (absValue >= 1e-9)
+        this->setFrequencyUnitMultiplier(MUL_NANO);
+      else if (absValue >= 1e-12)
+        this->setFrequencyUnitMultiplier(MUL_PICO);
+      else
+        this->setFrequencyUnitMultiplier(MUL_FEMTO);
+    } else {
+      this->setFrequencyUnitMultiplier(MUL_NONE);
+    }
+  }
 
   this->refreshUi();
 }
@@ -173,7 +219,10 @@ FrequencySpinBox::refreshUi(void)
     this->refreshing = true;
 
     this->ui->incFreqUnitsButton->setEnabled(this->UnitMultiplier != MUL_TERA);
-    this->ui->decFreqUnitsButton->setEnabled(this->UnitMultiplier != MUL_NONE);
+    this->ui->decFreqUnitsButton->setEnabled(
+          this->allowSubMultiples
+          ? this->UnitMultiplier != MUL_FEMTO
+          : this->UnitMultiplier != MUL_NONE);
 
     this->ui->frequencySpin->setSuffix(" " + this->freqSuffix());
     this->ui->frequencySpin->setDecimals(
@@ -192,7 +241,9 @@ FrequencySpinBox::refreshUi(void)
 void
 FrequencySpinBox::setValue(double val)
 {
-  if (fabs(val - this->currValue) >= 1.) {
+  double min = this->allowSubMultiples ? this->min : 1.;
+
+  if (fabs(val - this->currValue) >= min) {
     this->currValue = val;
 
     if (this->autoUnitMultiplier)
@@ -201,6 +252,20 @@ FrequencySpinBox::setValue(double val)
     this->refreshUi();
   }
 }
+
+void
+FrequencySpinBox::setSubMultiplesAllowed(bool allowed)
+{
+  this->allowSubMultiples = allowed;
+  this->refreshUi();
+}
+
+bool
+FrequencySpinBox::subMultiplesAllowed() const
+{
+  return this->subMultiplesAllowed();
+}
+
 
 double
 FrequencySpinBox::value(void) const
@@ -287,7 +352,8 @@ FrequencySpinBox::incFrequencyUnitMultiplier(void)
 void
 FrequencySpinBox::decFrequencyUnitMultiplier(void)
 {
-  if (this->UnitMultiplier > MUL_NONE)
+  FrequencyUnitMultiplier min = this->allowSubMultiples ? MUL_FEMTO : MUL_NONE;
+  if (this->UnitMultiplier > min)
     this->setFrequencyUnitMultiplier(
           static_cast<FrequencyUnitMultiplier>(static_cast<int>(this->UnitMultiplier) - 1));
 }
