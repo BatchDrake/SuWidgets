@@ -530,6 +530,7 @@ WaveView::drawWave(QPainter &painter)
       || this->waveTree->size() == 0)
     return;
 
+  painter.save();
   if (this->sampPerPx > 8.) {
     int level;
 
@@ -551,6 +552,7 @@ WaveView::drawWave(QPainter &painter)
   } else {
     this->drawWaveClose(painter);
   }
+  painter.restore();
 }
 
 void

@@ -261,6 +261,12 @@ public:
     this->realComponent = real;
   }
 
+  inline bool
+  isRealComponent() const
+  {
+    return this->realComponent;
+  }
+
   inline void
   setShowEnvelope(bool show)
   {

@@ -23,6 +23,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QList>
+#include <QMap>
 
 #include <sigutils/types.h>
 #include "ThrottleableWidget.h"
@@ -37,6 +38,16 @@
 #define WAVEFORM_DEFAULT_SUBSEL_COLOR     QColor(0xff, 0x08, 0x08)
 #define WAVEFORM_MAX_ITERS                20
 #define WAVEFORM_DELTA_LIMIT              9000
+#define WAVEFORM_POINT_RADIUS             5
+#define WAVEFORM_POINT_SPACING            3
+
+struct WavePoint {
+  QString string;
+  QColor color = WAVEFORM_DEFAULT_TEXT_COLOR;
+  qreal     t;
+  SUCOMPLEX point;
+  SUFLOAT   angle;
+};
 
 struct WaveMarker {
   QString string;
@@ -192,9 +203,10 @@ class Waveform : public ThrottleableWidget
   QString horizontalUnits = "s";
   QString verticalUnits = "";
 
-  QList<WaveMarker>  markerList;
-  QList<WaveVCursor> vCursorList;
-  QList<WaveACursor> aCursorList;
+  QList<WaveMarker>      markerList;
+  QList<WaveVCursor>     vCursorList;
+  QList<WaveACursor>     aCursorList;
+  QMap<qreal, WavePoint> pointMap;
 
   qreal oX = 0;
 
@@ -272,11 +284,12 @@ class Waveform : public ThrottleableWidget
   void overlayMarkers(QPainter &);
   void overlayACursors(QPainter &);
   void overlayVCursors(QPainter &);
+  void overlayPoints(QPainter &);
   void drawWave();
   void overlaySelection(QPainter &);
   void overlaySelectionMarkes(QPainter &);
   void recalculateDisplayData();
-
+  void paintTriangle(QPainter &, int, int, int, QColor const &, int side = 5);
   void triggerMouseMoveHere();
 
   inline bool
@@ -362,6 +375,37 @@ public:
     getVerticalAxisWidth() const
     {
       return this->valueTextWidth;
+    }
+
+    inline void
+    setPointMap(const QMap<qreal, WavePoint> &map)
+    {
+      if (!this->pointMap.empty() || !map.empty()) {
+        this->pointMap = map;
+        this->waveDrawn = false;
+        this->invalidate();
+      }
+    }
+
+    inline void
+    removePoint(const QMap<qreal, WavePoint>::iterator &it)
+    {
+      this->pointMap.erase(it);
+      this->waveDrawn = false;
+      this->invalidate();
+    }
+
+    QMap<qreal, WavePoint>::iterator
+    addPoint(qreal t, SUCOMPLEX y, QColor col, SUFLOAT angle = 0)
+    {
+      WavePoint p;
+
+      p.t     = t;
+      p.point = y;
+      p.color = col;
+      p.angle = angle;
+
+      return this->pointMap.insert(p.t, p);
     }
 
     inline void

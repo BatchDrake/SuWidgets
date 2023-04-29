@@ -618,6 +618,116 @@ Waveform::overlaySelection(QPainter &p)
 }
 
 void
+Waveform::paintTriangle(
+    QPainter &p,
+    int x,
+    int y,
+    int orientation,
+    QColor const &color,
+    int side)
+{
+  QPainterPath path;
+
+  p.save();
+  p.translate(x, y);
+
+  if (orientation > 0)
+    p.rotate(orientation * 90);
+
+  path.moveTo(2 * side,  0);
+  path.lineTo( 0,    -side);
+  path.lineTo( 0,    +side);
+  path.lineTo(2 * side,  0);
+
+  p.setPen(Qt::NoPen);
+  p.fillPath(path, QBrush(color));
+
+  p.restore();
+}
+void
+Waveform::overlayPoints(QPainter &p)
+{
+  if (this->pointMap.size() > 0) {
+    QFont font;
+    QFontMetrics metrics(font);
+    QRect rect;
+    int orientation;
+
+    QMap<qreal, WavePoint>::iterator begin =
+        this->pointMap.lowerBound(this->samp2t(this->getSampleStart()));
+    QMap<qreal, WavePoint>::iterator end   =
+        this->pointMap.upperBound(this->samp2t(this->getSampleEnd()));
+
+    for (auto m = begin; m != end; ++m) {
+      int tw;
+      qint64 xpx = SCAST(qint64, this->t2px(m->t));
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      tw = metrics.horizontalAdvance(m->string);
+#else
+      tw = metrics.width(m->string);
+#endif // QT_VERSION_CHECK
+
+      if (xpx >= 0 && xpx < this->geometry.width() - tw / 2) {
+        qreal y = m_view.isRealComponent()
+            ? SU_C_REAL(m->point)
+            : SU_C_IMAG(m->point);
+        int preferredYpx = this->value2px(y);
+        int ypx = qBound(0, preferredYpx, this->geometry.height() - metrics.height());
+        int angle;
+        int extra;
+        int gap;
+
+        if (preferredYpx < ypx) {
+          orientation = 3;
+          angle       = 45;
+          extra       = 10;
+          gap         = 10;
+        } else if (preferredYpx > ypx) {
+          angle       = -45;
+          orientation = 1;
+          extra       = -10;
+          gap         = 10;
+        } else {
+          angle       = m->angle;
+          orientation = 0;
+          extra       = 0;
+          gap         = 0;
+        }
+
+        p.save();
+          if (orientation == 0) {
+            p.setBrush(m->color);
+            p.setPen(Qt::NoPen);
+            p.drawEllipse(QPoint(xpx, ypx), WAVEFORM_POINT_RADIUS, WAVEFORM_POINT_RADIUS);
+          } else {
+            this->paintTriangle(p, xpx, ypx + extra, orientation, m->color);
+          }
+        p.restore();
+
+        if (m->string.size() > 0) {
+          p.save();
+            p.setPen(m->color);
+            p.translate(xpx, ypx);
+
+            if (angle != 0)
+              p.rotate(angle);
+
+            rect.setRect(
+                WAVEFORM_POINT_RADIUS + WAVEFORM_POINT_SPACING + gap,
+                -metrics.height() / 2,
+                tw,
+                metrics.height());
+            p.setOpacity(1);
+            p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom,m->string);
+          p.restore();
+        }
+      }
+    }
+  }
+}
+
+void
 Waveform::overlayMarkers(QPainter &p)
 {
   if (this->markerList.size() > 0) {
@@ -685,10 +795,7 @@ Waveform::overlayVCursors(QPainter &p)
       QPainterPath path;
       int y = SCAST(int, this->value2px(this->cast(c->level)));
 
-      path.moveTo(x + 10, y);
-      path.lineTo(x, y - 5);
-      path.lineTo(x, y + 5);
-      path.lineTo(x + 10, y);
+      this->paintTriangle(p, x, y, 0, c->color);
 
       p.setPen(Qt::NoPen);
       p.fillPath(path, QBrush(c->color));
@@ -748,6 +855,7 @@ Waveform::drawWave()
   m_view.drawWave(p);
   this->overlayMarkers(p);
   this->overlayVCursors(p);
+  this->overlayPoints(p);
   p.end();
 }
 
@@ -930,8 +1038,10 @@ Waveform::overlaySelectionMarkes(QPainter &p)
       if (rect.right() >= this->geometry.width())
         rect.setRight(this->geometry.width() - 1);
 
+      p.save();
       p.setOpacity(.5);
       p.fillRect(rect, this->subSelection);
+      p.restore();
     } else {
       QPen pen;
       pen.setStyle(Qt::DashLine);
