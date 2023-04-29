@@ -47,6 +47,7 @@ struct WavePoint {
   qreal     t;
   SUCOMPLEX point;
   SUFLOAT   angle;
+  qreal     saved_t;
 };
 
 struct WaveMarker {
@@ -387,6 +388,24 @@ public:
       }
     }
 
+    inline QMap<qreal, WavePoint>::iterator
+    refreshPoint(const QMap<qreal, WavePoint>::iterator &it)
+    {
+      if (it->saved_t != it->t) {
+        WavePoint prev = *it;
+        this->pointMap.erase(it);
+        prev.saved_t = prev.t;
+        auto ret = this->pointMap.insert(prev.t, prev);
+        this->waveDrawn = false;
+        this->invalidate();
+        return ret;
+      } else {
+        this->waveDrawn = false;
+        this->invalidate();
+        return it;
+      }
+    }
+
     inline void
     removePoint(const QMap<qreal, WavePoint>::iterator &it)
     {
@@ -404,8 +423,12 @@ public:
       p.point = y;
       p.color = col;
       p.angle = angle;
+      p.saved_t = t;
 
-      return this->pointMap.insert(p.t, p);
+      auto ret = this->pointMap.insert(p.t, p);
+      this->waveDrawn = false;
+      this->invalidate();
+      return ret;
     }
 
     inline void
