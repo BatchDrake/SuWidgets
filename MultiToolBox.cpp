@@ -313,6 +313,8 @@ MultiToolBox::eventFilter(QObject *obj, QEvent *event)
         this->showItem(index);
       else
         this->hideItem(index);
+
+      this->refreshVisibility();
     }
   }
 
