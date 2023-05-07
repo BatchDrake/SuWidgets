@@ -1816,7 +1816,7 @@ GLWaterfall::setNewFftData(
   if (!m_Running)
     m_Running = true;
 
-  quint64 tnow_ms = time_ms();
+  quint64 tnow_ms = SCAST(quint64, t.toMSecsSinceEpoch());
 
   if (looped) {
     TimeStamp ts;
@@ -1857,7 +1857,7 @@ GLWaterfall::setNewFftData(
     if (msec_per_wfline > 0) {
       this->glCtx.averageFFTData(m_wfData, m_fftDataSize);
 
-      if (tnow_ms - tlast_wf_ms >= msec_per_wfline) {
+      if (tnow_ms < tlast_wf_ms || tnow_ms - tlast_wf_ms >= msec_per_wfline) {
         tlast_wf_ms = tnow_ms;
         this->glCtx.commitFFTData();
         ++m_TimeStampCounter;

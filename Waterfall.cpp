@@ -1103,7 +1103,7 @@ void Waterfall::draw(bool everything)
     // no need to draw if pixmap is invisible
     if (w != 0 && h != 0 && valid && everything)
     {
-        quint64     tnow_ms = time_ms();
+        quint64     tnow_ms = SCAST(quint64, m_lastFft.toMSecsSinceEpoch());
 
         // get scaled FFT data
         n = qMin(w, MAX_SCREENSIZE);
@@ -1134,7 +1134,7 @@ void Waterfall::draw(bool everything)
         }
 
         // is it time to update waterfall?
-        if (tnow_ms - tlast_wf_ms >= msec_per_wfline)
+        if (tnow_ms < tlast_wf_ms || tnow_ms - tlast_wf_ms >= msec_per_wfline)
         {
             tlast_wf_ms = tnow_ms;
 
