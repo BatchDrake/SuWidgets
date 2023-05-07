@@ -32,8 +32,6 @@ FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
   lineEdit = this->ui->frequencySpin->findChild<QLineEdit *>();
   lineEdit->installEventFilter(this);
 
-  this->ui->frequencySpin->setKeyboardTracking(false);
-
   this->refreshUi();
 
   this->connectAll();
@@ -263,7 +261,7 @@ FrequencySpinBox::setSubMultiplesAllowed(bool allowed)
 bool
 FrequencySpinBox::subMultiplesAllowed() const
 {
-  return this->subMultiplesAllowed();
+  return this->allowSubMultiples;
 }
 
 
