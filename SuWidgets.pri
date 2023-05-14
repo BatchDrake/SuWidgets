@@ -8,6 +8,7 @@ greaterThan(QT_MAJOR_VERSION, 5): QT += openglwidgets
 
 include(ctk.pri)
 include(lcd.pri)
+include(led.pri)
 include(histogram.pri)
 include(constellation.pri)
 include(qverticallabel.pri)

@@ -11,6 +11,7 @@ include(SuWidgets.pri)
 
 HEADERS     = WFHelpers.h ConstellationPlugin.h TransitionPlugin.h HistogramPlugin.h LCDPlugin.h WaveformPlugin.h SymViewPlugin.h SuWidgets.h \
     FrequencySpinBoxPlugin.h \
+    LEDPlugin.h \
     QVerticalLabelPlugin.h \
     TVDisplayPlugin.h \
     TimeSpinBoxPlugin.h \
@@ -19,6 +20,7 @@ HEADERS     = WFHelpers.h ConstellationPlugin.h TransitionPlugin.h HistogramPlug
     MultiToolBoxPlugin.h
 SOURCES     = ConstellationPlugin.cpp TransitionPlugin.cpp HistogramPlugin.cpp LCDPlugin.cpp WaveformPlugin.cpp SymViewPlugin.cpp SuWidgets.cpp \
     FrequencySpinBoxPlugin.cpp \
+    LEDPlugin.cpp \
     QVerticalLabelPlugin.cpp \
     TVDisplayPlugin.cpp \
     TimeSpinBoxPlugin.cpp \

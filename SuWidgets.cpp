@@ -20,6 +20,7 @@
 #include "TransitionPlugin.h"
 #include "HistogramPlugin.h"
 #include "LCDPlugin.h"
+#include "LEDPlugin.h"
 #include "WaveformPlugin.h"
 #include "SymViewPlugin.h"
 #include "WaterfallPlugin.h"
@@ -39,6 +40,7 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new TransitionPlugin(this));
   m_widgets.append(new HistogramPlugin(this));
   m_widgets.append(new LCDPlugin(this));
+  m_widgets.append(new LEDPlugin(this));
   m_widgets.append(new WaveformPlugin(this));
   m_widgets.append(new SymViewPlugin(this));
   m_widgets.append(new WaterfallPlugin(this));
