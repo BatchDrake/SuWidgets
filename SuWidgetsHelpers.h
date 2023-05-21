@@ -36,6 +36,23 @@ class QLayout;
 #define SUWIDGETS_DEFAULT_PRECISION 3
 #define SCAST(type, value) static_cast<type>(value)
 
+#define BLOCKSIG_BEGIN(object)                   \
+  do {                                           \
+    QObject *obj = object;                       \
+    bool blocked = (object)->blockSignals(true)
+
+#define BLOCKSIG_END()                           \
+    obj->blockSignals(blocked);                  \
+  } while (false)
+
+#define BLOCKSIG(object, op)                     \
+  do {                                           \
+    bool blocked = (object)->blockSignals(true); \
+    (object)->op;                                \
+    (object)->blockSignals(blocked);             \
+  } while (false)
+
+
 class SuWidgetsHelpers {
 
     static void abiErrorAbort(unsigned int);

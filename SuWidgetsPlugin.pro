@@ -13,6 +13,7 @@ HEADERS     = WFHelpers.h ConstellationPlugin.h TransitionPlugin.h HistogramPlug
     FrequencySpinBoxPlugin.h \
     LEDPlugin.h \
     QVerticalLabelPlugin.h \
+    SciSpinBoxPlugin.h \
     TVDisplayPlugin.h \
     TimeSpinBoxPlugin.h \
     WaterfallPlugin.h ctkRangeSliderPlugin.h \
@@ -22,6 +23,7 @@ SOURCES     = ConstellationPlugin.cpp TransitionPlugin.cpp HistogramPlugin.cpp L
     FrequencySpinBoxPlugin.cpp \
     LEDPlugin.cpp \
     QVerticalLabelPlugin.cpp \
+    SciSpinBoxPlugin.cpp \
     TVDisplayPlugin.cpp \
     TimeSpinBoxPlugin.cpp \
     WaterfallPlugin.cpp ctkRangeSliderPlugin.cpp \

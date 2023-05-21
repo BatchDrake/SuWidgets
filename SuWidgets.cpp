@@ -31,6 +31,7 @@
 #include "TVDisplayPlugin.h"
 #include "TimeSpinBoxPlugin.h"
 #include "MultiToolBoxPlugin.h"
+#include "SciSpinBoxPlugin.h"
 #include "SuWidgets.h"
 
 SuWidgets::SuWidgets(QObject *parent)
@@ -50,6 +51,7 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new FrequencySpinBoxPlugin(this));
   m_widgets.append(new TVDisplayPlugin(this));
   m_widgets.append(new TimeSpinBoxPlugin(this));
+  m_widgets.append(new SciSpinBoxPlugin(this));
   m_widgets.append(new MultiToolBoxPlugin(this));
 }
 
