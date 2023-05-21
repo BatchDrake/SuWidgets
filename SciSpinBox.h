@@ -81,10 +81,12 @@ class SciSpinBox : public QWidget
 
   // UI state
   bool m_decPreferred = false;
+  qreal m_savedValue = 0;
 
   // Support methods
   qreal m_mantissa = 5;
   int   m_exponent = -1;
+  qreal m_prefStep = 1;
   bool  m_haveExponent = true;
 
   void updateRepresentation();

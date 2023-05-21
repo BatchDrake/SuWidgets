@@ -10,6 +10,7 @@ QT +=  designer
 include(SuWidgets.pri)
 
 HEADERS     = WFHelpers.h ConstellationPlugin.h TransitionPlugin.h HistogramPlugin.h LCDPlugin.h WaveformPlugin.h SymViewPlugin.h SuWidgets.h \
+    ContextAwareSpinBoxPlugin.h \
     FrequencySpinBoxPlugin.h \
     LEDPlugin.h \
     QVerticalLabelPlugin.h \
@@ -20,6 +21,7 @@ HEADERS     = WFHelpers.h ConstellationPlugin.h TransitionPlugin.h HistogramPlug
     ColorChooserButtonPlugin.h \
     MultiToolBoxPlugin.h
 SOURCES     = ConstellationPlugin.cpp TransitionPlugin.cpp HistogramPlugin.cpp LCDPlugin.cpp WaveformPlugin.cpp SymViewPlugin.cpp SuWidgets.cpp \
+    ContextAwareSpinBoxPlugin.cpp \
     FrequencySpinBoxPlugin.cpp \
     LEDPlugin.cpp \
     QVerticalLabelPlugin.cpp \

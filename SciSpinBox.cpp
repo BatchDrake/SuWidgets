@@ -17,6 +17,7 @@
 //    <http://www.gnu.org/licenses/>
 //
 #include "SciSpinBox.h"
+#include <QKeyEvent>
 #include "SuWidgetsHelpers.h"
 #include "ui_SciSpinBox.h"
 #include <cmath>
@@ -74,12 +75,16 @@ SciSpinBox::lostAllFocus() const
 bool
 SciSpinBox::isEditing() const
 {
-  return ui->stackedWidget->currentWidget() == 0;
+  return ui->stackedWidget->currentIndex() != 0;
 }
 
 void
 SciSpinBox::enterEditMode()
 {
+  m_savedValue = m_value;
+
+  std::string name = this->objectName().toStdString();
+
   if (m_decPreferred)
     changeToDec();
   else
@@ -89,17 +94,39 @@ SciSpinBox::enterEditMode()
 void
 SciSpinBox::leaveEditMode()
 {
+  std::string name = this->objectName().toStdString();
   ui->stackedWidget->setCurrentIndex(0);
 }
 
 bool
 SciSpinBox::eventFilter(QObject *object, QEvent *event)
 {
+  std::string name = this->objectName().toStdString();
+
   switch (event->type()) {
     case QEvent::FocusOut:
-      if (lostAllFocus())
+      if (isEditing() && lostAllFocus()) {
+        updateRepresentation();
         leaveEditMode();
+      }
+      break;
 
+    case QEvent::KeyPress:
+      if (isEditing()) {
+        // This is necessary because C++ is a poorly defined language
+        QKeyEvent *ev = static_cast<QKeyEvent *>(event);
+        if (ev->key() == Qt::Key_Escape) {
+          setValue(m_savedValue);
+          leaveEditMode();
+        } else if (ev->key() == Qt::Key_Enter || ev->key() == Qt::Key_Return) {
+          if (!m_decPreferred) {
+            onSciEdited();
+          } else {
+            updateRepresentation();
+          }
+          leaveEditMode();
+        }
+      }
       break;
 
     default:
@@ -112,6 +139,7 @@ SciSpinBox::eventFilter(QObject *object, QEvent *event)
 void
 SciSpinBox::focusInEvent(QFocusEvent *event)
 {
+  std::string name = this->objectName().toStdString();
   if (!isEditing())
     enterEditMode();
 
@@ -121,8 +149,11 @@ SciSpinBox::focusInEvent(QFocusEvent *event)
 void
 SciSpinBox::focusOutEvent(QFocusEvent *event)
 {
-  if (isEditing())
-    leaveEditMode();
+  if (event->reason() != Qt::FocusReason::OtherFocusReason) {
+    std::string name = this->objectName().toStdString();
+    if (isEditing())
+      leaveEditMode();
+  }
 
   QWidget::focusOutEvent(event);
 }
@@ -267,7 +298,13 @@ SciSpinBox::updateRepresentation()
       ui->decSpinButton->setMinimum(m_min / mag);
       ui->decSpinButton->setMaximum(m_max / mag);
       ui->decSpinButton->setDecimals(SCAST(int, currSig));
-      ui->decSpinButton->setSingleStep(1e-1);
+
+      if (ui->decSpinButton->decimals() > 1)
+        m_prefStep = 1e-1;
+      else
+        m_prefStep = 1;
+
+      ui->decSpinButton->setSingleStep(m_prefStep);
       ui->decSpinButton->setValue(m_mantissa);
     BLOCKSIG_END();
   }
@@ -286,6 +323,7 @@ SciSpinBox::setValue(qreal value)
 
   if (fabs(value - m_value) > std::numeric_limits<qreal>::epsilon()) {
     m_value = value;
+    std::string name = this->objectName().toStdString();
     updateRepresentation();
     emit valueChanged(m_value);
   }
@@ -390,6 +428,7 @@ SciSpinBox::changeToDec()
   m_decPreferred = true;
   ui->stackedWidget->setCurrentIndex(2);
   ui->decSpinButton->selectAll();
+  ui->decSpinButton->setMinimumStep();
   ui->decSpinButton->setFocus();
 }
 
@@ -406,12 +445,14 @@ SciSpinBox::changeToSci()
 void
 SciSpinBox::onDecClicked()
 {
+  updateRepresentation();
   changeToDec();
 }
 
 void
 SciSpinBox::onSciClicked()
 {
+  updateRepresentation();
   changeToSci();
 }
 
@@ -438,5 +479,10 @@ SciSpinBox::onSciEdited()
 void
 SciSpinBox::onDecValueChanged()
 {
-  setValue(ui->decSpinButton->value() * pow(10., m_exponent));
+  qreal value = qBound(
+        m_min,
+        ui->decSpinButton->value() * pow(10., m_exponent),
+        m_max);
+  m_value = value;
+  emit valueChanged(m_value);
 }

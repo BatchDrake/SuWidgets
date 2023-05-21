@@ -121,7 +121,7 @@ color: palette(windowtext);</string>
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
             <property name="margin">
-             <number>1</number>
+             <number>0</number>
             </property>
            </widget>
           </item>
@@ -132,10 +132,10 @@ color: palette(windowtext);</string>
 color: palette(windowtext);</string>
             </property>
             <property name="text">
-             <string>× 10</string>
+             <string> × 10</string>
             </property>
             <property name="margin">
-             <number>1</number>
+             <number>0</number>
             </property>
            </widget>
           </item>
@@ -300,51 +300,6 @@ color: palette(windowtext);</string>
        <property name="spacing">
         <number>0</number>
        </property>
-       <item row="0" column="2">
-        <widget class="QDoubleSpinBox" name="decSpinButton">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-         <property name="decimals">
-          <number>3</number>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="5">
-        <widget class="QLabel" name="decUnitsLabel">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">background-color: palette(window);</string>
-         </property>
-         <property name="text">
-          <string> mV</string>
-         </property>
-         <property name="margin">
-          <number>1</number>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="3">
-        <widget class="QLabel" name="decMultiplierLabel">
-         <property name="styleSheet">
-          <string notr="true">background-color: palette(window);</string>
-         </property>
-         <property name="text">
-          <string> × 10</string>
-         </property>
-        </widget>
-       </item>
        <item row="0" column="4">
         <widget class="QLabel" name="decExponentLabel">
          <property name="sizePolicy">
@@ -372,6 +327,25 @@ color: palette(windowtext);</string>
          </property>
         </widget>
        </item>
+       <item row="0" column="5">
+        <widget class="QLabel" name="decUnitsLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">background-color: palette(window);</string>
+         </property>
+         <property name="text">
+          <string> mV</string>
+         </property>
+         <property name="margin">
+          <number>1</number>
+         </property>
+        </widget>
+       </item>
        <item row="0" column="0">
         <widget class="QPushButton" name="sciButton">
          <property name="sizePolicy">
@@ -396,6 +370,16 @@ color: palette(windowtext);</string>
          </property>
         </widget>
        </item>
+       <item row="0" column="3">
+        <widget class="QLabel" name="decMultiplierLabel">
+         <property name="styleSheet">
+          <string notr="true">background-color: palette(window);</string>
+         </property>
+         <property name="text">
+          <string> × 10</string>
+         </property>
+        </widget>
+       </item>
        <item row="0" column="1">
         <spacer name="horizontalSpacer">
          <property name="orientation">
@@ -412,12 +396,32 @@ color: palette(windowtext);</string>
          </property>
         </spacer>
        </item>
+       <item row="0" column="2">
+        <widget class="ContextAwareSpinBox" name="decSpinButton">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </widget>
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ContextAwareSpinBox</class>
+   <extends>QDoubleSpinBox</extends>
+   <header>ContextAwareSpinBox.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
