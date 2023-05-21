@@ -18,6 +18,7 @@
 //
 
 #include <QLineEdit>
+#include <cmath>
 #include "ContextAwareSpinBox.h"
 
 qreal
