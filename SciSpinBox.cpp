@@ -254,9 +254,9 @@ SciSpinBox::updateRepresentation()
     m_haveExponent = haveExponent;
 
     // Draw units
-    ui->unitsLabel->setText(m_units);
-    ui->decUnitsLabel->setText(m_units);
-    ui->sciUnitsLabel->setText(m_units);
+    ui->unitsLabel->setText(" " + m_units);
+    ui->decUnitsLabel->setText(" " + m_units);
+    ui->sciUnitsLabel->setText(" " + m_units);
 
     // Draw exponent
     ui->exponentLabel->setVisible(m_haveExponent);
