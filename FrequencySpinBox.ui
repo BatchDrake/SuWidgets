@@ -30,7 +30,7 @@
     <number>0</number>
    </property>
    <item row="0" column="0">
-    <widget class="QDoubleSpinBox" name="frequencySpin">
+    <widget class="ContextAwareSpinBox" name="frequencySpin">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
        <horstretch>0</horstretch>
@@ -52,7 +52,7 @@
       <bool>false</bool>
      </property>
      <property name="showGroupSeparator" stdset="0">
-      <bool>true</bool>
+      <bool>false</bool>
      </property>
      <property name="suffix">
       <string> MHz</string>
@@ -123,6 +123,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ContextAwareSpinBox</class>
+   <extends>QDoubleSpinBox</extends>
+   <header>ContextAwareSpinBox.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

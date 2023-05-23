@@ -54,6 +54,7 @@ private:
   bool expectingFirstClick = false;
   bool refreshing = false;
   unsigned int uExtraDecimals = 0;
+
   bool allowSubMultiples = false;
   void connectAll(void);
   void refreshUi(void);
@@ -97,7 +98,6 @@ public:
   void decFrequencyUnitMultiplier(void);
 
   void setFocus();
-  bool eventFilter(QObject *, QEvent *) override;
 
 signals:
   void valueChanged(double freq);
