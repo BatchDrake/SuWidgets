@@ -188,6 +188,12 @@ class Waveform : public ThrottleableWidget
       NOTIFY horizontalUnitsChanged)
 
   Q_PROPERTY(
+      QString horizontalAxis
+      READ getHorizontalAxis
+      WRITE setHorizontalAxis
+      NOTIFY horizontalAxisChanged)
+
+  Q_PROPERTY(
       QString verticalUnits
       READ getVerticalUnits
       WRITE setVerticalUnits
@@ -201,6 +207,7 @@ class Waveform : public ThrottleableWidget
   QColor envelope;
   QColor axes;
   QColor text;
+  QString horizontalAxis = "t";
   QString horizontalUnits = "s";
   QString verticalUnits = "";
 
@@ -664,6 +671,21 @@ public:
   }
 
   QString
+  getHorizontalAxis() const
+  {
+    return this->horizontalAxis;
+  }
+
+  void
+  setHorizontalAxis(QString axis)
+  {
+    this->horizontalAxis = axis;
+    this->axesDrawn = false;
+    this->invalidate();
+    emit horizontalAxisChanged();
+  }
+
+  QString
   getVerticalUnits() const
   {
     return this->verticalUnits;
@@ -823,6 +845,7 @@ signals:
   void axesColorChanged();
   void textColorChanged();
   void horizontalUnitsChanged();
+  void horizontalAxisChanged();
   void verticalUnitsChanged();
   void selectionColorChanged();
   void subSelectionColorChanged();

@@ -1072,11 +1072,11 @@ Waveform::overlaySelectionMarkes(QPainter &p)
     qint64 px = xEnd;
     int ypx = 0;
     QString text =
-        "Δt = " +
+        "Δ" + horizontalAxis + " = " +
         SuWidgetsHelpers::formatQuantity(
           this->samp2t(this->hSelEnd) - this->samp2t(this->hSelStart),
           4,
-          "s");
+          getHorizontalUnits());
 
     pen.setStyle(Qt::DashLine);
     pen.setColor(this->text);
