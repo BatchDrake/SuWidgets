@@ -211,7 +211,6 @@ WFHelpers::drawChannelBox(
     QFontMetrics metrics(font);
     int textHeight = metrics.height();
     int textWidth;
-    painter.setFont(font);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0l)
     textWidth = metrics.horizontalAdvance(text) + 2 * padding;
@@ -220,6 +219,7 @@ WFHelpers::drawChannelBox(
 #endif // QT_VERSION_CHECK
 
     painter.save();
+    painter.setFont(font);
 
     painter.translate(0, y);
     h -= y;

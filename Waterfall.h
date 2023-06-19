@@ -92,6 +92,8 @@ public:
     void setTimeStampsEnabled(bool enabled) { m_TimeStampsEnabled = enabled; }
     void setTimeStampsUTC(bool utc) { m_TimeStampsUTC = utc; drawOverlay(); }
 
+    void setChannelsEnabled(bool enabled) { m_channelsEnabled = enabled; updateOverlay(); }
+
     void setUseLBMdrag(bool enabled)
     {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -509,6 +511,7 @@ private:
     std::map<std::string, const FrequencyAllocationTable *> m_FATs;
 
     // Named channels
+    bool            m_channelsEnabled = true;
     NamedChannelSet m_channelSet;
 
     // Infotext

@@ -1468,24 +1468,26 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
   painter.drawPixmap(0, 0, m_2DPixmap);
 
   // Draw named channel cutoffs
-  for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
-    auto p = i.value();
-    int x_fCenter = xFromFreq(p->frequency);
-    int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
-    int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
+  if (m_channelsEnabled) {
+    for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
+      auto p = i.value();
+      int x_fCenter = xFromFreq(p->frequency);
+      int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
+      int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
 
-    if (EndFreq < p->frequency + p->lowFreqCut)
-      break;
+      if (EndFreq < p->frequency + p->lowFreqCut)
+        break;
 
-    WFHelpers::drawChannelCutoff(
-          painter,
-          y,
-          x_fMin,
-          x_fMax,
-          x_fCenter,
-          p->markerColor,
-          p->cutOffColor,
-          !p->bandLike);
+      WFHelpers::drawChannelCutoff(
+            painter,
+            y,
+            x_fMin,
+            x_fMax,
+            x_fCenter,
+            p->markerColor,
+            p->cutOffColor,
+            !p->bandLike);
+    }
   }
 
   // Draw demod filter box
@@ -2318,10 +2320,10 @@ GLWaterfall::drawAxes(GLDrawingContext &ctx, qint64 StartFreq, qint64 EndFreq)
   int unitWidth;
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-  m_YAxisWidth = ctx.metrics->horizontalAdvance("-120 ");
+  m_YAxisWidth = ctx.metrics->horizontalAdvance("-160 ");
   unitWidth    = ctx.metrics->horizontalAdvance(m_unitName);
 #else
-  m_YAxisWidth = ctx.metrics->width("-120 ");
+  m_YAxisWidth = ctx.metrics->width("-160 ");
   unitWidth    = ctx.metrics->width(m_unitName);
 #endif // QT_VERSION_CHECK
 
@@ -2383,44 +2385,47 @@ GLWaterfall::drawOverlay()
     bandY = this->drawFATs(ctx, StartFreq, EndFreq);
 
   // Draw named channel (boxes)
-  for (auto i = m_channelSet.find(StartFreq - m_Span); i != m_channelSet.cend(); ++i) {
-    auto p = i.value();
-    int x_fCenter = xFromFreq(p->frequency);
-    int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
-    int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
 
-    if (p->frequency + p->highFreqCut < StartFreq)
-      continue;
+  if (m_channelsEnabled) {
+    for (auto i = m_channelSet.find(StartFreq - m_Span); i != m_channelSet.cend(); ++i) {
+      auto p = i.value();
+      int x_fCenter = xFromFreq(p->frequency);
+      int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
+      int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
 
-    if (EndFreq < p->frequency + p->lowFreqCut)
-      break;
+      if (p->frequency + p->highFreqCut < StartFreq)
+        continue;
 
-    if (p->bandLike) {
-      WFHelpers::drawChannelBox(
-            painter,
-            ctx.height,
-            x_fMin,
-            x_fMax,
-            x_fCenter,
-            p->boxColor,
-            p->markerColor,
-            p->name,
-            p->markerColor,
-            ctx.metrics->height() / 2,
-            bandY + p->nestLevel * ctx.metrics->height());
-    } else {
-      WFHelpers::drawChannelBox(
-            painter,
-            ctx.height,
-            x_fMin,
-            x_fMax,
-            x_fCenter,
-            p->boxColor,
-            p->markerColor,
-            p->name,
-            QColor(),
-            -1,
-            bandY + p->nestLevel * ctx.metrics->height());
+      if (EndFreq < p->frequency + p->lowFreqCut)
+        break;
+
+      if (p->bandLike) {
+        WFHelpers::drawChannelBox(
+              painter,
+              ctx.height,
+              x_fMin,
+              x_fMax,
+              x_fCenter,
+              p->boxColor,
+              p->markerColor,
+              p->name,
+              p->markerColor,
+              ctx.metrics->height() / 2,
+              bandY + p->nestLevel * ctx.metrics->height());
+      } else {
+        WFHelpers::drawChannelBox(
+              painter,
+              ctx.height,
+              x_fMin,
+              x_fMax,
+              x_fCenter,
+              p->boxColor,
+              p->markerColor,
+              p->name,
+              QColor(),
+              -1,
+              bandY + p->nestLevel * ctx.metrics->height());
+      }
     }
   }
 

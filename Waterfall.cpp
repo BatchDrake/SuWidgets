@@ -912,24 +912,26 @@ void Waterfall::paintEvent(QPaintEvent *)
     painter.drawImage(0, y, m_WaterfallImage);
 
     // Draw named channel cutoffs
-    for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
+    if (m_channelsEnabled) {
+      for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
         auto p = i.value();
         int x_fCenter = xFromFreq(p->frequency);
         int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
         int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
 
         if (EndFreq < p->frequency + p->lowFreqCut)
-        break;
+          break;
 
         WFHelpers::drawChannelCutoff(
-            painter,
-            y,
-            x_fMin,
-            x_fMax,
-            x_fCenter,
-            p->markerColor,
-            p->cutOffColor,
-            !p->bandLike);
+              painter,
+              y,
+              x_fMin,
+              x_fMax,
+              x_fCenter,
+              p->markerColor,
+              p->cutOffColor,
+              !p->bandLike);
+      }
     }
 
     if (m_FilterBoxEnabled)
@@ -1846,10 +1848,10 @@ void Waterfall::drawOverlay()
     int unitWidth;
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-    m_YAxisWidth = metrics.horizontalAdvance("-120 ");
+    m_YAxisWidth = metrics.horizontalAdvance("-160 ");
     unitWidth    = metrics.horizontalAdvance(m_unitName);
 #else
-    m_YAxisWidth = metrics.width("-120 ");
+    m_YAxisWidth = metrics.width("-160 ");
     unitWidth    = metrics.width(m_unitName);
 #endif // QT_VERSION_CHECK
 
@@ -1878,7 +1880,8 @@ void Waterfall::drawOverlay()
     painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, m_unitName);
 
     // Draw named channel (boxes)
-    for (auto i = m_channelSet.find(StartFreq - m_Span); i != m_channelSet.cend(); ++i) {
+    if (m_channelsEnabled) {
+      for (auto i = m_channelSet.find(StartFreq - m_Span); i != m_channelSet.cend(); ++i) {
         auto p = i.value();
         int x_fCenter = xFromFreq(p->frequency);
         int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
@@ -1893,31 +1896,32 @@ void Waterfall::drawOverlay()
 
         if (p->bandLike) {
           WFHelpers::drawChannelBox(
-              painter,
-              h,
-              x_fMin,
-              x_fMax,
-              x_fCenter,
-              p->boxColor,
-              p->markerColor,
-              p->name,
-              p->markerColor,
-              0,
-              bandY + p->nestLevel * metrics.height());
+                painter,
+                h,
+                x_fMin,
+                x_fMax,
+                x_fCenter,
+                p->boxColor,
+                p->markerColor,
+                p->name,
+                p->markerColor,
+                0,
+                bandY + p->nestLevel * metrics.height());
         } else {
           WFHelpers::drawChannelBox(
-              painter,
-              h,
-              x_fMin,
-              x_fMax,
-              x_fCenter,
-              p->boxColor,
-              p->markerColor,
-              p->name,
-              QColor(),
-              -1,
-              bandY + p->nestLevel * metrics.height());
+                painter,
+                h,
+                x_fMin,
+                x_fMax,
+                x_fCenter,
+                p->boxColor,
+                p->markerColor,
+                p->name,
+                QColor(),
+                -1,
+                bandY + p->nestLevel * metrics.height());
         }
+      }
     }
     
     // Draw demod filter box
