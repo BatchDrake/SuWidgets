@@ -19,6 +19,7 @@
 
 #include "WFHelpers.h"
 #include <cmath>
+#include <cstdlib>
 
 #ifdef _MSC_VER
 #include <Windows.h>
@@ -46,6 +47,8 @@ gettimeofday(struct timeval * tp, struct timezone * tzp)
 
 #endif // _MSC_VER
 
+#define isSamePixel(x1, x2) (abs(x1 - x2) <= 1)
+
 /////////////////////////////// WFHelpers //////////////////////////////////////
 void
 WFHelpers::drawChannelCutoff(
@@ -67,17 +70,19 @@ WFHelpers::drawChannelCutoff(
   painter.setPen(pen);
   painter.setOpacity(1);
 
-  painter.drawLine(
-        x_fMin,
-        y,
-        x_fMin,
-        h - 1);
+  if (centralLine && !isSamePixel(x_fCenter, x_fMin))
+    painter.drawLine(
+          x_fMin,
+          y,
+          x_fMin,
+          h - 1);
 
-  painter.drawLine(
-        x_fMax,
-        y,
-        x_fMax,
-        h - 1);
+  if (centralLine && !isSamePixel(x_fCenter, x_fMax))
+    painter.drawLine(
+          x_fMax,
+          y,
+          x_fMax,
+          h - 1);
 
   if (centralLine) {
     pen.setColor(markerColor);
@@ -88,6 +93,20 @@ WFHelpers::drawChannelCutoff(
           y,
           x_fCenter,
           h - 1);
+  }
+
+  if (!isSamePixel(x_fMin, x_fMax)) {
+    pen.setColor(cutOffColor);
+    painter.setPen(pen);
+
+    painter.setOpacity(.5);
+    int x_extraLine = -1;
+    if (x_fMin == x_fCenter)
+      x_extraLine = 2 * x_fCenter - x_fMax;
+    else if (x_fMax == x_fCenter)
+      x_extraLine = 2 * x_fCenter - x_fMin;
+
+    painter.drawLine(x_extraLine, y, x_extraLine, h - 1);
   }
 
   painter.restore();
@@ -162,10 +181,27 @@ WFHelpers::drawChannelBox(
   // Draw border
   painter.setOpacity(1);
   painter.setPen(borderPen);
-  painter.drawLine(x_fMin, y, x_fMin, h);
-  painter.drawLine(x_fMax, y, x_fMax, h);
+
+  if (bandLike || !isSamePixel(x_fCenter, x_fMin))
+    painter.drawLine(x_fMin, y, x_fMin, h);
+
+  if (bandLike || !isSamePixel(x_fCenter, x_fMax))
+    painter.drawLine(x_fMax, y, x_fMax, h);
+
   if (y > 0 && !bandLike)
     painter.drawLine(x_fMin, y, x_fMax, y);
+
+  if (!isSamePixel(x_fMin, x_fMax)) {
+    painter.setOpacity(.5);
+    int x_extraLine = -1;
+    if (x_fMin == x_fCenter)
+      x_extraLine = 2 * x_fCenter - x_fMax;
+    else if (x_fMax == x_fCenter)
+      x_extraLine = 2 * x_fCenter - x_fMin;
+
+    painter.drawLine(x_extraLine, y, x_extraLine, h);
+  }
+
   painter.restore();
 
   // Draw text (if provided)
