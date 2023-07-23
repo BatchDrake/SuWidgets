@@ -420,8 +420,6 @@ Waveform::fitToEnvelope()
 
   if (envelope > 0)
     this->zoomVertical(-envelope, envelope);
-  else
-    this->zoomVerticalReset();
 }
 
 void
@@ -1129,7 +1127,7 @@ Waveform::draw()
     if (this->valueTextWidth == 0) {
       QFont font;
       QFontMetrics metrics(font);
-      this->valueTextWidth = estimateTextWidth(metrics, "0.00 X");
+      this->valueTextWidth = estimateTextWidth(metrics, "+00.00 dB");
     }
 
     this->geometry = this->size();
