@@ -511,6 +511,8 @@ Waveform::mouseDoubleClickEvent(QMouseEvent *event)
   qreal t = px2samp(x);
   qreal v = px2value(y);
 
+  this->selectHorizontal(0, 0);
+
   emit pointClicked(t, v, event->modifiers());
 }
 
