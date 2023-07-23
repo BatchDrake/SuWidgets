@@ -22,37 +22,6 @@
 #include "SuWidgetsHelpers.h"
 #include "YIQ.h"
 
-// See https://www.linuxquestions.org/questions/blog/rainbowsally-615861/qt-fast-pixel-color-mixing-35589/
-
-static inline QRgb
-qMixRgb(QRgb pixel1, QRgb pixel2, unsigned alpha)
-{
-  int a, b, c;
-  uint res1, res2;
-
-  b = SCAST(int, alpha);
-  // Add and sub are faster than a branch too, so we use the compare to 0
-  // optimization to get the upper clamp value without branching.  Again,
-  // see the disassembly.
-  c = b - 255;
-  c = (c > 0) ? 0 : c;
-  b = c + 255;
-
-  // fudge to compensate for limited fixed point precision
-  a = 256 - b;
-  b++; // still testing fudge algorithm, possibly 'b = b > a ? b+1 : b;'
-
-  // lo bits: mask, multiply, mask, shift
-  res1 = (((pixel1 & 0x00FF00FF) * a) & 0xFF00FF00) >> 8;
-  res1 += ((((pixel2 & 0x00FF00FF) * b) & 0xFF00FF00)) >> 8;
-
-  // hi bits: mask, shift, multiply, mask
-  res2 = (((pixel1 & 0xFF00FF00) >> 8) * a) & 0xFF00FF00;
-  res2 += (((pixel2 & 0xFF00FF00) >> 8) * b) & 0xFF00FF00;
-
-  return (res1 + res2) | 0xff000000; // set alpha = 255 if opaque
-}
-
 static inline QColor const &
 phaseToColor(qreal angle)
 {
@@ -66,50 +35,38 @@ phaseToColor(qreal angle)
         1023)];
 }
 
-static inline SUCOMPLEX
-pointProd(SUCOMPLEX a, SUCOMPLEX b)
-{
-  return a.real() * b.real() + SU_I * (a.imag() * b.imag());
-}
-
-static inline SUCOMPLEX
-pointAbs(SUCOMPLEX a)
-{
-  return fabs(a.real()) + SU_I * fabs(a.imag());
-}
-
 WaveView::WaveView()
 {
-  this->waveTree = &this->ownWaveTree;
-  this->borrowTree(*this);
+  m_waveTree = &m_ownWaveTree;
+  borrowTree(*this);
 }
 
 void
 WaveView::borrowTree(WaveView &view)
 {
-  if (this->waveTree != nullptr) {
+  if (m_waveTree != nullptr) {
     disconnect(
-          this->waveTree,
+          m_waveTree,
           SIGNAL(ready(void)),
           this,
           nullptr);
 
     disconnect(
-          this->waveTree,
+          m_waveTree,
           SIGNAL(progress(quint64, quint64)),
           this,
           nullptr);
   }
 
-  this->waveTree = view.waveTree;
+  m_waveTree = view.m_waveTree;
   connect(
-        this->waveTree,
+        m_waveTree,
         SIGNAL(ready(void)),
         this,
         SLOT(onReady(void)));
 
   connect(
-        this->waveTree,
+        m_waveTree,
         SIGNAL(progress(quint64, quint64)),
         this,
         SLOT(onProgress(quint64, quint64)));
@@ -118,55 +75,55 @@ WaveView::borrowTree(WaveView &view)
 qreal
 WaveView::getEnvelope(void) const
 {
-  if (!this->waveTree->isComplete())
+  if (!m_waveTree->isComplete())
     return 0;
 
-  if (this->waveTree->size() == 0)
+  if (m_waveTree->size() == 0)
     return 0;
 
-  return SCAST(qreal, (*this->waveTree)[this->waveTree->size() - 1][0].envelope);
+  return SCAST(qreal, (*m_waveTree)[m_waveTree->size() - 1][0].envelope);
 }
 
 void
 WaveView::setSampleRate(qreal rate)
 {
-  this->deltaT     = 1. / rate;
-  this->sampleRate = rate;
+  m_deltaT     = 1. / rate;
+  m_sampleRate = rate;
 
   // Set horizontal zoom again
-  this->setHorizontalZoom(this->start, this->end);
+  setHorizontalZoom(m_start, m_end);
 }
 
 void
 WaveView::setTimeStart(qreal t0)
 {
-  this->t0 = t0;
+  m_t0 = t0;
 }
 
 void
 WaveView::setHorizontalZoom(qint64 start, qint64 end)
 {
-  this->start = start;
-  this->end   = end;
-  this->setGeometry(this->width, this->height);
+  m_start = start;
+  m_end   = end;
+  setGeometry(m_width, m_height);
 }
 
 void
 WaveView::setVerticalZoom(qreal min, qreal max)
 {
-  this->min = min;
-  this->max = max;
-  this->setGeometry(this->width, this->height);
+  m_min = min;
+  m_max = max;
+  setGeometry(m_width, m_height);
 }
 
 void
 WaveView::setGeometry(int width, int height)
 {
-  this->width  = width;
-  this->height = height;
+  m_width  = width;
+  m_height = height;
 
-  this->sampPerPx  = SCAST(qreal, this->end - this->start) / this->width;
-  this->unitsPerPx = SCAST(qreal, this->max - this->min) / this->height;
+  m_sampPerPx  = SCAST(qreal, m_end - m_start) / m_width;
+  m_unitsPerPx = SCAST(qreal, m_max - m_min)   / m_height;
 }
 
 /////////////////////////////// Drawing methods ////////////////////////////////
@@ -175,8 +132,8 @@ WaveView::drawWaveClose(QPainter &p)
 {
   qreal firstSamp, lastSamp;
   qint64 firstIntegerSamp, lastIntegerSamp;
-  SUSCOUNT length = this->waveTree->getLength();
-  const SUCOMPLEX *data = this->waveTree->getData();
+  SUSCOUNT length = m_waveTree->getLength();
+  const SUCOMPLEX *data = m_waveTree->getData();
   int prevMinEnvY = 0;
   int prevMaxEnvY = 0;
   int nextX, currX, currY;
@@ -187,29 +144,29 @@ WaveView::drawWaveClose(QPainter &p)
   qreal alpha = 1;
   bool havePrevEnv = false;
   bool havePrevWf  = false;
-  QColor color = this->foreground;
+  QColor color = m_foreground;
   QColor darkenedForeground;
   int minEnvY = 0, maxEnvY = 0;
   QPen pen;
-  bool paintSamples = this->sampPerPx < 1. / (2 * WAVEFORM_CIRCLE_DIM);
+  bool paintSamples = m_sampPerPx < 1. / (2 * WAVEFORM_CIRCLE_DIM);
 
-  if (this->sampPerPx > 1)
-    alpha = sqrt(1. / this->sampPerPx);
+  if (m_sampPerPx > 1)
+    alpha = sqrt(1. / m_sampPerPx);
 
   pen.setColor(color);
   pen.setStyle(Qt::SolidLine);
   p.setPen(pen);
 
   // Initialize darkened foreground
-  if (this->showWaveform && !this->showPhase) {
-    darkenedForeground.setRed(this->foreground.red() / 3);
-    darkenedForeground.setGreen(this->foreground.green() / 3);
-    darkenedForeground.setBlue(this->foreground.blue() / 3);
+  if (m_showWaveform && !m_showPhase) {
+    darkenedForeground.setRed(m_foreground.red() / 3);
+    darkenedForeground.setGreen(m_foreground.green() / 3);
+    darkenedForeground.setBlue(m_foreground.blue() / 3);
   }
 
   // Determine the representation range
-  firstSamp = this->px2samp(this->leftMargin);
-  lastSamp  = this->px2samp(this->width - 1);
+  firstSamp = px2samp(m_leftMargin);
+  lastSamp  = px2samp(m_width - 1);
 
   firstIntegerSamp = SCAST(qint64, std::ceil(firstSamp));
   lastIntegerSamp  = SCAST(qint64, std::floor(lastSamp));
@@ -220,21 +177,21 @@ WaveView::drawWaveClose(QPainter &p)
   if (lastIntegerSamp >= SCAST(qint64, length))
     lastIntegerSamp = SCAST(qint64, length - 1);
 
-  nextX = SCAST(int, this->samp2px(SCAST(qreal, firstIntegerSamp)));
+  nextX = SCAST(int, samp2px(SCAST(qreal, firstIntegerSamp)));
   for (qint64 i = firstIntegerSamp; i <= lastIntegerSamp; ++i) {
     currX = nextX;
-    nextX = SCAST(int, this->samp2px(SCAST(qreal, i + 1)));
-    currY = SCAST(int, this->value2px(this->cast(data[i])));
+    nextX = SCAST(int, samp2px(SCAST(qreal, i + 1)));
+    currY = SCAST(int, value2px(cast(data[i])));
 
     if (i >= 0 && i < SCAST(qint64, length)) {
       // Draw envelope?
-      if (this->showEnvelope) {
+      if (m_showEnvelope) {
         // Determine limits
         qreal mag    = SCAST(qreal, SU_C_ABS(data[i]));
         qreal phase  = SCAST(qreal, SU_C_ARG(data[i]));
 
-        int pxLower  = SCAST(int, this->value2px(+mag));
-        int pxUpper  = SCAST(int, this->value2px(-mag));
+        int pxLower  = SCAST(int, value2px(+mag));
+        int pxUpper  = SCAST(int, value2px(-mag));
 
         // Previous pixel column is not the same as next
         //  Initialize limits
@@ -254,7 +211,7 @@ WaveView::drawWaveClose(QPainter &p)
         // Next pixel column will be different: time to draw line
         if (currX != nextX) {
           p.setPen(Qt::NoPen);
-          p.setOpacity(this->showWaveform ? .33 : 1.);
+          p.setOpacity(m_showWaveform ? .33 : 1.);
 
           if (havePrevEnv) {
             QPainterPath path;
@@ -267,13 +224,13 @@ WaveView::drawWaveClose(QPainter &p)
             }
 
             // Show phase?
-            if (this->showPhase) {
-              if (this->showPhaseDiff) {
+            if (m_showPhase) {
+              if (m_showPhaseDiff) {
                 // Display its first derivative (frequency)
                 qreal phaseDiff = phase - prevPhase;
                 if (phaseDiff < 0)
                   phaseDiff += 2. * SCAST(qreal, PI);
-                QColor diffColor = this->phaseDiff2Color(phaseDiff);
+                QColor diffColor = phaseDiff2Color(phaseDiff);
 
                 if (pathX != currX) {
                   p.fillPath(path, diffColor);
@@ -296,9 +253,9 @@ WaveView::drawWaveClose(QPainter &p)
               }
             } else {
               if (pathX != currX) {
-                p.fillPath(path, this->foreground);
+                p.fillPath(path, m_foreground);
               } else {
-                p.setPen(this->foreground);
+                p.setPen(m_foreground);
                 p.drawLine(currX, minEnvY, currX, maxEnvY);
               }
             }
@@ -312,16 +269,16 @@ WaveView::drawWaveClose(QPainter &p)
         prevPhase  = phase;
       }
 
-      if (this->showWaveform) {
+      if (m_showWaveform) {
         p.setOpacity(alpha);
 
         if (havePrevWf) {
-          p.setPen(QPen(this->foreground));
+          p.setPen(QPen(m_foreground));
           p.drawLine(prevX, prevY, currX, currY);
         }
 
         if (paintSamples) {
-          p.setBrush(QBrush(this->foreground));
+          p.setBrush(QBrush(m_foreground));
           p.drawEllipse(
                 currX - WAVEFORM_CIRCLE_DIM / 2,
                 currY - WAVEFORM_CIRCLE_DIM / 2,
@@ -352,19 +309,19 @@ WaveView::drawWaveFar(QPainter &p, int level)
   int bits;
   bool havePrev = false;
   QPen pen;
-  WaveViewTree::iterator view = this->waveTree->begin() + level;
+  WaveViewTree::iterator view = m_waveTree->begin() + level;
 
   bits = (level + 1) * WAVEFORM_BLOCK_BITS;
 
-  pen.setColor(this->foreground);
+  pen.setColor(m_foreground);
   pen.setStyle(Qt::SolidLine);
   p.setPen(pen);
 
   // Initialize darkened foreground
 
   // Determine the representation range
-  firstSamp = this->px2samp(this->leftMargin);
-  lastSamp  = this->px2samp(this->width - 1);
+  firstSamp = px2samp(m_leftMargin);
+  lastSamp  = px2samp(m_width - 1);
 
   firstBlock = SCAST(qint64, std::ceil(firstSamp)) >> bits;
   lastBlock  = SCAST(qint64, std::floor(lastSamp)) >> bits;
@@ -375,23 +332,23 @@ WaveView::drawWaveFar(QPainter &p, int level)
   if (lastBlock >= SCAST(qint64, view->size()))
     lastBlock = SCAST(qint64, view->size() - 1);
 
-  nextX = SCAST(int, this->samp2px(SCAST(qreal, firstBlock << bits)));
+  nextX = SCAST(int, samp2px(SCAST(qreal, firstBlock << bits)));
 
   for (qint64 i = firstBlock; i <= lastBlock; ++i) {
     WaveLimits &z = (*view)[SCAST(unsigned long, i)];
     qint64 samp = i << bits;
 
     currX = nextX;
-    nextX = SCAST(int, this->samp2px(SCAST(qreal, samp + (1 << bits))));
+    nextX = SCAST(int, samp2px(SCAST(qreal, samp + (1 << bits))));
 
     // Draw envelope?
-    if (this->showEnvelope) {
+    if (m_showEnvelope) {
       // Determine limits
       qreal mag   = SCAST(qreal, z.envelope);
       qreal phase = SCAST(qreal, SU_C_ARG(z.mean));
 
-      int pxHigh  = SCAST(int, this->value2px(+mag));
-      int pxLow   = SCAST(int, this->value2px(-mag));
+      int pxHigh  = SCAST(int, value2px(+mag));
+      int pxLow   = SCAST(int, value2px(-mag));
 
       // Previous pixel column is not the same as next
       //  Initialize limits
@@ -410,22 +367,22 @@ WaveView::drawWaveFar(QPainter &p, int level)
       // Next pixel column will be different: time to draw line
       if (currX != nextX) {
         p.setPen(Qt::NoPen);
-        p.setOpacity(this->showWaveform ? .33 : 1.);
+        p.setOpacity(m_showWaveform ? .33 : 1.);
 
         if (havePrev) {
           // Show phase?
           QColor lineColor;
 
-          if (this->showPhase) {
+          if (m_showPhase) {
             // Display its first derivative (frequency, cached)
-            if (this->showPhaseDiff) {
-              lineColor = this->phaseDiff2Color(
+            if (m_showPhaseDiff) {
+              lineColor = phaseDiff2Color(
                     SCAST(qreal, z.freq < 0 ? z.freq + 2 * PI : z.freq));
             }
             else
               lineColor = phaseToColor(phase);
           } else {
-            lineColor = this->foreground;
+            lineColor = m_foreground;
           }
 
           p.setPen(QPen(lineColor));
@@ -435,12 +392,12 @@ WaveView::drawWaveFar(QPainter &p, int level)
     }
 
     // Draw waveform
-    if (this->showWaveform) {
-      qreal min = this->cast(z.min);
-      qreal max = this->cast(z.max);
+    if (m_showWaveform) {
+      qreal min = cast(z.min);
+      qreal max = cast(z.max);
 
-      int yA = SCAST(int, this->value2px(min));
-      int yB = SCAST(int, this->value2px(max));
+      int yA = SCAST(int, value2px(min));
+      int yB = SCAST(int, value2px(max));
 
       // Previous pixel column is not the same as next
       //  Initialize limits
@@ -468,8 +425,8 @@ WaveView::drawWaveFar(QPainter &p, int level)
 
       // Next pixel column is going to be different, draw!
       if (currX != nextX) {
-        p.setOpacity(this->showEnvelope ? .33 : .66);
-        p.setPen(QPen(this->foreground));
+        p.setOpacity(m_showEnvelope ? .33 : .66);
+        p.setPen(QPen(m_foreground));
         p.drawLine(currX, minWfY, currX, maxWfY);
       }
 
@@ -486,20 +443,20 @@ WaveView::drawWaveFar(QPainter &p, int level)
 void
 WaveView::drawWave(QPainter &painter)
 {
-  this->setGeometry(painter.device()->width(), painter.device()->height());
+  setGeometry(painter.device()->width(), painter.device()->height());
 
-  if (!this->waveTree->isComplete()) {
+  if (!m_waveTree->isComplete()) {
     QFont font;
     QFontMetrics metrics(font);
     QString text;
     QRect rect;
     int tw;
 
-    if (this->waveTree->isRunning()) {
-      if (this->lastProgressMax > 0)
+    if (m_waveTree->isRunning()) {
+      if (m_lastProgressMax > 0)
         text = QString::asprintf(
               "Processing waveform (%ld%% complete)",
-              100 * this->lastProgressCurr / this->lastProgressMax);
+              100 * m_lastProgressCurr / m_lastProgressMax);
       else
         text = "Processing waveform";
     } else {
@@ -513,12 +470,12 @@ WaveView::drawWave(QPainter &painter)
 #endif // QT_VERSION_CHECK
 
     rect.setRect(
-          this->width / 2 - tw / 2,
-          this->height / 2 - metrics.height() / 2,
+          m_width / 2 - tw / 2,
+          m_height / 2 - metrics.height() / 2,
           tw,
           metrics.height());
 
-    painter.setPen(this->foreground);
+    painter.setPen(m_foreground);
     painter.setOpacity(1);
     painter.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, text);
 
@@ -526,12 +483,12 @@ WaveView::drawWave(QPainter &painter)
   }
 
   // Nothing to paint? Leave.
-  if (this->waveTree->getLength() == 0
-      || this->waveTree->size() == 0)
+  if (m_waveTree->getLength() == 0
+      || m_waveTree->size() == 0)
     return;
 
   painter.save();
-  if (this->sampPerPx > 8.) {
+  if (m_sampPerPx > 8.) {
     int level;
 
     // More than one waveform block per pixel. The waveform is zoomed out. Compute the
@@ -544,13 +501,13 @@ WaveView::drawWave(QPainter &painter)
 
     level = SCAST(
           int,
-          floor(log(this->sampPerPx) / log(WAVEFORM_BLOCK_LENGTH))) - 1;
-    if (level >= this->waveTree->size())
-      level = this->waveTree->size() - 1;
+          floor(log(m_sampPerPx) / log(WAVEFORM_BLOCK_LENGTH))) - 1;
+    if (level >= m_waveTree->size())
+      level = m_waveTree->size() - 1;
 
-    this->drawWaveFar(painter, level);
+    drawWaveFar(painter, level);
   } else {
-    this->drawWaveClose(painter);
+    drawWaveClose(painter);
   }
   painter.restore();
 }
@@ -564,9 +521,9 @@ WaveView::setBuffer(const std::vector<SUCOMPLEX> *buf)
 void
 WaveView::setBuffer(const SUCOMPLEX *data, size_t size)
 {
-  if (this->waveTree == &this->ownWaveTree) {
-    this->waveTree->clear();
-    this->waveTree->reprocess(data, size);
+  if (m_waveTree == &m_ownWaveTree) {
+    m_waveTree->clear();
+    m_waveTree->reprocess(data, size);
   }
 }
 
@@ -579,15 +536,15 @@ WaveView::refreshBuffer(const std::vector<SUCOMPLEX> *buf)
 void
 WaveView::refreshBuffer(const SUCOMPLEX *data, size_t size)
 {
-  if (this->waveTree == &this->ownWaveTree)
-    this->waveTree->reprocess(data, size);
+  if (m_waveTree == &m_ownWaveTree)
+    m_waveTree->reprocess(data, size);
 }
 
 ///////////////////////////////////// Slots ////////////////////////////////////
 void
 WaveView::onReady(void)
 {
-  this->lastProgressCurr = this->lastProgressMax = 0;
+  m_lastProgressCurr = m_lastProgressMax = 0;
 
   emit ready();
 }
@@ -595,8 +552,8 @@ WaveView::onReady(void)
 void
 WaveView::onProgress(quint64 curr, quint64 max)
 {
-  this->lastProgressCurr = curr;
-  this->lastProgressMax  = max;
+  m_lastProgressCurr = curr;
+  m_lastProgressMax  = max;
 
   emit progress();
 }

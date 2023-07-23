@@ -26,58 +26,58 @@ class WaveView : public QObject {
   Q_OBJECT
 
   // Rescaled wave data
-  WaveViewTree  ownWaveTree;
-  WaveViewTree *waveTree = nullptr;
+  WaveViewTree  m_ownWaveTree;
+  WaveViewTree *m_waveTree = nullptr;
 
   // Representation properties
-  QColor foreground;
-  int    leftMargin = 0;
+  QColor m_foreground;
+  int    m_leftMargin = 0;
 
   // Horizontal zoom
-  qint64 start = 0;
-  qint64 end   = 0;
+  qint64 m_start = 0;
+  qint64 m_end   = 0;
 
   // Vertical zoom
-  qreal min = -1;
-  qreal max = +1;
+  qreal m_min = -1;
+  qreal m_max = +1;
 
   // Horizontal units
-  qreal  t0 = 0;
-  qreal  sampleRate = 1;
-  qreal  deltaT = 1;
+  qreal  m_t0 = 0;
+  qreal  m_sampleRate = 1;
+  qreal  m_deltaT = 1;
 
   // Data-to-screen converstion factors
-  qreal sampPerPx = 1;
-  qreal unitsPerPx = 1; // (max - min) / width
-  int   height = 1;
-  int   width  = 1;
+  qreal m_sampPerPx = 1;
+  qreal m_unitsPerPx = 1; // (max - min) / width
+  int   m_height = 1;
+  int   m_width  = 1;
 
   // Cached data
-  uint64_t lastProgressCurr = 0;
-  uint64_t lastProgressMax = 0;
+  uint64_t m_lastProgressCurr = 0;
+  uint64_t m_lastProgressMax = 0;
 
   // Representation config
-  qreal phaseDiffContrast = 1;
-  unsigned int phaseDiffOrigin = 0;
+  qreal m_phaseDiffContrast = 1;
+  unsigned int m_phaseDiffOrigin = 0;
 
-  bool realComponent = true;
-  bool showWaveform  = true;
-  bool showEnvelope  = false;
-  bool showPhase     = false;
-  bool showPhaseDiff = false;
-  bool pad[3];
+  bool m_realComponent = true;
+  bool m_showWaveform  = true;
+  bool m_showEnvelope  = false;
+  bool m_showPhase     = false;
+  bool m_showPhaseDiff = false;
+  bool m_pad[3];
 
   // Color palette
-  QColor colorTable[256];
+  QColor m_colorTable[256];
 
   // Private methods
   inline QColor const &
   phaseDiff2Color(qreal diff) const
   {
     unsigned index = static_cast<unsigned>(
-            this->phaseDiffContrast * diff / (2. * PI) * 255);
+            m_phaseDiffContrast * diff / (2. * PI) * 255);
 
-    return this->colorTable[(index + this->phaseDiffOrigin) & 0xff];
+    return m_colorTable[(index + m_phaseDiffOrigin) & 0xff];
   }
 
   void drawWaveClose(QPainter &painter);
@@ -88,127 +88,127 @@ public:
   inline bool
   isComplete(void) const
   {
-    return this->waveTree->isComplete();
+    return m_waveTree->isComplete();
   }
 
   inline bool
   isRunning(void) const
   {
-    return this->waveTree->isRunning();
+    return m_waveTree->isRunning();
   }
 
   inline SUCOMPLEX
   getDataMax(void) const
   {
-    return this->waveTree->getMax();
+    return m_waveTree->getMax();
   }
 
   inline SUCOMPLEX
   getDataMin(void) const
   {
-    return this->waveTree->getMin();
+    return m_waveTree->getMin();
   }
 
   inline SUCOMPLEX
   getDataMean(void) const
   {
-    return this->waveTree->getMean();
+    return m_waveTree->getMean();
   }
 
   inline SUFLOAT
   getDataRMS(void) const
   {
-    return this->waveTree->getRMS();
+    return m_waveTree->getRMS();
   }
 
   inline qreal
   samp2t(qreal samp) const
   {
-    return samp * this->deltaT + this->t0;
+    return samp * m_deltaT + m_t0;
   }
 
   inline qreal
   t2samp(qreal t) const
   {
-    return (t - this->t0) * this->sampleRate;
+    return (t - m_t0) * m_sampleRate;
   }
 
   inline qreal
   px2samp(qreal px) const
   {
-    return (px - this->leftMargin) * this->sampPerPx + static_cast<qreal>(this->start);
+    return (px - m_leftMargin) * m_sampPerPx + static_cast<qreal>(m_start);
   }
 
   inline qreal
   samp2px(qreal samp) const
   {
-    return (samp - static_cast<qreal>(this->start)) / this->sampPerPx + this->leftMargin;
+    return (samp - static_cast<qreal>(m_start)) / m_sampPerPx + m_leftMargin;
   }
 
   inline qreal
   px2t(qreal px) const
   {
-    return this->samp2t(this->px2samp(px));
+    return samp2t(px2samp(px));
   }
 
   inline qreal
   t2px(qreal t) const
   {
-    return this->samp2px(this->t2samp(t));
+    return samp2px(t2samp(t));
   }
 
   inline qreal
   px2value(qreal px) const
   {
-    return (this->height - 1 - px) * this->unitsPerPx + this->min;
+    return (m_height - 1 - px) * m_unitsPerPx + m_min;
   }
 
   inline qreal
   value2px(qreal val) const
   {
-    return this->height - 1 - (val - this->min) / this->unitsPerPx;
+    return m_height - 1 - (val - m_min) / m_unitsPerPx;
   }
 
   inline qreal
   cast(SUCOMPLEX z) const
   {
     return static_cast<qreal>(
-          this->realComponent ? SU_C_REAL(z) : SU_C_IMAG(z));
+          m_realComponent ? SU_C_REAL(z) : SU_C_IMAG(z));
   }
 
   inline void
   setForeground(QColor color)
   {
-    this->foreground = color;
+    m_foreground = color;
   }
 
   inline void
   setLeftMargin(int margin) {
-    this->leftMargin = margin;
+    m_leftMargin = margin;
   }
 
   inline qint64
   getSampleStart(void) const
   {
-    return this->start;
+    return m_start;
   }
 
   inline qint64
   getSampleEnd(void) const
   {
-    return this->end;
+    return m_end;
   }
 
   inline qreal
   getMax(void) const
   {
-    return this->max;
+    return m_max;
   }
 
   inline qreal
   getMin(void) const
   {
-    return this->min;
+    return m_min;
   }
 
   inline void
@@ -216,135 +216,146 @@ public:
   {
     unsigned int i;
     for (i = 0; i < 256; ++i)
-      this->colorTable[i] = table[i];
+      m_colorTable[i] = table[i];
   }
 
   inline qreal
   getViewInterval(void) const
   {
-    return (this->end - this->start) * this->deltaT;
+    return (m_end - m_start) * m_deltaT;
   }
 
   inline qint64
   getViewSampleInterval(void) const
   {
-    return this->end - this->start;
+    return m_end - m_start;
   }
 
   inline qreal
   getViewRange(void) const
   {
-    return this->max - this->min;
+    return m_max - m_min;
   }
 
   inline qreal
   getSamplesPerPixel(void) const
   {
-    return this->sampPerPx;
+    return m_sampPerPx;
   }
 
   inline qreal
   getUnitsPerPixel(void) const
   {
-    return this->unitsPerPx;
+    return m_unitsPerPx;
   }
 
   inline SUSCOUNT
   getLength(void) const
   {
-    return this->waveTree->getLength();
+    return m_waveTree->getLength();
   }
 
   inline void
   setRealComponent(bool real)
   {
-    this->realComponent = real;
+    m_realComponent = real;
   }
 
   inline bool
   isRealComponent() const
   {
-    return this->realComponent;
+    return m_realComponent;
   }
 
   inline void
   setShowEnvelope(bool show)
   {
-    this->showEnvelope = show;
+    m_showEnvelope = show;
   }
 
   inline void
   setShowWaveform(bool show)
   {
-    this->showWaveform = show;
+    m_showWaveform = show;
   }
 
   inline void
   setShowPhase(bool show)
   {
-    this->showPhase = show;
+    m_showPhase = show;
   }
 
   inline void
   setShowPhaseDiff(bool show)
   {
-    this->showPhaseDiff = show;
+    m_showPhaseDiff = show;
   }
 
   inline void
   setPhaseDiffOrigin(unsigned origin)
   {
-    this->phaseDiffOrigin = origin & 0xff;
+    m_phaseDiffOrigin = origin & 0xff;
   }
 
   inline void
   setPhaseDiffContrast(qreal contrast)
   {
-    this->phaseDiffContrast = contrast;
+    m_phaseDiffContrast = contrast;
   }
 
   inline void
   setShowWaveForm(bool show)
   {
-    this->showWaveform = show;
+    m_showWaveform = show;
   }
 
   inline bool
   isEnvelopeVisible(void) const
   {
-    return this->showEnvelope;
+    return m_showEnvelope;
   }
 
   inline bool
   isPhaseEnabled(void) const
   {
-    return this->showPhase;
+    return m_showPhase;
   }
 
   inline bool
   isPhaseDiffEnabled(void) const
   {
-    return this->showPhaseDiff;
+    return m_showPhaseDiff;
   }
 
   inline qreal
   getSampleRate(void) const
   {
-    return this->sampleRate;
+    return m_sampleRate;
   }
 
   inline qreal
   getDeltaT(void) const
   {
-    return this->deltaT;
+    return m_deltaT;
   }
 
   inline void
   computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
   {
-    this->waveTree->computeLimits(start, end, limits);
+    m_waveTree->computeLimits(start, end, limits);
   }
 
+  inline int
+  width() const
+  {
+    return m_width;
+  }
+
+  inline int
+  height() const
+  {
+    return m_height;
+  }
 
   // Methods
   WaveView();

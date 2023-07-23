@@ -249,7 +249,7 @@ class Waveform : public ThrottleableWidget
   int  frequencyTextHeight;
   bool frequencyDragging = false;
 
-  int  valueTextWidth;
+  int  valueTextWidth = 0;
   bool valueDragging = false;
 
   bool hSelDragging = false;
@@ -299,6 +299,7 @@ class Waveform : public ThrottleableWidget
   void recalculateDisplayData();
   void paintTriangle(QPainter &, int, int, int, QColor const &, int side = 5);
   void triggerMouseMoveHere();
+  int  calcWaveViewWidth() const;
 
   inline bool
   somethingDirty() const

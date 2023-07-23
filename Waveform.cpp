@@ -859,6 +859,18 @@ Waveform::drawWave()
   p.end();
 }
 
+static inline int
+estimateTextWidth(QFontMetrics &metrics, QString label)
+{
+  int tw;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+        tw = metrics.horizontalAdvance(label);
+#else
+        tw = metrics.width(label);
+#endif // QT_VERSION_CHECK
+  return tw;
+}
+
 void
 Waveform::drawVerticalAxes()
 {
@@ -888,6 +900,7 @@ Waveform::drawVerticalAxes()
 
     while (axis * this->hDivSamples <= this->getSampleEnd() + rem) {
       px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
+      px += this->valueTextWidth;
 
       if (px > 0)
         p.drawLine(px, 0, px, this->geometry.height() - 1);
@@ -899,6 +912,7 @@ Waveform::drawVerticalAxes()
     axis = static_cast<int>(std::floor(this->getSampleStart() / this->hDivSamples));
     while (axis * this->hDivSamples <= this->getSampleEnd() + rem) {
       px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
+      px += this->valueTextWidth;
 
       if (px > 0) {
         QString label;
@@ -915,11 +929,7 @@ Waveform::drawVerticalAxes()
                 this->hDivSamples * deltaT,
                 this->horizontalUnits);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-        tw = metrics.horizontalAdvance(label);
-#else
-        tw = metrics.width(label);
-#endif // QT_VERSION_CHECK
+        tw = estimateTextWidth(metrics, label);
 
         if (previousLabel == -1 || previousLabel < px - tw / 2) {
           rect.setRect(
@@ -937,6 +947,16 @@ Waveform::drawVerticalAxes()
   p.end();
 }
 
+int
+Waveform::calcWaveViewWidth() const
+{
+  int viewWidth = width() - this->valueTextWidth;
+  if (viewWidth < this->valueTextWidth)
+    viewWidth = this->valueTextWidth;
+
+  return viewWidth;
+}
+
 void
 Waveform::drawHorizontalAxes()
 {
@@ -951,7 +971,6 @@ Waveform::drawHorizontalAxes()
   p.setPen(pen);
   p.setFont(font);
 
-  this->valueTextWidth = 0;
   if (this->vDivUnits > 0) {
     axis = static_cast<int>(std::floor(this->getMin() / this->vDivUnits));
 
@@ -979,22 +998,13 @@ Waveform::drawHorizontalAxes()
               this->vDivUnits,
               this->verticalUnits);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-        tw = metrics.horizontalAdvance(label);
-#else
-        tw = metrics.width(label);
-#endif // QT_VERSION_CHECK
+        tw = estimateTextWidth(metrics, label);
 
         rect.setRect(
               0,
               px - metrics.height() / 2,
               tw,
               metrics.height());
-
-        if (tw > this->valueTextWidth) {
-          this->valueTextWidth = tw;
-          m_view.setLeftMargin(tw);
-        }
 
         p.fillRect(rect, this->background);
         p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, label);
@@ -1105,7 +1115,7 @@ Waveform::overlaySelectionMarkes(QPainter &p)
 
 void
 Waveform::draw()
-{
+{ 
   if (!this->size().isValid())
     return;
 
@@ -1116,9 +1126,16 @@ Waveform::draw()
   QRect rect(0, 0, this->size().width(), this->size().height());
 
   if (this->geometry != this->size()) {
-    m_view.setGeometry(this->size().width(), this->size().height());
+    if (this->valueTextWidth == 0) {
+      QFont font;
+      QFontMetrics metrics(font);
+      this->valueTextWidth = estimateTextWidth(metrics, "0.00 X");
+    }
 
     this->geometry = this->size();
+    if (m_view.width() != calcWaveViewWidth())
+      m_view.setGeometry(calcWaveViewWidth(), this->height());
+
     if (!this->haveGeometry) {
       this->haveGeometry = true;
       this->zoomVerticalReset();
@@ -1127,7 +1144,10 @@ Waveform::draw()
 
     this->axesPixmap    = QPixmap(rect.size());
     this->contentPixmap = QPixmap(rect.size());
-    this->waveform      = QImage(this->geometry, QImage::Format_ARGB32);
+    this->waveform      = QImage(
+          m_view.width(),
+          m_view.height(),
+          QImage::Format_ARGB32);
 
     this->recalculateDisplayData();
     this->selUpdated = false;
@@ -1164,7 +1184,7 @@ Waveform::draw()
     p.drawPixmap(rect, this->axesPixmap);
 
     // Stack wave
-    p.drawImage(0, 0, this->waveform);
+    p.drawImage(this->valueTextWidth, 0, this->waveform);
 
     // Selection present, overlay
     if (this->hSelection) {
