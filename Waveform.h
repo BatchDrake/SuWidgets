@@ -371,13 +371,13 @@ public:
     inline qreal
     px2samp(qreal px) const
     {
-      return m_view.px2samp(px);
+      return m_view.px2samp(px - this->valueTextWidth);
     }
 
     inline qreal
     samp2px(qreal samp) const
     {
-      return m_view.samp2px(samp);
+      return m_view.samp2px(samp) + this->valueTextWidth;
     }
 
     inline qint64
@@ -478,13 +478,13 @@ public:
     inline qreal
     px2t(qreal px) const
     {
-      return m_view.px2t(px);
+      return m_view.px2t(px - this->valueTextWidth);
     }
 
     inline qreal
     t2px(qreal t) const
     {
-      return m_view.t2px(t);
+      return m_view.t2px(t) + this->valueTextWidth;
     }
 
     inline qreal
