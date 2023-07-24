@@ -228,8 +228,8 @@ Waveform::zoomHorizontal(qint64 x, qreal amount)
   newRange  = std::ceil(amount * m_view.getViewSampleInterval());
 
   this->zoomHorizontal(
-        static_cast<qint64>(std::floor(fixedSamp - relPoint * newRange)),
-        static_cast<qint64>(std::ceil(fixedSamp + (1.0 - relPoint) * newRange)));
+        static_cast<qint64>(std::round(fixedSamp - relPoint * newRange)),
+        static_cast<qint64>(std::round(fixedSamp + (1.0 - relPoint) * newRange)));
 }
 
 void
@@ -900,7 +900,6 @@ Waveform::drawVerticalAxes()
 
     while (axis * this->hDivSamples <= this->getSampleEnd() + rem) {
       px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
-      px += this->valueTextWidth;
 
       if (px > 0)
         p.drawLine(px, 0, px, this->geometry.height() - 1);
@@ -912,7 +911,6 @@ Waveform::drawVerticalAxes()
     axis = static_cast<int>(std::floor(this->getSampleStart() / this->hDivSamples));
     while (axis * this->hDivSamples <= this->getSampleEnd() + rem) {
       px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
-      px += this->valueTextWidth;
 
       if (px > 0) {
         QString label;
