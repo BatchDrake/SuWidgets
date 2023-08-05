@@ -176,7 +176,7 @@ PhaseView::drawPhaseView(void)
     assert(m_amount <= size);
     painter.setPen(Qt::RoundCap);
 
-    alphaK = 255.f / size;
+    alphaK = 1. / size;
     skip = static_cast<unsigned int>(size) - m_amount;
 
     while (p++ < m_amount) {
@@ -184,7 +184,9 @@ PhaseView::drawPhaseView(void)
       c = m_gain * m_history[q];
 
       QColor fg = phaseToColor(SU_C_ARG(c));
-      fg.setAlpha(static_cast<int>(alphaK * (p + skip)));
+      qreal alpha = alphaK * (p + skip);
+
+      fg.setAlpha(static_cast<int>(255 * alpha * alpha));
 
       pen.setColor(fg);
       painter.setPen(pen);
