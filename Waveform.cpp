@@ -1142,7 +1142,8 @@ Waveform::draw()
 
     if (!this->haveGeometry) {
       this->haveGeometry = true;
-      this->zoomVerticalReset();
+      if (this->autoFitToEnvelope)
+        this->zoomVerticalReset();
       this->zoomHorizontalReset();
     }
 
