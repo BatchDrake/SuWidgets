@@ -66,7 +66,7 @@ PhaseView::floatToScreenPoint(float x, float y)
 }
 
 void
-PhaseView::recalculateDisplayData(void)
+PhaseView::recalculateDisplayData()
 {
   int width, height;
 
@@ -83,7 +83,7 @@ PhaseView::recalculateDisplayData(void)
 }
 
 void
-PhaseView::drawAxes(void)
+PhaseView::drawAxes()
 {
   QPainter painter(&m_axesPixmap);
   QPen pen(m_axes);
@@ -151,16 +151,16 @@ PhaseView::drawAxes(void)
 }
 
 void
-PhaseView::drawPhaseView(void)
+PhaseView::drawPhaseView()
 {
   QPainter painter(&m_contentPixmap);
   QPointF center;
   SUCOMPLEX c;
   float alphaK;
-  int p = 0;
-  int q;
-  int skip;
-  unsigned long size = m_history.size();
+  unsigned int p = 0;
+  qint64 q;
+  qint64 skip;
+  qint64 size = SCAST(qint64, m_history.size());
   QPen pen;
 
   center.setX(m_ox);
@@ -169,18 +169,16 @@ PhaseView::drawPhaseView(void)
   pen.setWidth(qMax(1., .02 * qMin(m_width, m_height)));
 
   if (m_amount > 0) {
-    q = m_ptr - m_amount;
+    q = SCAST(qint64, m_ptr) - SCAST(qint64, m_amount);
     if (q < 0)
       q += size;
 
-    assert(m_amount <= size);
     painter.setPen(Qt::RoundCap);
 
     alphaK = 1. / size;
-    skip = static_cast<unsigned int>(size) - m_amount;
+    skip = SCAST(unsigned int, size) - m_amount;
 
     while (p++ < m_amount) {
-      assert(q < size);
       c = m_gain * m_history[q];
 
       QColor fg = phaseToColor(SU_C_ARG(c));
@@ -201,9 +199,69 @@ PhaseView::drawPhaseView(void)
   }
 }
 
+void
+PhaseView::drawAoAView()
+{
+  QPainter painter(&m_contentPixmap);
+  QPointF center;
+  SUCOMPLEX c;
+  float alphaK;
+  qint64 p = 0;
+  qint64 q;
+  qint64 skip;
+  qint64 size = SCAST(qint64, m_history.size());
+  QPen pen;
+  QColor fg = m_foreground;
+
+  center.setX(m_ox);
+  center.setY(m_oy);
+
+  pen.setWidth(qMax(1., .02 * qMin(m_width, m_height)));
+
+  if (m_amount > 0) {
+    q = SCAST(qint64, m_ptr) - SCAST(qint64, m_amount);
+    if (q < 0)
+      q += size;
+
+    painter.setPen(Qt::RoundCap);
+
+    alphaK = 1. / size;
+    skip = SCAST(unsigned int, size) - m_amount;
+
+    while (p++ < m_amount) {
+      c = m_gain * m_history[q];
+      qreal phi   = SU_C_ARG(c);
+      qreal mag   = SU_C_ABS(c);
+      qreal angle = -SU_ASIN(phi / M_PI);
+      qreal alpha = alphaK * (p + skip);
+      qreal x     = mag * SU_COS(angle);
+      qreal y     = mag * SU_SIN(angle);
+
+      // Recall the base ambiguity of angle and pi - angle
+
+      fg.setAlpha(static_cast<int>(255 * alpha * alpha));
+
+      pen.setColor(fg);
+      painter.setPen(pen);
+
+      painter.drawLine(
+            center,
+            floatToScreenPoint(-y, +x));
+
+      painter.drawLine(
+            center,
+            floatToScreenPoint(-y, -x));
+
+      if (++q == size)
+        q = 0;
+    }
+  }
+}
+
+
 
 void
-PhaseView::draw(void)
+PhaseView::draw()
 {
   if (!size().isValid())
     return;
@@ -229,12 +287,15 @@ PhaseView::draw(void)
         m_geometry.width(),
         m_geometry.height());
 
-  drawPhaseView();
+  if (m_aoa)
+    drawAoAView();
+  else
+    drawPhaseView();
 }
 
 
 void
-PhaseView::paint(void)
+PhaseView::paint()
 {
   QPainter painter(this);
   painter.drawPixmap(0, 0, m_contentPixmap);

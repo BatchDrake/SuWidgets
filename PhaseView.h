@@ -77,6 +77,7 @@ class PhaseView : public ThrottleableWidget
   float m_zoom = 1.;
   bool m_haveGeometry = false;
   bool m_axesDrawn = false;
+  bool m_aoa = false;
   SUFLOAT m_gain = 1.;
 
   // Cached data
@@ -88,10 +89,11 @@ class PhaseView : public ThrottleableWidget
   // Private methods
   QPoint floatToScreenPoint(float x, float y);
 
-  void recalculateDisplayData(void);
+  void recalculateDisplayData();
 
-  void drawAxes(void);
-  void drawPhaseView(void);
+  void drawAxes();
+  void drawPhaseView();
+  void drawAoAView();
 
 public:
   void
@@ -104,7 +106,7 @@ public:
   }
 
   const QColor &
-  getBackgroundColor(void) const
+  getBackgroundColor() const
   {
     return this->m_background;
   }
@@ -119,7 +121,7 @@ public:
   }
 
   const QColor &
-  getAxesColor(void) const
+  getAxesColor() const
   {
     return this->m_axes;
   }
@@ -134,7 +136,7 @@ public:
   }
 
   const QColor &
-  getForegroundColor(void) const
+  getForegroundColor() const
   {
     return this->m_foreground;
   }
@@ -146,16 +148,31 @@ public:
   }
 
   SUFLOAT
-  getGain(void) const
+  getGain() const
   {
     return this->m_gain;
+  }
+
+  void
+  setAoA(bool aoa)
+  {
+    if (m_aoa != aoa) {
+      m_aoa = aoa;
+      this->invalidate();
+    }
+  }
+
+  bool
+  getAoA() const
+  {
+    return m_aoa;
   }
 
   void setHistorySize(unsigned int length);
   void feed(const SUCOMPLEX *samples, unsigned int length);
 
-  void draw(void);
-  void paint(void);
+  void draw();
+  void paint();
 
   PhaseView(QWidget *parent = nullptr);
 
