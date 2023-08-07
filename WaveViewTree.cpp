@@ -35,7 +35,6 @@ WaveWorker::WaveWorker(WaveViewTree *owner, SUSCOUNT since, QObject *parent) :
 
 WaveWorker::~WaveWorker()
 {
-
 }
 
 void
@@ -221,8 +220,10 @@ WaveViewTree::WaveViewTree(QObject *parent) : QObject(parent)
 
 WaveViewTree::~WaveViewTree()
 {
-  if (this->currentWorker != nullptr)
+  if (this->currentWorker != nullptr) {
     this->currentWorker->cancel();
+    this->currentWorker->wait();
+  }
 
   this->workerThread->quit();
   this->workerThread->wait();

@@ -196,6 +196,12 @@ Waveform::recalculateDisplayData()
 }
 
 void
+Waveform::safeCancel()
+{
+  m_view.safeCancel();
+}
+
+void
 Waveform::zoomHorizontalReset()
 {
   if (this->haveGeometry) {
@@ -1457,6 +1463,10 @@ Waveform::Waveform(QWidget *parent) :
 
   this->setMouseTracking(true);
   this->invalidate();
+}
+
+Waveform::~Waveform()
+{
 }
 
 void

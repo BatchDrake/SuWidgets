@@ -785,6 +785,7 @@ public:
   }
 
   Waveform(QWidget *parent = nullptr);
+  ~Waveform();
 
   void setData(
       const std::vector<SUCOMPLEX> *,
@@ -800,7 +801,8 @@ public:
 
   void reuseDisplayData(Waveform *);
   void draw() override;
-  void paint() override;
+  void paint() override;  
+  void safeCancel();
   void zoomHorizontalReset(); // To show full wave or to sampPerPix = 1
   void zoomHorizontal(qint64 x, qreal amount); // Zoom at point x.
   void zoomHorizontal(qreal tStart, qreal tEnd);
@@ -813,7 +815,6 @@ public:
   qreal getHorizontalSelectionStart() const;
   qreal getHorizontalSelectionEnd() const;
   void setAutoScroll(bool);
-
   void setShowEnvelope(bool);
   void setShowPhase(bool);
   void setShowPhaseDiff(bool);

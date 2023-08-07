@@ -41,6 +41,11 @@ WaveView::WaveView()
   borrowTree(*this);
 }
 
+WaveView::~WaveView()
+{
+  safeCancel();
+}
+
 void
 WaveView::borrowTree(WaveView &view)
 {
@@ -510,6 +515,12 @@ WaveView::drawWave(QPainter &painter)
     drawWaveClose(painter);
   }
   painter.restore();
+}
+
+void
+WaveView::safeCancel()
+{
+  m_waveTree->safeCancel();
 }
 
 void

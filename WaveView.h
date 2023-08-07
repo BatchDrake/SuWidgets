@@ -359,6 +359,7 @@ public:
 
   // Methods
   WaveView();
+  ~WaveView();
 
   qreal getEnvelope(void) const;
   void setSampleRate(qreal rate);
@@ -372,6 +373,7 @@ public:
   void setBuffer(const std::vector<SUCOMPLEX> *);
   void setBuffer(const SUCOMPLEX *, size_t);
 
+  void safeCancel();
   void refreshBuffer(const std::vector<SUCOMPLEX> *);
   void refreshBuffer(const SUCOMPLEX *, size_t);
   // Slots
