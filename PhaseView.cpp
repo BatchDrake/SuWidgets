@@ -137,15 +137,66 @@ PhaseView::drawAxes()
   }
   painter.restore();
 
-  // Horizontal axis (real)
-  painter.drawLine(
-        QPoint(0, m_height >> 1),
-        QPoint(m_width - 1, m_height >> 1));
 
-  // Vertical axis (imaginary)
-  painter.drawLine(
-        QPoint(m_width >> 1, 0),
-        QPoint(m_width >> 1, m_height - 1));
+  // In AoA mode, draw normal.
+  if (m_aoa) {
+    pen.setWidth(2);
+    pen.setColor(QColor(255, 0, 0, 127));
+    painter.setPen(pen);
+
+    // Forward direction
+    painter.drawLine(
+          center,
+          floatToScreenPoint(0, 1));
+    painter.drawLine(
+          floatToScreenPoint(0, 1),
+          floatToScreenPoint(-.035, .9));
+    painter.drawLine(
+          floatToScreenPoint(0, 1),
+          floatToScreenPoint(+.035, .9));
+
+    // Backward direction
+    QColor newColor = m_textColor;
+    newColor.setAlpha(127);
+    pen.setColor(newColor);
+    painter.setPen(pen);
+    painter.drawLine(
+          center,
+          floatToScreenPoint(0, -1));
+
+    painter.drawLine(
+          floatToScreenPoint(0, -1),
+          floatToScreenPoint(-.035, -.9));
+    painter.drawLine(
+          floatToScreenPoint(0, -1),
+          floatToScreenPoint(+.035, -.9));
+
+    newColor = m_foreground;
+    newColor.setAlpha(127);
+    pen.setColor(newColor);
+    pen.setStyle(Qt::DashLine);
+    pen.setWidth(1);
+    painter.setPen(pen);
+
+    // Horizontal axis (real)
+    painter.drawLine(
+          floatToScreenPoint(-1, 0),
+          floatToScreenPoint( 0, 0));
+    painter.drawLine(
+          floatToScreenPoint(+1, 0),
+          floatToScreenPoint( 0, 0));
+  } else {
+    // Horizontal axis (real)
+    painter.drawLine(
+          QPoint(0, m_height >> 1),
+          QPoint(m_width - 1, m_height >> 1));
+
+    // Vertical axis (imaginary)
+    painter.drawLine(
+          QPoint(m_width >> 1, 0),
+          QPoint(m_width >> 1, m_height - 1));
+
+  }
 
   m_axesDrawn = true;
 }
@@ -216,15 +267,13 @@ PhaseView::drawAoAView()
   center.setX(m_ox);
   center.setY(m_oy);
 
-  pen.setWidth(qMax(1., .02 * qMin(m_width, m_height)));
+  pen.setWidth(1);
+  pen.setCapStyle(Qt::RoundCap);
 
   if (m_amount > 0) {
     q = SCAST(qint64, m_ptr) - SCAST(qint64, m_amount);
     if (q < 0)
       q += size;
-
-    painter.setPen(Qt::RoundCap);
-
     alphaK = 1. / size;
     skip = SCAST(unsigned int, size) - m_amount;
 
@@ -232,14 +281,14 @@ PhaseView::drawAoAView()
       c = m_gain * m_history[q];
       qreal phi   = SU_C_ARG(c);
       qreal mag   = SU_C_ABS(c);
-      qreal angle = -SU_ASIN(phi / M_PI);
+      qreal angle = SU_ASIN(phi / M_PI);
       qreal alpha = alphaK * (p + skip);
       qreal x     = mag * SU_COS(angle);
       qreal y     = mag * SU_SIN(angle);
 
       // Recall the base ambiguity of angle and pi - angle
 
-      fg.setAlpha(static_cast<int>(255 * alpha * alpha));
+      fg.setAlpha(static_cast<int>(255 * pow(alpha, 4)));
 
       pen.setColor(fg);
       painter.setPen(pen);
@@ -359,6 +408,7 @@ PhaseView::PhaseView(QWidget *parent) :
 
   m_background = PhaseView_DEFAULT_BACKGROUND_COLOR;
   m_foreground = PhaseView_DEFAULT_FOREGROUND_COLOR;
+  m_textColor  = PhaseView_DEFAULT_TEXT_COLOR;
   m_axes       = PhaseView_DEFAULT_AXES_COLOR;
 
   invalidate();

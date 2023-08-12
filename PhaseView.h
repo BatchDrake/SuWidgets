@@ -30,6 +30,7 @@
 
 #define PhaseView_DEFAULT_BACKGROUND_COLOR QColor(0,     0,   0)
 #define PhaseView_DEFAULT_FOREGROUND_COLOR QColor(255, 255, 255)
+#define PhaseView_DEFAULT_TEXT_COLOR       QColor(255, 255, 255)
 #define PhaseView_DEFAULT_AXES_COLOR       QColor(128, 128, 128)
 
 #define PhaseView_DEFAULT_HISTORY_SIZE 256
@@ -57,6 +58,12 @@ class PhaseView : public ThrottleableWidget
       WRITE setAxesColor
       NOTIFY axesColorChanged)
 
+  Q_PROPERTY(
+      QColor textColor
+      READ getTextColor
+      WRITE setTextColor
+      NOTIFY textColorChanged)
+
 
   // Drawing area properties
   QPixmap m_contentPixmap;
@@ -74,6 +81,8 @@ class PhaseView : public ThrottleableWidget
   QColor m_background;
   QColor m_foreground;
   QColor m_axes;
+  QColor m_textColor;
+
   float m_zoom = 1.;
   bool m_haveGeometry = false;
   bool m_axesDrawn = false;
@@ -99,58 +108,73 @@ public:
   void
   setBackgroundColor(const QColor &c)
   {
-    this->m_background = c;
-    this->m_axesDrawn = false;
-    this->invalidate();
+    m_background = c;
+    m_axesDrawn = false;
+    invalidate();
     emit backgroundColorChanged();
   }
 
   const QColor &
   getBackgroundColor() const
   {
-    return this->m_background;
+    return m_background;
   }
 
   void
   setAxesColor(const QColor &c)
   {
-    this->m_axes = c;
-    this->m_axesDrawn = false;
-    this->invalidate();
+    m_axes = c;
+    m_axesDrawn = false;
+    invalidate();
     emit axesColorChanged();
   }
 
   const QColor &
   getAxesColor() const
   {
-    return this->m_axes;
+    return m_axes;
   }
 
   void
   setForegroundColor(const QColor &c)
   {
-    this->m_foreground = c;
-    this->m_axesDrawn = false;
-    this->invalidate();
+    m_foreground = c;
+    m_axesDrawn = false;
+    invalidate();
     emit foregroundColorChanged();
   }
 
   const QColor &
   getForegroundColor() const
   {
-    return this->m_foreground;
+    return m_foreground;
+  }
+
+  void
+  setTextColor(const QColor &c)
+  {
+    m_textColor = c;
+    m_axesDrawn = false;
+    invalidate();
+    emit textColorChanged();
+  }
+
+  const QColor &
+  getTextColor() const
+  {
+    return m_textColor;
   }
 
   void
   setGain(SUFLOAT gain)
   {
-    this->m_gain = gain;
+    m_gain = gain;
   }
 
   SUFLOAT
   getGain() const
   {
-    return this->m_gain;
+    return m_gain;
   }
 
   void
@@ -158,7 +182,8 @@ public:
   {
     if (m_aoa != aoa) {
       m_aoa = aoa;
-      this->invalidate();
+      m_axesDrawn = false;
+      invalidate();
     }
   }
 
@@ -182,7 +207,7 @@ signals:
   void foregroundColorChanged();
   void axesColorChanged();
   void axesUpdated();
-
+  void textColorChanged();
 };
 
 #endif
