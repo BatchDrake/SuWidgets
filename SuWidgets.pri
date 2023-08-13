@@ -38,4 +38,4 @@ SOURCES += ThrottleableWidget.cpp \
 WIDGET_HEADERS += ThrottleableWidget.h SuWidgetsHelpers.h Version.h WFHelpers.h
 
 CONFIG += link_pkgconfig
-PKGCONFIG += sigutils fftw3
+PKGCONFIG += sigutils fftw3 sndfile volk
