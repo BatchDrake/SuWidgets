@@ -241,9 +241,11 @@ GLWaterfallOpenGLContext::GLWaterfallOpenGLContext() :
   auto screens = QGuiApplication::screens();
   int maxHeight = 0;
 
-  for (auto p : screens)
-    if (p->geometry().height() > maxHeight)
-      maxHeight = p->geometry().height();
+  for (auto p : screens) {
+    int h = p->geometry().height() * p->devicePixelRatio();
+    if (h > maxHeight)
+      maxHeight = h;
+  }
 
   m_paletBuf.resize(256 * 4);
   m_rowCount = maxHeight;
@@ -1439,8 +1441,10 @@ GLWaterfall::paintGL(void)
   qint64 f0 = m_FftCenter - m_Span / 2;
   qreal  left  = (qreal) ( - f0) / (qreal) m_Span - .5f;
   qreal  right = (qreal) (+m_SampleFreq - f0) / (qreal) m_Span - .5f;
+  int dpi_factor = screen()->devicePixelRatio();
 
-  this->glCtx.render(0, y, width(), height(), left, right);
+  this->glCtx.render(0, y * dpi_factor, width() * dpi_factor,
+          height() * dpi_factor, left, right);
 }
 
 void
