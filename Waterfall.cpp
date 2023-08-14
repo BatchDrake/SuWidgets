@@ -791,15 +791,14 @@ void Waterfall::wheelEvent(QWheelEvent * event)
     QPointF pt = event->pos();
 #endif // QT_VERSION
 
-    int numDegrees = event->angleDelta().y() / 8;
-    int numSteps = numDegrees / 15;  /** FIXME: Only used for direction **/
+    // delta is in eigths of a degree, 15 degrees is one step
+    double numSteps = event->angleDelta().y() / (8.0 * 15.0);
 
-    /** FIXME: zooming could use some optimisation **/
     if (m_CursorCaptured == YAXIS)
     {
         // Vertical zoom. Wheel down: zoom out, wheel up: zoom in
         // During zoom we try to keep the point (dB or kHz) under the cursor fixed
-      qreal zoom_fac = event->angleDelta().y() < 0 ? 1. / .9 : 0.9;
+      qreal zoom_fac = pow(0.9, numSteps);
       qreal ratio = pt.y() / m_OverlayPixmap.height();
       qreal db_range = m_PandMaxdB - m_PandMindB;
       qreal y_range = m_OverlayPixmap.height();
@@ -821,7 +820,7 @@ void Waterfall::wheelEvent(QWheelEvent * event)
     }
     else if (m_CursorCaptured == XAXIS)
     {
-        zoomStepX(event->angleDelta().y() < 0 ? 1.1 : 0.9, pt.x());
+        zoomStepX(pow(0.9, numSteps), pt.x());
     }
     else if (event->modifiers() & Qt::ControlModifier)
     {
