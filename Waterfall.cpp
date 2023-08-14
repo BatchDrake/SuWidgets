@@ -815,6 +815,9 @@ void Waterfall::wheelEvent(QWheelEvent * event)
             m_PandMaxdB = FFT_MAX_DB;
 
         m_PandMindB = m_PandMaxdB - db_range;
+        if (m_PandMindB < FFT_MIN_DB)
+            m_PandMindB = FFT_MIN_DB;
+
         m_PeakHoldValid = false;
 
         emit pandapterRangeChanged(m_PandMindB, m_PandMaxdB);
