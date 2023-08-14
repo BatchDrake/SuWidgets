@@ -123,6 +123,7 @@ class LCD : public QFrame
   int height;
   int glyphWidth;
   int glyphHeight;
+  int cumWheelDelta = 0;
   qreal segBoxThickness;
   qreal segBoxLength;
   qreal segThickness;

@@ -389,9 +389,16 @@ LCD::wheelEvent(QWheelEvent *ev)
 #else
     int x = ev->x();
 #endif // QT_VERSION
-    int amount = ev->angleDelta().y() > 0 ? 1 : -1;
+
+    // accumulate small wheel events up to a step
+    cumWheelDelta += ev->angleDelta().y();
+    int numSteps = cumWheelDelta / (8*15);
+    if (abs(numSteps) == 0)
+        return;
+    cumWheelDelta = 0;
+
     int digit = (this->width - x) / this->glyphWidth;
-    this->scrollDigit(digit, amount);
+    this->scrollDigit(digit, numSteps > 0 ? 1 : -1);
     ev->accept();
   }
 }
