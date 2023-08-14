@@ -458,6 +458,7 @@ private:
     qint64      m_Span;
     float       m_SampleFreq;    /*!< Sample rate. */
     qint32      m_FreqUnits;
+    qint32      m_CumWheelDelta;
     int         m_ClickResolution;
     int         m_FilterClickResolution;
 
