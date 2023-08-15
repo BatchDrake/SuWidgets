@@ -281,7 +281,7 @@ PhaseView::drawAoAView()
       c = m_gain * m_history[q];
       qreal phi   = SU_C_ARG(c);
       qreal mag   = SU_C_ABS(c);
-      qreal angle = SU_ASIN(phi / M_PI);
+      qreal angle = SU_ASIN(phi / m_phaseScale);
       qreal alpha = alphaK * (p + skip);
       qreal x     = mag * SU_COS(angle);
       qreal y     = mag * SU_SIN(angle);
@@ -348,6 +348,12 @@ PhaseView::paint()
 {
   QPainter painter(this);
   painter.drawPixmap(0, 0, m_contentPixmap);
+}
+
+void
+PhaseView::setPhaseScale(SUFLOAT scale)
+{
+  m_phaseScale = scale;
 }
 
 void

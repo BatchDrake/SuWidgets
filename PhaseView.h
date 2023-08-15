@@ -88,6 +88,7 @@ class PhaseView : public ThrottleableWidget
   bool m_axesDrawn = false;
   bool m_aoa = false;
   SUFLOAT m_gain = 1.;
+  SUFLOAT m_phaseScale = M_PI;
 
   // Cached data
   int m_ox;
@@ -193,6 +194,7 @@ public:
     return m_aoa;
   }
 
+  void setPhaseScale(SUFLOAT);
   void setHistorySize(unsigned int length);
   void feed(const SUCOMPLEX *samples, unsigned int length);
 
