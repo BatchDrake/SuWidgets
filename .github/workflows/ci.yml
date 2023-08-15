@@ -87,8 +87,8 @@ jobs:
         repository: BatchDrake/sigutils
         ref: refs/heads/develop
         path: sigutils
-	submodules: recursive
-
+        submodules: recursive
+ 
     - name: Configure CMake (sigutils)
       run: cmake -DCMAKE_INSTALL_PREFIX=/usr/local -B ${{github.workspace}}/sigutils/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} sigutils
 
