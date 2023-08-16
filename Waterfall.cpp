@@ -753,24 +753,40 @@ void Waterfall::mouseReleaseEvent(QMouseEvent * event)
 void Waterfall::zoomStepX(float step, int x)
 {
     // calculate new range shown on FFT
-    float new_range = qBound(10.0f,
-                             (float)(m_Span) * step,
-                             (float)(m_SampleFreq) * 10.0f);
+    float new_span = std::min(
+        (float)m_Span * (float)step, (float)m_SampleFreq);
 
-    // Frequency where event occured is kept fixed under mouse
-    float ratio = (float)x / (float)m_OverlayPixmap.width();
-    float fixed_hz = freqFromX(x);
-    float f_max = fixed_hz + (1.0 - ratio) * new_range;
-    float f_min = f_max - new_range;
+    // Keep frequency under pointer the same and calculated the offset to the
+    // plot center.
+    float offset = (float)(freqFromX(x) - m_CenterFreq - m_FftCenter);
+    float new_FftCenter = (float)m_FftCenter + offset * (1.0f - step);
 
-    qint64 fc = (qint64)(f_min + (f_max - f_min) / 2.0);
+    // Keep edges of plot in valid frequency range. The plot may need to be
+    // panned.
+    const float max_limit = (float)m_SampleFreq / 2.0f;
+    const float min_limit = - (float)m_SampleFreq / 2.0f;
+    float f_max = new_FftCenter + new_span / 2.0f;
+    float f_min = new_FftCenter - new_span / 2.0f;
+    if (f_min < min_limit)
+    {
+        f_min = min_limit;
+        f_max = f_min + new_span;
+    }
+    if (f_max > max_limit)
+    {
+        f_max = max_limit;
+        f_min = f_max - new_span;
+    }
 
-    setFftCenterFreq(fc - m_CenterFreq);
-    setSpanFreq(new_range);
+    // Explicitly set m_Span instead of calling setSpanFreq(), which also calls
+    // setFftCenterFreq() and updateOverlay() internally. Span needs to be set
+    // before frequency limits can be checked in setFftCenterFreq().
+    m_Span = new_span;
+    setFftCenterFreq(qRound64((f_max + f_min) / 2.0f));
+    updateOverlay();
 
-    float factor = (float)m_SampleFreq / (float)m_Span;
-    emit newZoomLevel(factor);
-    qDebug() << QString("Spectrum zoom: %1x").arg(factor, 0, 'f', 1);
+    double zoom = (double)m_SampleFreq / (double)m_Span;
+    emit newZoomLevel(zoom);
 
     m_PeakHoldValid = false;
 }
