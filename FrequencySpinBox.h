@@ -103,7 +103,7 @@ signals:
   void valueChanged(double freq);
 
 public slots:
-  void onValueChanged(double freq);
+  void onEditingFinished(void);
   void onIncFreqUnitMultiplier(void);
   void onDecFreqUnitMultiplier(void);
 

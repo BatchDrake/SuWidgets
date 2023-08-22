@@ -48,9 +48,6 @@
      <property name="buttonSymbols">
       <enum>QAbstractSpinBox::UpDownArrows</enum>
      </property>
-     <property name="keyboardTracking">
-      <bool>false</bool>
-     </property>
      <property name="showGroupSeparator" stdset="0">
       <bool>false</bool>
      </property>

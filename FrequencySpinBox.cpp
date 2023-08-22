@@ -136,9 +136,9 @@ FrequencySpinBox::connectAll(void)
 
   connect(
         this->ui->frequencySpin,
-        SIGNAL(valueChanged(double)),
+        SIGNAL(editingFinished(void)),
         this,
-        SLOT(onValueChanged(double)));
+        SLOT(onEditingFinished(void)));
 }
 
 
@@ -236,7 +236,8 @@ FrequencySpinBox::subMultiplesAllowed() const
 double
 FrequencySpinBox::value(void) const
 {
-  return currValue;
+  // this->currValue may be outdated if editing was in progress
+  return this->ui->frequencySpin->value() * this->freqMultiplier();
 }
 
 void
@@ -359,10 +360,10 @@ FrequencySpinBox::setFocus(void)
 
 ///////////////////////////////// Slots ///////////////////////////////////////
 void
-FrequencySpinBox::onValueChanged(double freq)
+FrequencySpinBox::onEditingFinished(void)
 {
   if (!this->refreshing) {
-    this->currValue = freq * this->freqMultiplier();
+    this->currValue = this->ui->frequencySpin->value() * this->freqMultiplier();
     emit valueChanged(this->currValue);
   }
 }
