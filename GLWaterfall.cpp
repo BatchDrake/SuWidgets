@@ -562,12 +562,12 @@ GLWaterfallOpenGLContext::averageFFTData(const float *fftData, int size)
   }
 
   if (m_firstAccum) {
-    m_accum.assign(m_accum.size(), 0);
+    std::memcpy(m_accum.data(), fftData, size * sizeof(float));
     m_firstAccum = false;
+  } else {
+    for (i = 0; i < size; ++i)
+      m_accum[i] += .5f * (fftData[i] - m_accum[i]);
   }
-
-  for (i = 0; i < size; ++i)
-   m_accum[i] += .5f * (fftData[i] - m_accum[i]);
 }
 
 void
