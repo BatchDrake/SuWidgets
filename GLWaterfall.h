@@ -467,7 +467,7 @@ public:
 
     int     getNearestPeak(QPoint pt);
     void    setWaterfallSpan(quint64 span_ms);
-    quint64 getWfTimeRes(void);
+    double  getWfTimeRes(void);
     void    setFftRate(int rate_hz);
     void    clearGLWaterfall(void);
     bool    saveGLWaterfall(const QString & filename) const;
@@ -687,9 +687,9 @@ private:
     qint64      m_upperFreqLimit    = 300000000;
 
     // Waterfall averaging
-    quint64     tlast_wf_ms;        // last time waterfall has been updated
-    quint64     msec_per_wfline;    // milliseconds between waterfall updates
-    quint64     wf_span;            // waterfall span in milliseconds (0 = auto)
+    double      tlast_wf_ms;        // last time waterfall has been updated
+    double      msec_per_wfline;    // milliseconds between waterfall updates
+    double      wf_span;            // waterfall span in milliseconds (0 = auto)
     int         fft_rate;           // expected FFT rate (needed when WF span is auto)
     int         m_expectedRate;
 

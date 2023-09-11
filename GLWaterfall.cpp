@@ -573,10 +573,8 @@ GLWaterfallOpenGLContext::averageFFTData(const float *fftData, int size)
 void
 GLWaterfallOpenGLContext::commitFFTData(void)
 {
-  if (!m_firstAccum) {
-    pushFFTData(m_accum.data(), m_accum.size());
-    m_firstAccum = true;
-  }
+  pushFFTData(m_accum.data(), m_accum.size());
+  m_firstAccum = true;
 }
 
 void
@@ -1109,7 +1107,8 @@ GLWaterfall::setWaterfallSpan(quint64 span_ms)
 {
   wf_span = span_ms;
   if (m_GLWaterfallImage.height() > 0)
-    msec_per_wfline = wf_span / m_GLWaterfallImage.height();
+    msec_per_wfline = wf_span / (m_GLWaterfallImage.height() *
+            screen()->devicePixelRatio());
   clearGLWaterfall();
 }
 
@@ -1133,13 +1132,13 @@ GLWaterfall::saveGLWaterfall(const QString &) const
 }
 
 /** Get waterfall time resolution in milleconds / line. */
-quint64
+double
 GLWaterfall::getWfTimeRes(void)
 {
   if (msec_per_wfline)
     return msec_per_wfline;
   else
-    return 1000 * fft_rate / m_GLWaterfallImage.height(); // Auto mode
+    return 1000.0 / fft_rate;
 }
 
 void
@@ -1425,7 +1424,7 @@ GLWaterfall::resizeEvent(QResizeEvent* ev)
     m_PeakHoldValid = false;
 
     if (wf_span > 0)
-      msec_per_wfline = wf_span / height;
+      msec_per_wfline = wf_span / (height * screen()->devicePixelRatio());
   }
 
   updateOverlay();
@@ -1876,9 +1875,17 @@ GLWaterfall::setNewFftData(
       this->glCtx.averageFFTData(m_wfData, m_fftDataSize);
 
       if (tnow_ms < tlast_wf_ms || tnow_ms - tlast_wf_ms >= msec_per_wfline) {
-        tlast_wf_ms = tnow_ms;
-        this->glCtx.commitFFTData();
-        ++m_TimeStampCounter;
+        int line_count = (tnow_ms - tlast_wf_ms) / msec_per_wfline;
+        if (line_count >= 1 && line_count <= 100) {
+          tlast_wf_ms += msec_per_wfline * line_count;
+        } else {
+          line_count = 1;
+          tlast_wf_ms = tnow_ms;
+        }
+        for (int i = 0; i < line_count; i++) {
+          this->glCtx.commitFFTData();
+        }
+        m_TimeStampCounter += line_count;
       }
     } else {
       tlast_wf_ms = tnow_ms;
