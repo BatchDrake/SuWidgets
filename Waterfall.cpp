@@ -589,12 +589,12 @@ bool Waterfall::saveWaterfall(const QString & filename) const
 }
 
 /** Get waterfall time resolution in milleconds / line. */
-quint64 Waterfall::getWfTimeRes(void)
+double Waterfall::getWfTimeRes(void)
 {
     if (msec_per_wfline)
         return msec_per_wfline;
     else
-        return 1000 * fft_rate / m_WaterfallImage.height(); // Auto mode
+        return 1000.0 / fft_rate; // Auto mode
 }
 
 void Waterfall::setFftRate(int rate_hz)
@@ -1147,17 +1147,21 @@ void Waterfall::draw(bool everything)
         // is it time to update waterfall?
         if (tnow_ms < tlast_wf_ms || tnow_ms - tlast_wf_ms >= msec_per_wfline)
         {
-            tlast_wf_ms = tnow_ms;
+            int line_count = (tnow_ms - tlast_wf_ms) / msec_per_wfline;
+            if (line_count >= 1 && line_count <= h) {
+                tlast_wf_ms += msec_per_wfline * line_count;
+            } else {
+                line_count = 1;
+                tlast_wf_ms = tnow_ms;
+            }
 
-            ++this->m_TimeStampCounter;
-
-            // move current data down one line(must do before attaching a QPainter object)
-            // m_WaterfallImage.scroll(0, 1, 0, 0, w, h);
+            // move current data down required amounte (must do before attaching a QPainter object)
+            // m_WaterfallImage.scroll(0, line_count, 0, 0, w, h);
 
             memmove(
-                  m_WaterfallImage.scanLine(1),
+                  m_WaterfallImage.scanLine(line_count),
                   m_WaterfallImage.scanLine(0),
-                  static_cast<size_t>(w) * (static_cast<size_t>(h) - 1)
+                  static_cast<size_t>(w) * (static_cast<size_t>(h) - line_count)
                   * sizeof(uint32_t));
 
             uint32_t *scanLineData =
@@ -1181,8 +1185,18 @@ void Waterfall::draw(bool everything)
                 }
             } else {
                 for (i = xmin; i < xmax; i++)
-                  scanLineData[i] = m_UintColorTbl[255 - m_fftbuf[i]];
+                    scanLineData[i] = m_UintColorTbl[255 - m_fftbuf[i]];
             }
+
+            // copy as needed onto extra lines
+            for (int j = 1; j < line_count; j++) {
+                uint32_t *subseqScanLineData =
+                    reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(j));
+                memcpy(subseqScanLineData, scanLineData,
+                        static_cast<size_t>(w) * sizeof(uint32_t));
+            }
+
+            this->m_TimeStampCounter += line_count;
         }
     }
 
@@ -1326,50 +1340,7 @@ void Waterfall::setNewFftData(
     QDateTime const &t,
     bool looped)
 {
-    /** FIXME **/
-    if (!m_Running)
-        m_Running = true;
-
-    if (looped) {
-      TimeStamp ts;
-
-      ts.counter = m_TimeStampCounter;
-      ts.timeStampText =
-          m_lastFft.toLocalTime().toString("hh:mm:ss.zzz")
-            + " - "
-            + t.toLocalTime().toString("hh:mm:ss.zzz");
-      ts.utcTimeStampText =
-          m_lastFft.toUTC().toString("hh:mm:ss.zzzZ")
-            + " - "
-            + t.toUTC().toString("hh:mm:ss.zzzZ");
-      ts.marker = true;
-
-      m_TimeStamps.push_front(ts);
-      m_TimeStampCounter = 0;
-    }
-
-    m_wfData = fftData;
-    m_fftData = fftData;
-    m_fftDataSize = size;
-    m_lastFft = t;
-
-    if (m_tentativeCenterFreq != 0) {
-      m_tentativeCenterFreq = 0;
-      m_DrawOverlay = true;
-    }
-
-    if (m_TimeStampCounter >= m_TimeStampSpacing) {
-      TimeStamp ts;
-
-      ts.counter = m_TimeStampCounter;
-      ts.timeStampText = t.toLocalTime().toString("hh:mm:ss.zzz");
-      ts.utcTimeStampText = t.toUTC().toString("hh:mm:ss.zzzZ");
-
-      m_TimeStamps.push_front(ts);
-      m_TimeStampCounter = 0;
-    }
-
-    draw();
+    this->setNewFftData(fftData, fftData, size, t, looped);
 }
 
 /**
@@ -1398,9 +1369,13 @@ void Waterfall::setNewFftData(
 
       ts.counter = m_TimeStampCounter;
       ts.timeStampText =
-          this->m_lastFft.toString("hh:mm:ss.zzz")
-          + " - "
-          + t.toString("hh:mm:ss.zzz");
+          m_lastFft.toLocalTime().toString("hh:mm:ss.zzz")
+            + " - "
+            + t.toLocalTime().toString("hh:mm:ss.zzz");
+      ts.utcTimeStampText =
+          m_lastFft.toUTC().toString("hh:mm:ss.zzzZ")
+            + " - "
+            + t.toUTC().toString("hh:mm:ss.zzzZ");
       ts.marker = true;
 
       m_TimeStamps.push_front(ts);
@@ -1410,14 +1385,19 @@ void Waterfall::setNewFftData(
     m_wfData = wfData;
     m_fftData = fftData;
     m_fftDataSize = size;
-    m_tentativeCenterFreq = 0;
     m_lastFft = t;
+
+    if (m_tentativeCenterFreq != 0) {
+      m_tentativeCenterFreq = 0;
+      m_DrawOverlay = true;
+    }
 
     if (m_TimeStampCounter >= m_TimeStampSpacing) {
       TimeStamp ts;
 
       ts.counter = m_TimeStampCounter;
-      ts.timeStampText = t.toString();
+      ts.timeStampText = t.toLocalTime().toString("hh:mm:ss.zzz");
+      ts.utcTimeStampText = t.toUTC().toString("hh:mm:ss.zzzZ");
 
       m_TimeStamps.push_front(ts);
       m_TimeStampCounter = 0;
