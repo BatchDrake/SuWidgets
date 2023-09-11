@@ -1528,12 +1528,13 @@ GLWaterfall::paintTimeStamps(
   int textHeight = metrics.height();
   int items = 0;
   int leftSpacing = 0;
+  int dpi_factor = screen()->devicePixelRatio();
 
   auto it = m_TimeStamps.begin();
 
   painter.setFont(m_Font);
 
-  y += m_TimeStampCounter;
+  y += m_TimeStampCounter / dpi_factor;
 
   if (m_TimeStampMaxHeight < where.height())
     m_TimeStampMaxHeight = where.height();
@@ -1566,7 +1567,7 @@ GLWaterfall::paintTimeStamps(
       painter.drawLine(where.x(), y, textWidth + where.x(), y);
     }
 
-    y += it->counter;
+    y += it->counter / dpi_factor;
     ++it;
     ++items;
   }
