@@ -135,7 +135,7 @@ WaveWorker::build(SUSCOUNT start, SUSCOUNT end)
 void
 WaveWorker::cancel()
 {
-  QMutexLocker(&this->mutex);
+  QMutexLocker locker(&this->mutex);
 
   this->cancelFlag = true;
 }
