@@ -1307,13 +1307,13 @@ GLWaterfall::zoomStepX(float step, int x)
 
   // Frequency where event occured is kept fixed under mouse
   qreal ratio = (qreal)x / (qreal)m_OverlayPixmap.width();
-  qreal fixed_hz = fftFreqFromX(x);
+  qreal fixed_hz = freqFromX(x);
   qreal f_max = fixed_hz + (1.0 - ratio) * new_range;
   qreal f_min = f_max - new_range;
 
   qint64 fc = (qint64)(f_min + (f_max - f_min) / 2.0);
 
-  setFftCenterFreq(fc);
+  setFftCenterFreq(fc - m_CenterFreq);
   setSpanFreq(new_range);
 
   qreal factor = (qreal)m_SampleFreq / (qreal)m_Span;
