@@ -856,7 +856,11 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
         m_CursorCaptured = CENTER;
         if (m_TooltipsEnabled)
           QToolTip::showText(
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                event->globalPosition().toPoint(),
+#else
                 event->globalPos(),
+#endif
                 QString("Demod: %1 kHz").arg(
                   m_DemodCenterFreq / 1.e3f, 0, 'f', 3),
                 this);
@@ -870,7 +874,11 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
         m_CursorCaptured = RIGHT;
         if (m_TooltipsEnabled)
           QToolTip::showText(
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                event->globalPosition().toPoint(),
+#else
                 event->globalPos(),
+#endif
                 QString("High cut: %1 Hz").arg(m_DemodHiCutFreq),
                 this);
       } else if (isPointCloseTo(
@@ -883,7 +891,11 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
         m_CursorCaptured = LEFT;
         if (m_TooltipsEnabled)
           QToolTip::showText(
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                event->globalPosition().toPoint(),
+#else
                 event->globalPos(),
+#endif
                 QString("Low cut: %1 Hz").arg(m_DemodLowCutFreq),
                 this);
       } else if (isPointCloseTo(
@@ -911,7 +923,11 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
         }
         if (m_TooltipsEnabled)
           QToolTip::showText(
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                event->globalPosition().toPoint(),
+#else
                 event->globalPos(),
+#endif
                 QString("F: %1 kHz").arg(freqFromX(pt.x())/1.e3f, 0, 'f', 3),
                 this);
       }
@@ -931,7 +947,11 @@ GLWaterfall::mouseMoveEvent(QMouseEvent *event)
       tt.setMSecsSinceEpoch(msecFromY(pt.y()));
 
       QToolTip::showText(
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            event->globalPosition().toPoint(),
+#else
             event->globalPos(),
+#endif
             QString("%1\n%2 kHz")
               .arg(tt.toString("yyyy.MM.dd hh:mm:ss.zzz"))
               .arg(freqFromX(pt.x())/1.e3f, 0, 'f', 3),
