@@ -457,8 +457,13 @@ SymView::coordToOffset(int x, int y)
 void
 SymView::mouseMoveEvent(QMouseEvent *event)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  hoverX = event->position().x();
+  hoverY = event->position().y();
+#else
   hoverX = event->x();
   hoverY = event->y();
+#endif
 
   if (this->selecting) {
     qint64 end   = this->coordToOffset(hoverX, hoverY);

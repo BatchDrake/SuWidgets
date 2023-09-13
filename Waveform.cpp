@@ -455,16 +455,32 @@ Waveform::mouseMoveEvent(QMouseEvent *event)
 {
   // Emit mouseMove
   this->haveCursor = true;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  this->currMouseX = event->position().x();
+#else
   this->currMouseX = event->x();
+#endif
 
   if (this->frequencyDragging)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    this->scrollHorizontal(this->clickX, event->position().x());
+#else
     this->scrollHorizontal(this->clickX, event->x());
+#endif
   else if (this->valueDragging)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    this->scrollVertical(this->clickY, event->position().y());
+#else
     this->scrollVertical(this->clickY, event->y());
+#endif
   else if (this->hSelDragging)
     this->selectHorizontal(
           static_cast<qint64>(this->px2samp(this->samp2px(this->clickSample))),
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+          static_cast<qint64>(this->px2samp(event->position().x())));
+#else
           static_cast<qint64>(this->px2samp(event->x())));
+#endif
 
   emit hoverTime(this->px2t(this->currMouseX));
   this->invalidate();
@@ -481,8 +497,13 @@ Waveform::mousePressEvent(QMouseEvent *event)
     this->saveHorizontal();
     this->saveVertical();
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    this->clickX = event->position().x();
+    this->clickY = event->position().y();
+#else
     this->clickX = event->x();
     this->clickY = event->y();
+#endif
 
     this->clickSample = this->px2samp(this->clickX);
 
