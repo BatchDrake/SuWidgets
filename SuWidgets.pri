@@ -26,6 +26,7 @@ include(tvdisplay.pri)
 include(timespinbox.pri)
 include(multitoolbox.pri)
 include(glwaterfall.pri)
+include(abstractwaterfall.pri)
 
 HEADERS += ThrottleableWidget.h \
     Version.h \
