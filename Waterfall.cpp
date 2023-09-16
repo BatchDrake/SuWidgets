@@ -1173,7 +1173,7 @@ void Waterfall::draw(bool everything)
         if (tnow_ms < tlast_wf_ms || tnow_ms - tlast_wf_ms >= msec_per_wfline)
         {
             int line_count = (tnow_ms - tlast_wf_ms) / msec_per_wfline;
-            if (line_count >= 1 && line_count <= h) {
+            if (line_count >= 1 && line_count <= h && line_count <= 20) {
                 tlast_wf_ms += msec_per_wfline * line_count;
             } else {
                 line_count = 1;
