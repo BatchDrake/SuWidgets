@@ -532,6 +532,9 @@ public slots:
         resizeEvent(NULL);
     }
 
+    // Behavioral slots
+    void onContextBeingDestroyed();
+
 protected:
     //re-implemented widget event handlers
     void paintEvent(QPaintEvent *event);

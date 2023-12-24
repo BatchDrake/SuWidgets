@@ -1454,7 +1454,22 @@ void
 GLWaterfall::initializeGL(void)
 {
   this->glCtx.initialize();
+
+  connect(
+        this->context(),
+        SIGNAL(aboutToBeDestroyed()),
+        this,
+        SLOT(onContextBeingDestroyed()));
+
   this->drawOverlay();
+}
+
+void
+GLWaterfall::onContextBeingDestroyed()
+{
+  makeCurrent();
+  this->glCtx.finalize();
+  doneCurrent();
 }
 
 //
