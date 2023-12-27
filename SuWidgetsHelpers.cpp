@@ -29,6 +29,10 @@
   "custom build on " __DATE__ " at " __TIME__ " (" __VERSION__ ")"
 #endif /* SUSCAN_BUILD_STRING */
 
+#ifdef _WIN32
+#  define localtime_r localtime_s
+#endif // _WIN32
+
 SuWidgetsHelpers::SuWidgetsHelpers()
 {
 
