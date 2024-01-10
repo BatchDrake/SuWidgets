@@ -4,6 +4,7 @@ TEMPLATE    = lib
 VERSION     = 0.3.0
 
 darwin: QMAKE_SONAME_PREFIX = @rpath
+darwin: QMAKE_LFLAGS += -Wl,-export_dynamic
 
 QT += widgets opengl
 
