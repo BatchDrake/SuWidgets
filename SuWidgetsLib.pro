@@ -33,3 +33,6 @@ headers.path    = $$SUWIDGETS_INSTALL_HEADERS
 headers.files   += $$WIDGET_HEADERS
 
 INSTALLS       += headers
+
+DISTFILES += \
+  polarizationview.pri

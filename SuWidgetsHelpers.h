@@ -68,6 +68,7 @@ class SuWidgetsHelpers {
       SUSCOUNT count = 0;
     };
 
+    static QString formatPowerOf10(qreal value);
     static QString formatBinaryQuantity(qint64 value, QString units = "B");
     static int getWidgetTextWidth(const QWidget *widget, QString const &text);
     static QLayout *findParentLayout(const QWidget *);

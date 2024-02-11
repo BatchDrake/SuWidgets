@@ -34,6 +34,7 @@
 #include "SciSpinBoxPlugin.h"
 #include "ContextAwareSpinBoxPlugin.h"
 #include "PhaseViewPlugin.h"
+#include "PolarizationViewPlugin.h"
 #include "SuWidgets.h"
 
 SuWidgets::SuWidgets(QObject *parent)
@@ -57,6 +58,7 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new ContextAwareSpinBoxPlugin(this));
   m_widgets.append(new MultiToolBoxPlugin(this));
   m_widgets.append(new PhaseViewPlugin(this));
+  m_widgets.append(new PolarizationViewPlugin(this));
 }
 
 QList<QDesignerCustomWidgetInterface*> SuWidgets::customWidgets() const

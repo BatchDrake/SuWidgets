@@ -1,6 +1,6 @@
 //
-//    filename: description
-//    Copyright (C) 2018 Gonzalo José Carracedo Carballal
+//    PolarizationView.h: description
+//    Copyright (C) 2024 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as
@@ -16,8 +16,8 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#ifndef PhaseView_H
-#define PhaseView_H
+#ifndef POLARIZATIONVIEW_H
+#define POLARIZATIONVIEW_H
 
 #include <QFrame>
 
@@ -28,14 +28,14 @@
 #include <sigutils/types.h>
 #include "ThrottleableWidget.h"
 
-#define PhaseView_DEFAULT_BACKGROUND_COLOR QColor(0,     0,   0)
-#define PhaseView_DEFAULT_FOREGROUND_COLOR QColor(255, 255, 255)
-#define PhaseView_DEFAULT_TEXT_COLOR       QColor(255, 255, 255)
-#define PhaseView_DEFAULT_AXES_COLOR       QColor(128, 128, 128)
+#define PolarizationView_DEFAULT_BACKGROUND_COLOR QColor(0,     0,   0)
+#define PolarizationView_DEFAULT_FOREGROUND_COLOR QColor(255, 255, 255)
+#define PolarizationView_DEFAULT_TEXT_COLOR       QColor(255, 255, 255)
+#define PolarizationView_DEFAULT_AXES_COLOR       QColor(128, 128, 128)
 
-#define PhaseView_DEFAULT_HISTORY_SIZE 256
+#define PolarizationView_DEFAULT_HISTORY_SIZE 256
 
-class PhaseView : public ThrottleableWidget
+class PolarizationView : public ThrottleableWidget
 {
   Q_OBJECT
 
@@ -72,8 +72,9 @@ class PhaseView : public ThrottleableWidget
   QSize m_geometry;
 
 
-  // Data
-  std::vector<SUCOMPLEX> m_history;
+  // Jones vectors
+  std::vector<SUCOMPLEX> m_vHistory;
+  std::vector<SUCOMPLEX> m_hHistory;
   unsigned int m_amount = 0;
   unsigned int m_ptr = 0;
 
@@ -84,11 +85,8 @@ class PhaseView : public ThrottleableWidget
   QColor m_textColor;
 
   float m_zoom = 1.;
-  bool m_haveGeometry = false;
-  bool m_axesDrawn = false;
-  bool m_aoa = false;
-  SUFLOAT m_gain = 1.;
-  SUFLOAT m_phaseScale = M_PI;
+  SUFLOAT m_gain      = 1.;
+  SUCOMPLEX m_channelPhase = 1.;
 
   // Cached data
   int m_ox;
@@ -96,13 +94,17 @@ class PhaseView : public ThrottleableWidget
   int m_width;
   int m_height;
 
+  bool m_haveGeometry = false;
+  bool m_axesDrawn    = false;
+
+
   // Private methods
   QPoint floatToScreenPoint(float x, float y);
+
   void recalculateDisplayData();
 
   void drawAxes();
-  void drawPhaseView();
-  void drawAoAView();
+  void drawEllipsoid();
 
 public:
   void
@@ -177,30 +179,20 @@ public:
     return m_gain;
   }
 
-  void
-  setAoA(bool aoa)
-  {
-    if (m_aoa != aoa) {
-      m_aoa = aoa;
-      m_axesDrawn = false;
-      invalidate();
-    }
-  }
+  virtual bool hasHeightForWidth() const override;
+  virtual int  heightForWidth(int) const override;
 
-  bool
-  getAoA() const
-  {
-    return m_aoa;
-  }
-
-  void setPhaseScale(SUFLOAT);
+  void setChannelPhase(SUFLOAT);
   void setHistorySize(unsigned int length);
-  void feed(const SUCOMPLEX *samples, unsigned int length);
+  void feed(
+      const SUCOMPLEX *hSamp,
+      const SUCOMPLEX *vSamp,
+      unsigned int length);
 
   void draw();
   void paint();
 
-  PhaseView(QWidget *parent = nullptr);
+  PolarizationView(QWidget *parent = nullptr);
 
 signals:
   void orderHintChanged();
@@ -211,4 +203,4 @@ signals:
   void textColorChanged();
 };
 
-#endif
+#endif // POLARIZATIONVIEW_H

@@ -16,18 +16,18 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
-#include "PhaseView.h"
-#include "PhaseViewPlugin.h"
+#include "PolarizationView.h"
+#include "PolarizationViewPlugin.h"
 
 #include <QtPlugin>
 
-PhaseViewPlugin::PhaseViewPlugin(QObject *parent)
+PolarizationViewPlugin::PolarizationViewPlugin(QObject *parent)
   : QObject(parent)
 {
   m_initialized = false;
 }
 
-void PhaseViewPlugin::initialize(QDesignerFormEditorInterface * /* core */)
+void PolarizationViewPlugin::initialize(QDesignerFormEditorInterface * /* core */)
 {
   if (m_initialized)
     return;
@@ -37,53 +37,53 @@ void PhaseViewPlugin::initialize(QDesignerFormEditorInterface * /* core */)
   m_initialized = true;
 }
 
-bool PhaseViewPlugin::isInitialized() const
+bool PolarizationViewPlugin::isInitialized() const
 {
   return m_initialized;
 }
 
-QWidget *PhaseViewPlugin::createWidget(QWidget *parent)
+QWidget *PolarizationViewPlugin::createWidget(QWidget *parent)
 {
-  return new PhaseView(parent);
+  return new PolarizationView(parent);
 }
 
-QString PhaseViewPlugin::name() const
+QString PolarizationViewPlugin::name() const
 {
-  return QLatin1String("PhaseView");
+  return QLatin1String("PolarizationView");
 }
 
-QString PhaseViewPlugin::group() const
+QString PolarizationViewPlugin::group() const
 {
   return QLatin1String("");
 }
 
-QIcon PhaseViewPlugin::icon() const
+QIcon PolarizationViewPlugin::icon() const
 {
   return QIcon(":/icons/open_icon.png");
 }
 
-QString PhaseViewPlugin::toolTip() const
+QString PolarizationViewPlugin::toolTip() const
 {
   return QLatin1String("");
 }
 
-QString PhaseViewPlugin::whatsThis() const
+QString PolarizationViewPlugin::whatsThis() const
 {
-  return QLatin1String("Represents the phase of complex signals");
+  return QLatin1String("Represents the polarization ellipsoid of two Jones vectors");
 }
 
-bool PhaseViewPlugin::isContainer() const
+bool PolarizationViewPlugin::isContainer() const
 {
   return false;
 }
 
-QString PhaseViewPlugin::domXml() const
+QString PolarizationViewPlugin::domXml() const
 {
-  return QLatin1String("<widget class=\"PhaseView\" name=\"phaseView\">\n</widget>\n");
+  return QLatin1String("<widget class=\"PolarizationView\" name=\"polarizationView\">\n</widget>\n");
 }
 
-QString PhaseViewPlugin::includeFile() const
+QString PolarizationViewPlugin::includeFile() const
 {
-  return QLatin1String("PhaseView.h");
+  return QLatin1String("PolarizationView.h");
 }
 

@@ -14,6 +14,7 @@ HEADERS     = WFHelpers.h ConstellationPlugin.h TransitionPlugin.h HistogramPlug
     FrequencySpinBoxPlugin.h \
     LEDPlugin.h \
     PhaseViewPlugin.h \
+    PolarizationViewPlugin.h \
     QVerticalLabelPlugin.h \
     SciSpinBoxPlugin.h \
     TVDisplayPlugin.h \
@@ -26,6 +27,7 @@ SOURCES     = ConstellationPlugin.cpp TransitionPlugin.cpp HistogramPlugin.cpp L
     FrequencySpinBoxPlugin.cpp \
     LEDPlugin.cpp \
     PhaseViewPlugin.cpp \
+    PolarizationViewPlugin.cpp \
     QVerticalLabelPlugin.cpp \
     SciSpinBoxPlugin.cpp \
     TVDisplayPlugin.cpp \
