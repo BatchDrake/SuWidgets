@@ -42,15 +42,6 @@
 #  include <QOpenGLShaderProgram>
 #endif
 
-struct GLDrawingContext {
-  QPainter     *painter;
-  QFontMetrics *metrics;
-  int width;
-  int height;
-
-};
-
-
 //
 // CX:       1 bin,  1 level
 // BBCX:     2 bins, 2 levels
@@ -242,8 +233,8 @@ class GLWaterfall : public AbstractWaterfall
 
     void setWaterfallRange(float min, float max) override;
 
-    void    clearWaterfall(void) override;
-    bool    saveWaterfall(const QString & filename) const override;
+    void clearWaterfall(void) override;
+    bool saveWaterfall(const QString & filename) const override;
 
   public slots:
     // Behavioral slots
@@ -253,13 +244,8 @@ class GLWaterfall : public AbstractWaterfall
     //re-implemented widget event handlers
     void paintEvent(QPaintEvent *event) override;
 
-    void drawOverlay() override;
-
   private:
     void drawSpectrum(QPainter &, int forceHeight = -1);
-    int  drawFATs(GLDrawingContext &, qint64, qint64);
-    void drawBookmarks(GLDrawingContext &, qint64, qint64, int xAxisTop);
-    void drawAxes(GLDrawingContext &, qint64, qint64);
 
     GLWaterfallOpenGLContext glCtx;
 };

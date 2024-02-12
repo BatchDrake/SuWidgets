@@ -54,8 +54,6 @@ class Waterfall : public AbstractWaterfall
     //re-implemented widget event handlers
     void paintEvent(QPaintEvent *event) override;
 
-    void drawOverlay() override;
-
   private:
     QColor      m_ColorTbl[256];
     uint32_t    m_UintColorTbl[256];

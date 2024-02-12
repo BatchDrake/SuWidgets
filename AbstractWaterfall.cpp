@@ -1579,3 +1579,443 @@ void AbstractWaterfall::setFATsVisible(bool visible)
   this->m_ShowFATs = visible;
   this->updateOverlay();
 }
+
+int AbstractWaterfall::drawFATs(
+    DrawingContext &ctx,
+    qint64 StartFreq,
+    qint64 EndFreq)
+{
+  int count = 0;
+  int w = ctx.width;
+  int h = ctx.height;
+  QString label;
+  QRect rect;
+
+  for (auto fat : m_FATs) {
+    if (fat.second != nullptr) {
+      FrequencyBandIterator p = fat.second->find(StartFreq);
+
+      while (p != fat.second->cbegin() && p->second.max > StartFreq)
+        --p;
+
+      for (; p != fat.second->cend() && p->second.min < EndFreq; ++p) {
+        int x0 = xFromFreq(p->second.min);
+        int x1 = xFromFreq(p->second.max);
+        bool leftborder = true;
+        bool rightborder = true;
+        int tw, boxw;
+
+
+        if (x0 < m_YAxisWidth) {
+          leftborder = false;
+          x0 = m_YAxisWidth;
+        }
+
+        if (x1 >= w) {
+          rightborder = false;
+          x1 = w - 1;
+        }
+
+        if (x1 < m_YAxisWidth)
+          continue;
+
+        boxw = x1 - x0;
+
+        ctx.painter->setBrush(QBrush(p->second.color));
+        ctx.painter->setPen(p->second.color);
+
+        ctx.painter->drawRect(
+            x0,
+            count * ctx.metrics->height(),
+            x1 - x0 + 1,
+            ctx.metrics->height());
+
+        if (leftborder)
+          ctx.painter->drawLine(
+              x0,
+              count * ctx.metrics->height(),
+              x0,
+              h);
+
+        if (rightborder)
+          ctx.painter->drawLine(
+              x1,
+              count * ctx.metrics->height(),
+              x1,
+              h);
+
+        label = ctx.metrics->elidedText(
+            QString::fromStdString(p->second.primary),
+            Qt::ElideRight,
+            boxw);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+        tw = ctx.metrics->horizontalAdvance(label);
+#else
+        tw = ctx.metrics->width(label);
+#endif // QT_VERSION_CHECK
+
+        if (tw < boxw) {
+          ctx.painter->setPen(m_FftTextColor);
+          rect.setRect(
+              x0 + (x1 - x0) / 2 - tw / 2,
+              count * ctx.metrics->height(),
+              tw,
+              ctx.metrics->height());
+          ctx.painter->drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, label);
+        }
+      }
+
+      ++count;
+    }
+  }
+
+  return count * ctx.metrics->height();
+}
+
+void AbstractWaterfall::drawBookmarks(
+    DrawingContext &ctx,
+    qint64 StartFreq,
+    qint64 EndFreq,
+    int xAxisTop)
+{
+  m_BookmarkTags.clear();
+  int fontHeight = ctx.metrics->ascent() + 1;
+  int slant = 5;
+  int levelHeight = fontHeight + 5;
+  int x;
+  const int nLevels = 10;
+
+  QList<BookmarkInfo> bookmarks =
+    m_BookmarkSource->getBookmarksInRange(
+        StartFreq,
+        EndFreq);
+  int tagEnd[nLevels] = {0};
+
+  for (int i = 0; i < bookmarks.size(); i++) {
+    x = xFromFreq(bookmarks[i].frequency);
+#if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
+    int nameWidth = ctx.metrics->width(bookmarks[i].name);
+#else
+    int nameWidth = ctx.metrics->boundingRect(bookmarks[i].name).width();
+#endif
+
+    int level = 0;
+    int yMin = static_cast<int>(m_FATs.size()) * ctx.metrics->height();
+    while (level < nLevels && tagEnd[level] > x)
+      level++;
+
+    if (level == nLevels)
+      level = 0;
+
+    tagEnd[level] = x + nameWidth + slant - 1;
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    BookmarkInfo bookmark = bookmarks[i];
+    m_BookmarkTags.append(
+        qMakePair<QRect, BookmarkInfo>(
+          QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
+          std::move(bookmark))); // Be more Cobol every day
+#else
+    m_BookmarkTags.append(
+        qMakePair<QRect, BookmarkInfo>(
+          QRect(x, yMin + level * levelHeight, nameWidth + slant, fontHeight),
+          bookmarks[i]));
+#endif // QT_VERSION
+
+    QColor color = QColor(bookmarks[i].color);
+    color.setAlpha(0x60);
+    // Vertical line
+    ctx.painter->setPen(
+        QPen(color, 1, Qt::DashLine));
+    ctx.painter->drawLine(
+        x,
+        yMin + level * levelHeight + fontHeight + slant,
+        x,
+        xAxisTop);
+
+    // Horizontal line
+    ctx.painter->setPen(
+        QPen(color, 1, Qt::SolidLine));
+    ctx.painter->drawLine(
+        x + slant, yMin + level * levelHeight + fontHeight,
+        x + nameWidth + slant - 1,
+        yMin + level * levelHeight + fontHeight);
+    // Diagonal line
+    ctx.painter->drawLine(
+        x + 1,
+        yMin + level * levelHeight + fontHeight + slant - 1,
+        x + slant - 1,
+        yMin + level * levelHeight + fontHeight + 1);
+
+    color.setAlpha(0xFF);
+    ctx.painter->setPen(QPen(color, 2, Qt::SolidLine));
+    ctx.painter->drawText(
+        x + slant,
+        yMin + level * levelHeight,
+        nameWidth,
+        fontHeight,
+        Qt::AlignVCenter | Qt::AlignHCenter,
+        bookmarks[i].name);
+  }
+}
+
+void AbstractWaterfall::drawAxes(DrawingContext &ctx, qint64 StartFreq, qint64 EndFreq)
+{
+  int w = ctx.width;
+  int h = ctx.height;
+
+  int     x,y;
+  float   pixperdiv;
+  float   adjoffset;
+  float   unitStepSize;
+  float   minUnitAdj;
+  QRect   rect;
+
+  // solid background
+  ctx.painter->setBrush(Qt::SolidPattern);
+  ctx.painter->fillRect(0, 0, w, h, m_FftBgColor);
+
+#define HOR_MARGIN 5
+#define VER_MARGIN 5
+
+  // X and Y axis areas
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+  int tw = ctx.metrics->horizontalAdvance("XXXX");
+#else
+  int tw = ctx.metrics->width("XXXX");
+#endif // QT_VERSION_CHECK
+
+  m_YAxisWidth = tw + 2 * HOR_MARGIN;
+  m_XAxisYCenter = h - ctx.metrics->height() / 2;
+  int xAxisHeight = ctx.metrics->height() + 2 * VER_MARGIN;
+  int xAxisTop = h - xAxisHeight;
+  int fLabelTop = xAxisTop + VER_MARGIN;
+
+  if (m_CenterLineEnabled) {
+    x = xFromFreq(m_CenterFreq - m_tentativeCenterFreq);
+    if (x > 0 && x < w) {
+      ctx.painter->setPen(m_FftCenterAxisColor);
+      ctx.painter->drawLine(x, 0, x, xAxisTop);
+    }
+  }
+
+  // Frequency grid
+  QString label;
+  label.setNum(float(EndFreq / m_FreqUnits), 'f', m_FreqDigits);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+  tw = ctx.metrics->horizontalAdvance(label) + ctx.metrics->horizontalAdvance("O");
+#else
+  tw = ctx.metrics->width(label) + ctx.metrics->width("O");
+#endif // QT_VERSION_CHECK
+
+  calcDivSize(
+      StartFreq,
+      EndFreq,
+      qMin(w / tw, HORZ_DIVS_MAX),
+      m_StartFreqAdj,
+      m_FreqPerDiv,
+      m_HorDivs);
+
+  pixperdiv = (float)w * (float) m_FreqPerDiv / (float) m_Span;
+  adjoffset = pixperdiv * float (m_StartFreqAdj - StartFreq) / (float) m_FreqPerDiv;
+
+  ctx.painter->setPen(QPen(m_FftAxesColor, 1, Qt::DotLine));
+  for (int i = 0; i <= m_HorDivs; i++) {
+    x = (int)((float)i * pixperdiv + adjoffset);
+    if (x > m_YAxisWidth)
+      ctx.painter->drawLine(x, 0, x, xAxisTop);
+  }
+
+  // draw frequency values (x axis)
+  makeFrequencyStrs();
+  ctx.painter->setPen(m_FftTextColor);
+  for (int i = 0; i <= m_HorDivs; i++) {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    int tw = ctx.metrics->horizontalAdvance(m_HDivText[i]);
+#else
+    int tw = ctx.metrics->width(m_HDivText[i]);
+#endif // QT_VERSION_CHECK
+    x = (int)((float)i*pixperdiv + adjoffset);
+    if (x > m_YAxisWidth) {
+      rect.setRect(x - tw/2, fLabelTop, tw, ctx.metrics->height());
+      ctx.painter->drawText(rect, Qt::AlignHCenter|Qt::AlignBottom, m_HDivText[i]);
+    }
+  }
+
+
+  // Level grid
+  qint64 minUnitAdj64 = 0;
+  qint64 unitDivSize = 0;
+  qint64 unitSign    = m_dBPerUnit < 0 ? -1 : 1;
+  qint64 pandMinUnit = unitSign * static_cast<qint64>(toDisplayUnits(m_PandMindB));
+  qint64 pandMaxUnit = unitSign * static_cast<qint64>(toDisplayUnits(m_PandMaxdB));
+
+  calcDivSize(pandMinUnit, pandMaxUnit,
+      qMax(h/m_VdivDelta, VERT_DIVS_MIN), minUnitAdj64, unitDivSize,
+      m_VerDivs);
+
+  unitStepSize = (float) unitDivSize;
+  minUnitAdj = minUnitAdj64;
+
+  pixperdiv = (float) h * (float) unitStepSize / (pandMaxUnit - pandMinUnit);
+  adjoffset = (float) h * (minUnitAdj - pandMinUnit) / (pandMaxUnit - pandMinUnit);
+
+#ifdef PLOTTER_DEBUG
+  qDebug() << "minDb =" << m_PandMindB << "maxDb =" << m_PandMaxdB
+    << "mindbadj =" << mindbadj << "dbstepsize =" << dbstepsize
+    << "pixperdiv =" << pixperdiv << "adjoffset =" << adjoffset;
+#endif
+
+  ctx.painter->setPen(QPen(m_FftAxesColor, 1, Qt::DotLine));
+  for (int i = 0; i <= m_VerDivs; i++) {
+    y = h - (int)((float) i * pixperdiv + adjoffset);
+    if (y < h - xAxisHeight)
+      ctx.painter->drawLine(m_YAxisWidth, y, w, y);
+  }
+
+  // draw amplitude values (y axis)
+  int unit;
+  int unitWidth;
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+  m_YAxisWidth = ctx.metrics->horizontalAdvance("-160 ");
+  unitWidth    = ctx.metrics->horizontalAdvance(m_unitName);
+#else
+  m_YAxisWidth = ctx.metrics->width("-160 ");
+  unitWidth    = ctx.metrics->width(m_unitName);
+#endif // QT_VERSION_CHECK
+
+  if (unitWidth > m_YAxisWidth)
+    m_YAxisWidth = unitWidth;
+
+  ctx.painter->setPen(m_FftTextColor);
+  int th = ctx.metrics->height();
+  for (int i = 0; i < m_VerDivs; i++) {
+    y = h - (int)((float) i * pixperdiv + adjoffset);
+
+    if (y < h -xAxisHeight) {
+      unit = minUnitAdj + unitStepSize * i;
+      rect.setRect(HOR_MARGIN, y - th / 2, m_YAxisWidth, th);
+      ctx.painter->drawText(
+          rect,
+          Qt::AlignRight|Qt::AlignVCenter,
+          QString::number(unitSign * unit));
+    }
+  }
+
+  // Draw unit name on top left corner
+  rect.setRect(HOR_MARGIN, 0, unitWidth, th);
+  ctx.painter->drawText(rect, Qt::AlignRight|Qt::AlignVCenter, m_unitName);
+
+#ifdef GL_WATERFALL_BOOKMARKS_SUPPORT
+  if (m_BookmarksEnabled && m_BookmarkSource != nullptr)
+    this->drawBookmarks(ctx, StartFreq, EndFreq, xAxisTop);
+#endif // GL_WATERFALL_BOOKMARKS_SUPPORT
+}
+
+// Called to draw an overlay bitmap containing grid and text that
+// does not need to be recreated every fft data update.
+void AbstractWaterfall::drawOverlay()
+{
+  if (m_OverlayPixmap.isNull())
+    return;
+
+  int             bandY = 0;
+  QFontMetrics    metrics(m_Font);
+  QPainter        painter(&m_OverlayPixmap);
+  DrawingContext  ctx;
+
+  qint64  StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
+  qint64  EndFreq = StartFreq + m_Span;
+
+  ctx.painter = &painter;
+  ctx.metrics = &metrics;
+  ctx.width   = m_OverlayPixmap.width();
+  ctx.height  = m_OverlayPixmap.height();
+
+  painter.setFont(m_Font);
+
+  // Draw axes
+  this->drawAxes(ctx, StartFreq, EndFreq);
+
+  // Draw frequency allocation tables
+  if (m_ShowFATs)
+    bandY = this->drawFATs(ctx, StartFreq, EndFreq);
+
+  // Draw named channel (boxes)
+
+  if (m_channelsEnabled) {
+    for (auto i = m_channelSet.find(StartFreq - m_Span); i != m_channelSet.cend(); ++i) {
+      auto p = i.value();
+      int x_fCenter = xFromFreq(p->frequency);
+      int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
+      int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
+
+      if (p->frequency + p->highFreqCut < StartFreq)
+        continue;
+
+      if (EndFreq < p->frequency + p->lowFreqCut)
+        break;
+
+      if (p->bandLike) {
+        WFHelpers::drawChannelBox(
+            painter,
+            ctx.height,
+            x_fMin,
+            x_fMax,
+            x_fCenter,
+            p->boxColor,
+            p->markerColor,
+            p->name,
+            p->markerColor,
+            ctx.metrics->height() / 2,
+            bandY + p->nestLevel * ctx.metrics->height());
+      } else {
+        WFHelpers::drawChannelBox(
+            painter,
+            ctx.height,
+            x_fMin,
+            x_fMax,
+            x_fCenter,
+            p->boxColor,
+            p->markerColor,
+            p->name,
+            QColor(),
+            -1,
+            bandY + p->nestLevel * ctx.metrics->height());
+      }
+    }
+  }
+
+  // Draw info text (if enabled)
+  if (!m_infoText.isEmpty()) {
+    int flags = Qt::AlignRight |  Qt::AlignTop | Qt::TextWordWrap;
+    QRectF pixRect = m_OverlayPixmap.rect();
+
+    pixRect.setWidth(pixRect.width() - 10);
+
+    QRectF rect = painter.boundingRect(
+        pixRect,
+        flags,
+        m_infoText);
+
+    rect.setX(pixRect.width() - rect.width());
+    rect.setY(0);
+
+    painter.setPen(QPen(m_infoTextColor, 2, Qt::SolidLine));
+    painter.drawText(rect, flags, m_infoText);
+  }
+
+  if (!m_Running) {
+    // if not running so is no data updates to draw to screen
+    // copy into 2Dbitmap the overlay bitmap.
+    m_2DPixmap = m_OverlayPixmap.copy(0, 0, ctx.width, ctx.height);
+
+    // trigger a new paintEvent
+    update();
+  }
+
+  painter.end();
+}

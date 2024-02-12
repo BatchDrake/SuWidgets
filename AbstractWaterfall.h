@@ -44,6 +44,13 @@
 
 #include "WFHelpers.h"
 
+struct DrawingContext {
+  QPainter     *painter;
+  QFontMetrics *metrics;
+  int width;
+  int height;
+};
+
 class AbstractWaterfall : public QOpenGLWidget
 {
   Q_OBJECT
@@ -355,7 +362,7 @@ class AbstractWaterfall : public QOpenGLWidget
     };
 
     void        paintTimeStamps(QPainter &, QRect const &);
-    virtual void drawOverlay() {}
+    void        drawOverlay();
     void        makeFrequencyStrs();
     int         xFromFreq(qint64 freq);
     qint64      freqFromX(int x);
@@ -373,6 +380,10 @@ class AbstractWaterfall : public QOpenGLWidget
         float *inBuf, qint32 *outBuf,
         qint32 *maxbin, qint32 *minbin);
     void calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &adjlow, qint64 &step, int& divs);
+
+    int  drawFATs(DrawingContext &, qint64, qint64);
+    void drawBookmarks(DrawingContext &, qint64, qint64, int xAxisTop);
+    void drawAxes(DrawingContext &, qint64, qint64);
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     Qt::MouseButton m_freqDragBtn = Qt::MiddleButton;
