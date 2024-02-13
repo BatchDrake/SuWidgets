@@ -62,7 +62,7 @@ class AbstractWaterfall : public QOpenGLWidget
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
 
-    virtual void draw(bool everything = true) = 0; //call to draw new fft data onto screen plot
+    virtual void draw() = 0; //call to draw new fft data onto screen plot
     void setLocked(bool locked) { m_Locked = locked; }
     void setFreqDragLocked(bool locked) { m_freqDragLocked = locked; }
     void setRunningState(bool running) { m_Running = running; }
@@ -98,17 +98,17 @@ class AbstractWaterfall : public QOpenGLWidget
     void setFATsVisible(bool);
 
     void setNewFftData(
-        float *fftData,
+        const float *fftData,
         int size,
         QDateTime const &t = QDateTime::currentDateTime(),
         bool looped = false);
 
-    virtual void setNewFftData(
-        float *fftData,
-        float *wfData,
+    void setNewFftData(
+        const float *fftData,
+        const float *wfData,
         int size,
         QDateTime const &t = QDateTime::currentDateTime(),
-        bool looped = false) = 0;
+        bool looped = false);
 
     virtual void setPalette(const QColor *table) = 0;
 
@@ -377,13 +377,23 @@ class AbstractWaterfall : public QOpenGLWidget
     void getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
         float maxdB, float mindB,
         qint64 startFreq, qint64 stopFreq,
-        float *inBuf, qint32 *outBuf,
+        const float *inBuf, qint32 *outBuf,
         qint32 *maxbin, qint32 *minbin);
     void calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &adjlow, qint64 &step, int& divs);
 
     int  drawFATs(DrawingContext &, qint64, qint64);
     void drawBookmarks(DrawingContext &, qint64, qint64, int xAxisTop);
     void drawAxes(DrawingContext &, qint64, qint64);
+
+    virtual void addNewWfLine(const float *wfData, int size, int repeats) = 0;
+
+    void accumulateFftData(const float *fftData, int size);
+    void averageFftData();
+    void resetFftAccumulator();
+
+    // FFT line averaging accumulator
+    std::vector<float>  m_accum;
+    int                 m_samplesInAccum;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     Qt::MouseButton m_freqDragBtn = Qt::MiddleButton;
@@ -395,8 +405,7 @@ class AbstractWaterfall : public QOpenGLWidget
     bool        m_PeakHoldValid;
     qint32      m_fftbuf[MAX_SCREENSIZE];
     qint32      m_fftPeakHoldBuf[MAX_SCREENSIZE];
-    float      *m_fftData = nullptr;     /*! pointer to incoming FFT data */
-    float      *m_wfData = nullptr;
+    const float *m_fftData = nullptr;   /*! pointer to incoming FFT data */
     int         m_fftDataSize = 0;
 
     int         m_XAxisYCenter;
@@ -418,15 +427,15 @@ class AbstractWaterfall : public QOpenGLWidget
     qint64      m_FreqPerDiv;
     bool        m_CenterLineEnabled;  /*!< Distinguish center line. */
     bool        m_FilterBoxEnabled;   /*!< Draw filter box. */
-    bool        m_TooltipsEnabled;     /*!< Tooltips enabled */
+    bool        m_TooltipsEnabled;    /*!< Tooltips enabled */
     bool        m_BookmarksEnabled;   /*!< Show/hide bookmarks on spectrum */
     bool        m_Locked; /* Prevent manual adjust of center frequency */
     bool        m_freqDragLocked;
     qint64      m_DemodHiCutFreq;
     qint64      m_DemodLowCutFreq;
-    int         m_DemodFreqX;		//screen coordinate x position
-    int         m_DemodHiCutFreqX;	//screen coordinate x position
-    int         m_DemodLowCutFreqX;	//screen coordinate x position
+    int         m_DemodFreqX;		    // screen coordinate x position
+    int         m_DemodHiCutFreqX;	// screen coordinate x position
+    int         m_DemodLowCutFreqX;	// screen coordinate x position
     int         m_CursorCaptureDelta;
     int         m_GrabPosition;
     int         m_Percent2DScreen;

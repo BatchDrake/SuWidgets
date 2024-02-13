@@ -134,7 +134,6 @@ AbstractWaterfall::AbstractWaterfall(QWidget *parent) : QOpenGLWidget(parent)
   fft_rate = 15;
 
   m_fftData = nullptr;
-  m_wfData  = nullptr;
   m_fftDataSize = 0;
 
   m_infoTextColor = m_FftTextColor;
@@ -977,7 +976,7 @@ AbstractWaterfall::drawFilterCutoff(QPainter &painter, int h)
  * pandapter and the waterfall.
  */
 void AbstractWaterfall::setNewFftData(
-    float *fftData,
+    const float *fftData,
     int size,
     QDateTime const &t,
     bool looped)
@@ -985,10 +984,97 @@ void AbstractWaterfall::setNewFftData(
   this->setNewFftData(fftData, fftData, size, t, looped);
 }
 
+/**
+ * Set new FFT data.
+ * @param fftData Pointer to the new FFT data used on the pandapter.
+ * @param wfData Pointer to the FFT data used in the waterfall.
+ * @param size The FFT size.
+ *
+ * This method can be used to set different FFT data set for the pandapter and the
+ * waterfall.
+ */
+void AbstractWaterfall::setNewFftData(
+    const float *fftData,
+    const float *wfData,
+    int size,
+    QDateTime const &t,
+    bool looped)
+{
+  /** FIXME **/
+  if (!m_Running)
+    m_Running = true;
+
+  quint64 tnow_ms = SCAST(quint64, t.toMSecsSinceEpoch());
+
+  if (looped) {
+    TimeStamp ts;
+
+    ts.counter = m_TimeStampCounter;
+    ts.timeStampText =
+      m_lastFft.toLocalTime().toString("hh:mm:ss.zzz")
+      + " - "
+      + t.toLocalTime().toString("hh:mm:ss.zzz");
+    ts.utcTimeStampText =
+      m_lastFft.toUTC().toString("hh:mm:ss.zzzZ")
+      + " - "
+      + t.toUTC().toString("hh:mm:ss.zzzZ");
+    ts.marker = true;
+
+    m_TimeStamps.push_front(ts);
+    m_TimeStampCounter = 0;
+  }
+
+  m_fftData = fftData;
+  m_fftDataSize = size;
+  m_lastFft = t;
+
+  if (m_tentativeCenterFreq != 0) {
+    m_tentativeCenterFreq = 0;
+    m_DrawOverlay = true;
+  }
+
+  if (m_TimeStampCounter >= m_TimeStampSpacing) {
+    TimeStamp ts;
+
+    ts.counter = m_TimeStampCounter;
+    ts.timeStampText = t.toLocalTime().toString("hh:mm:ss.zzz");
+    ts.utcTimeStampText = t.toUTC().toString("hh:mm:ss.zzzZ");
+
+    m_TimeStamps.push_front(ts);
+    m_TimeStampCounter = 0;
+  }
+
+  if (wfData != nullptr && size > 0) {
+    if (msec_per_wfline > 0) {
+      this->accumulateFftData(wfData, size);
+
+      if (tnow_ms < tlast_wf_ms || tnow_ms - tlast_wf_ms >= msec_per_wfline) {
+        int line_count = (tnow_ms - tlast_wf_ms) / msec_per_wfline;
+        if (line_count >= 1 && line_count <= 20) {
+          tlast_wf_ms += msec_per_wfline * line_count;
+        } else {
+          line_count = 1;
+          tlast_wf_ms = tnow_ms;
+        }
+        this->averageFftData();
+        this->addNewWfLine(m_accum.data(), size, line_count);
+        this->resetFftAccumulator();
+        m_TimeStampCounter += line_count;
+      }
+    } else {
+      tlast_wf_ms = tnow_ms;
+      this->addNewWfLine(wfData, size, 1);
+      ++m_TimeStampCounter;
+    }
+  }
+
+  draw();
+}
+
 void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
     float maxdB, float mindB,
     qint64 startFreq, qint64 stopFreq,
-    float *inBuf, qint32 *outBuf,
+    const float *inBuf, qint32 *outBuf,
     int *xmin, int *xmax)
 {
   qint32 i;
@@ -999,7 +1085,7 @@ void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWi
   qint32 minbin, maxbin;
   qint32 m_BinMin, m_BinMax;
   qint32 m_FFTSize = m_fftDataSize;
-  float *m_pFFTAveBuf = inBuf;
+  const float *m_pFFTAveBuf = inBuf;
 
   mindB -= m_gain;
   maxdB -= m_gain;
@@ -1403,7 +1489,7 @@ void AbstractWaterfall::updateOverlay()
     m_DrawOverlay = true;
     // If the update rate is slow, draw now.
     if (this->slow())
-      draw(false);
+      draw();
   } else {
     // Not the case. Draw now.
     drawOverlay();
@@ -2018,4 +2104,42 @@ void AbstractWaterfall::drawOverlay()
   }
 
   painter.end();
+}
+
+void AbstractWaterfall::accumulateFftData(const float *fftData, int size)
+{
+  int i;
+
+  if (m_accum.size() != static_cast<size_t>(size)) {
+    m_accum.resize(static_cast<size_t>(size));
+    this->resetFftAccumulator();
+  }
+
+  if (m_samplesInAccum == 0) {
+    std::memcpy(m_accum.data(), fftData, size * sizeof(float));
+  } else {
+    for (i = 0; i < size; ++i)
+      m_accum[i] += fftData[i];
+  }
+
+  m_samplesInAccum++;
+}
+
+void AbstractWaterfall::averageFftData()
+{
+  if (m_samplesInAccum == 0)
+    return;
+
+  float f = 1.0f / m_samplesInAccum;
+  for (size_t i = 0; i < m_accum.size(); i++)
+    m_accum[i] *= f;
+
+  // avoids repeated calls causing issues
+  m_samplesInAccum = 1;
+}
+
+void AbstractWaterfall::resetFftAccumulator()
+{
+  std::fill(m_accum.begin(), m_accum.end(), 0);
+  m_samplesInAccum = 0;
 }

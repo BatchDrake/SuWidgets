@@ -45,19 +45,17 @@ class Waterfall : public AbstractWaterfall
     void setPalette(const QColor *table) override;
     void clearWaterfall() override;
     bool saveWaterfall(const QString & filename) const override;
-    void draw(bool everything = true) override;
-    void setNewFftData(float *fftData, float *wfData, int size,
-        QDateTime const &t = QDateTime::currentDateTime(),
-        bool looped = false) override;
+    void draw() override;
 
   protected:
     //re-implemented widget event handlers
     void paintEvent(QPaintEvent *event) override;
 
+    void addNewWfLine(const float *wfData, int size, int repeats) override;
+
   private:
     QColor      m_ColorTbl[256];
     uint32_t    m_UintColorTbl[256];
-    quint8      m_wfbuf[MAX_SCREENSIZE]; // used for accumulating waterfall data at high time spans
 };
 
 #endif // PLOTTER_H

@@ -559,32 +559,6 @@ GLWaterfallOpenGLContext::pushFFTData(
 }
 
   void
-GLWaterfallOpenGLContext::averageFFTData(const float *fftData, int size)
-{
-  int i;
-
-  if (m_accum.size() != static_cast<size_t>(size)) {
-    m_accum.resize(static_cast<size_t>(size));
-    m_firstAccum = true;
-  }
-
-  if (m_firstAccum) {
-    std::memcpy(m_accum.data(), fftData, size * sizeof(float));
-    m_firstAccum = false;
-  } else {
-    for (i = 0; i < size; ++i)
-      m_accum[i] += .5f * (fftData[i] - m_accum[i]);
-  }
-}
-
-  void
-GLWaterfallOpenGLContext::commitFFTData(void)
-{
-  pushFFTData(m_accum.data(), m_accum.size());
-  m_firstAccum = true;
-}
-
-  void
 GLWaterfallOpenGLContext::setDynamicRange(float mindB, float maxdB)
 {
   this->m  = (maxdB - mindB) / GL_WATERFALL_TEX_DR;
@@ -971,12 +945,10 @@ GLWaterfall::drawSpectrum(QPainter &painter, int forceHeight)
 
 // Called to update spectrum data for displaying on the screen
   void
-GLWaterfall::draw(bool everything)
+GLWaterfall::draw()
 {
   int     w;
   int     h;
-
-  (void)everything; // suppress unused variable warning
 
   if (m_DrawOverlay) {
     drawOverlay();
@@ -1001,92 +973,8 @@ GLWaterfall::draw(bool everything)
   update();
 }
 
-/**
- * Set new FFT data.
- * @param fftData Pointer to the new FFT data used on the pandapter.
- * @param wfData Pointer to the FFT data used in the waterfall.
- * @param size The FFT size.
- *
- * This method can be used to set different FFT data set for the pandapter and the
- * waterfall.
- */
-
-  void
-GLWaterfall::setNewFftData(
-    float *fftData,
-    float *wfData,
-    int size,
-    QDateTime const &t,
-    bool looped)
+void GLWaterfall::addNewWfLine(const float* wfData, int size, int repeats)
 {
-  /** FIXME **/
-  if (!m_Running)
-    m_Running = true;
-
-  quint64 tnow_ms = SCAST(quint64, t.toMSecsSinceEpoch());
-
-  if (looped) {
-    TimeStamp ts;
-
-    ts.counter = m_TimeStampCounter;
-    ts.timeStampText =
-      m_lastFft.toLocalTime().toString("hh:mm:ss.zzz")
-      + " - "
-      + t.toLocalTime().toString("hh:mm:ss.zzz");
-    ts.utcTimeStampText =
-      m_lastFft.toUTC().toString("hh:mm:ss.zzzZ")
-      + " - "
-      + t.toUTC().toString("hh:mm:ss.zzzZ");
-    ts.marker = true;
-
-    m_TimeStamps.push_front(ts);
-    m_TimeStampCounter = 0;
-  }
-
-  m_wfData = wfData;
-  m_fftData = fftData;
-  m_fftDataSize = size;
-  m_lastFft = t;
-
-  if (m_tentativeCenterFreq != 0) {
-    m_tentativeCenterFreq = 0;
-    m_DrawOverlay = true;
-  }
-
-  if (m_TimeStampCounter >= m_TimeStampSpacing) {
-    TimeStamp ts;
-
-    ts.counter = m_TimeStampCounter;
-    ts.timeStampText = t.toLocalTime().toString("hh:mm:ss.zzz");
-    ts.utcTimeStampText = t.toUTC().toString("hh:mm:ss.zzzZ");
-
-    m_TimeStamps.push_front(ts);
-    m_TimeStampCounter = 0;
-  }
-
-  if (m_wfData != nullptr && m_fftDataSize > 0) {
-    if (msec_per_wfline > 0) {
-      this->glCtx.averageFFTData(m_wfData, m_fftDataSize);
-
-      if (tnow_ms < tlast_wf_ms || tnow_ms - tlast_wf_ms >= msec_per_wfline) {
-        int line_count = (tnow_ms - tlast_wf_ms) / msec_per_wfline;
-        if (line_count >= 1 && line_count <= 20) {
-          tlast_wf_ms += msec_per_wfline * line_count;
-        } else {
-          line_count = 1;
-          tlast_wf_ms = tnow_ms;
-        }
-        for (int i = 0; i < line_count; i++) {
-          this->glCtx.commitFFTData();
-        }
-        m_TimeStampCounter += line_count;
-      }
-    } else {
-      tlast_wf_ms = tnow_ms;
-      this->glCtx.pushFFTData(m_wfData, m_fftDataSize);
-      ++m_TimeStampCounter;
-    }
-  }
-
-  draw();
+  for (int i = 0; i < repeats; i++)
+    this->glCtx.pushFFTData(wfData, size);
 }

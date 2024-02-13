@@ -152,7 +152,6 @@ struct GLWaterfallOpenGLContext {
   QOpenGLShader           *m_fragmentShader = nullptr;
   GLLineHistory            m_history, m_pool;
   std::vector<uint8_t>     m_paletBuf;
-  GLLine                   m_accum;
   bool                     m_firstAccum = true;
 
   // Texture geometry
@@ -183,8 +182,6 @@ struct GLWaterfallOpenGLContext {
   void                     recalcGeometric(int, int, float);
   void                     setPalette(const QColor *table);
   void                     pushFFTData(const float *fftData, int size);
-  void                     averageFFTData(const float *fftData, int size);
-  void                     commitFFTData(void);
   void                     flushOneLine(void);
   void                     disposeLastLine(void);
   void                     flushLinesBulk(void);
@@ -211,14 +208,7 @@ class GLWaterfall : public AbstractWaterfall
 
     bool isGLWaterfall() override { return true; }
 
-    void draw(bool everything = true) override;
-
-    void setNewFftData(
-        float *fftData,
-        float *wfData,
-        int size,
-        QDateTime const &t = QDateTime::currentDateTime(),
-        bool looped = false) override;
+    void draw() override;
 
     void setPalette(const QColor *table) override
     {
@@ -243,6 +233,8 @@ class GLWaterfall : public AbstractWaterfall
   protected:
     //re-implemented widget event handlers
     void paintEvent(QPaintEvent *event) override;
+
+    void addNewWfLine(const float *wfData, int size, int repeats) override;
 
   private:
     void drawSpectrum(QPainter &, int forceHeight = -1);

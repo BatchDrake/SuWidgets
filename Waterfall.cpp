@@ -73,8 +73,6 @@ Waterfall::Waterfall(QWidget *parent) : AbstractWaterfall(parent)
         m_ColorTbl[i].red(),
         m_ColorTbl[i].green(),
         m_ColorTbl[i].blue());
-
-  memset(m_wfbuf, 255, MAX_SCREENSIZE);
 }
 
 Waterfall::~Waterfall()
@@ -99,7 +97,6 @@ void Waterfall::setPalette(const QColor *table)
 void Waterfall::clearWaterfall()
 {
   m_WaterfallImage.fill(Qt::black);
-  memset(m_wfbuf, 255, MAX_SCREENSIZE);
 }
 
 /**
@@ -220,7 +217,7 @@ void Waterfall::paintEvent(QPaintEvent *)
 }
 
 // Called to update spectrum data for displaying on the screen
-void Waterfall::draw(bool everything)
+void Waterfall::draw()
 {
   int     i, n;
   int     w;
@@ -235,99 +232,6 @@ void Waterfall::draw(bool everything)
   }
 
   QPoint LineBuf[MAX_SCREENSIZE];
-
-  // get/draw the waterfall
-  w = m_WaterfallImage.width();
-  h = m_WaterfallImage.height();
-
-  // no need to draw if pixmap is invisible
-  if (w != 0 && h != 0 && valid && everything)
-  {
-    quint64     tnow_ms = SCAST(quint64, m_lastFft.toMSecsSinceEpoch());
-
-    // get scaled FFT data
-    n = qMin(w, MAX_SCREENSIZE);
-    getScreenIntegerFFTData(255, n, m_WfMaxdB, m_WfMindB,
-        qBound(
-          -limit,
-          m_tentativeCenterFreq + m_FftCenter,
-          limit) - (qint64)m_Span/2,
-        qBound(
-          -limit,
-          m_tentativeCenterFreq + m_FftCenter,
-          limit) + (qint64)m_Span/2,
-        m_wfData, m_fftbuf,
-        &xmin, &xmax);
-
-    if (msec_per_wfline > 0)
-    {
-      // not in "auto" mode, so accumulate waterfall data
-      for (i = 0; i < n; i++)
-      {
-        // average
-        m_wfbuf[i] = (m_wfbuf[i] + m_fftbuf[i]) / 2;
-
-        // peak (0..255 where 255 is min)
-        if (m_fftbuf[i] < m_wfbuf[i])
-          m_wfbuf[i] = m_fftbuf[i];
-      }
-    }
-
-    // is it time to update waterfall?
-    if (tnow_ms < tlast_wf_ms || tnow_ms - tlast_wf_ms >= msec_per_wfline)
-    {
-      int line_count = (tnow_ms - tlast_wf_ms) / msec_per_wfline;
-      if (line_count >= 1 && line_count <= h && line_count <= 20) {
-        tlast_wf_ms += msec_per_wfline * line_count;
-      } else {
-        line_count = 1;
-        tlast_wf_ms = tnow_ms;
-      }
-
-      // move current data down required amounte (must do before attaching a QPainter object)
-      // m_WaterfallImage.scroll(0, line_count, 0, 0, w, h);
-
-      memmove(
-          m_WaterfallImage.scanLine(line_count),
-          m_WaterfallImage.scanLine(0),
-          static_cast<size_t>(w) * (static_cast<size_t>(h) - line_count)
-          * sizeof(uint32_t));
-
-      uint32_t *scanLineData =
-        reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(0));
-
-      memset(
-          scanLineData,
-          0,
-          static_cast<unsigned>(xmin) * sizeof(uint32_t));
-
-      memset(
-          scanLineData + xmax,
-          0,
-          static_cast<unsigned>(w - xmax) * sizeof(uint32_t));
-
-      if (msec_per_wfline > 0) {
-        // user set time span
-        for (i = xmin; i < xmax; i++) {
-          scanLineData[i] = m_UintColorTbl[255 - m_wfbuf[i]];
-          m_wfbuf[i] = 255;
-        }
-      } else {
-        for (i = xmin; i < xmax; i++)
-          scanLineData[i] = m_UintColorTbl[255 - m_fftbuf[i]];
-      }
-
-      // copy as needed onto extra lines
-      for (int j = 1; j < line_count; j++) {
-        uint32_t *subseqScanLineData =
-          reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(j));
-        memcpy(subseqScanLineData, scanLineData,
-            static_cast<size_t>(w) * sizeof(uint32_t));
-      }
-
-      this->m_TimeStampCounter += line_count;
-    }
-  }
 
   // get/draw the 2D spectrum
   w = m_2DPixmap.width();
@@ -455,65 +359,58 @@ void Waterfall::draw(bool everything)
   update();
 }
 
-/**
- * Set new FFT data.
- * @param fftData Pointer to the new FFT data used on the pandapter.
- * @param wfData Pointer to the FFT data used in the waterfall.
- * @param size The FFT size.
- *
- * This method can be used to set different FFT data set for the pandapter and the
- * waterfall.
- */
-
-void Waterfall::setNewFftData(
-    float *fftData,
-    float *wfData,
-    int size,
-    QDateTime const &t,
-    bool looped)
+void Waterfall::addNewWfLine(const float* wfData, int size, int repeats)
 {
-  /** FIXME **/
-  if (!m_Running)
-    m_Running = true;
+  int w = m_WaterfallImage.width();
+  int h = m_WaterfallImage.height();
+  int xmin, xmax;
+  qint64 limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
 
-  if (looped) {
-    TimeStamp ts;
+  if (w == 0 || h == 0 || size == 0)
+    return;
 
-    ts.counter = m_TimeStampCounter;
-    ts.timeStampText =
-      m_lastFft.toLocalTime().toString("hh:mm:ss.zzz")
-      + " - "
-      + t.toLocalTime().toString("hh:mm:ss.zzz");
-    ts.utcTimeStampText =
-      m_lastFft.toUTC().toString("hh:mm:ss.zzzZ")
-      + " - "
-      + t.toUTC().toString("hh:mm:ss.zzzZ");
-    ts.marker = true;
+  // get scaled FFT data
+  int n = qMin(w, MAX_SCREENSIZE);
+  getScreenIntegerFFTData(255, n, m_WfMaxdB, m_WfMindB,
+      qBound(
+        -limit,
+        m_tentativeCenterFreq + m_FftCenter,
+        limit) - (qint64)m_Span/2,
+      qBound(
+        -limit,
+        m_tentativeCenterFreq + m_FftCenter,
+        limit) + (qint64)m_Span/2,
+      wfData, m_fftbuf,
+      &xmin, &xmax);
 
-    m_TimeStamps.push_front(ts);
-    m_TimeStampCounter = 0;
+  // move current data down required amount (must do before attaching a QPainter object)
+  memmove(
+      m_WaterfallImage.scanLine(repeats),
+      m_WaterfallImage.scanLine(0),
+      static_cast<size_t>(w) * (static_cast<size_t>(h) - repeats)
+      * sizeof(uint32_t));
+
+  uint32_t *scanLineData =
+    reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(0));
+
+  memset(
+      scanLineData,
+      0,
+      static_cast<unsigned>(xmin) * sizeof(uint32_t));
+
+  memset(
+      scanLineData + xmax,
+      0,
+      static_cast<unsigned>(w - xmax) * sizeof(uint32_t));
+
+  for (int i = xmin; i < xmax; i++)
+    scanLineData[i] = m_UintColorTbl[255 - m_fftbuf[i]];
+
+  // copy as needed onto extra lines
+  for (int j = 1; j < repeats; j++) {
+    uint32_t *subseqScanLineData =
+      reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(j));
+    memcpy(subseqScanLineData, scanLineData,
+        static_cast<size_t>(w) * sizeof(uint32_t));
   }
-
-  m_wfData = wfData;
-  m_fftData = fftData;
-  m_fftDataSize = size;
-  m_lastFft = t;
-
-  if (m_tentativeCenterFreq != 0) {
-    m_tentativeCenterFreq = 0;
-    m_DrawOverlay = true;
-  }
-
-  if (m_TimeStampCounter >= m_TimeStampSpacing) {
-    TimeStamp ts;
-
-    ts.counter = m_TimeStampCounter;
-    ts.timeStampText = t.toLocalTime().toString("hh:mm:ss.zzz");
-    ts.utcTimeStampText = t.toUTC().toString("hh:mm:ss.zzzZ");
-
-    m_TimeStamps.push_front(ts);
-    m_TimeStampCounter = 0;
-  }
-
-  draw();
 }
