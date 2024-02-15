@@ -173,51 +173,6 @@ bool Waterfall::saveWaterfall(const QString & filename) const
   return pixmap.save(filename, 0, -1);
 }
 
-// Called by QT when screen needs to be redrawn
-void Waterfall::paintEvent(QPaintEvent *)
-{
-  QPainter painter(this);
-  qint64  StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
-  qint64  EndFreq = StartFreq + m_Span;
-
-  int y = m_Percent2DScreen * m_Size.height() / 100;
-
-  painter.drawPixmap(0, 0, m_2DPixmap);
-  painter.drawImage(0, y, m_WaterfallImage);
-
-  // Draw named channel cutoffs
-  if (m_channelsEnabled) {
-    for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
-      auto p = i.value();
-      int x_fCenter = xFromFreq(p->frequency);
-      int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
-      int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
-
-      if (EndFreq < p->frequency + p->lowFreqCut)
-        break;
-
-      WFHelpers::drawChannelCutoff(
-          painter,
-          y,
-          x_fMin,
-          x_fMax,
-          x_fCenter,
-          p->markerColor,
-          p->cutOffColor,
-          !p->bandLike);
-    }
-  }
-
-  if (m_FilterBoxEnabled)
-    this->drawFilterCutoff(painter, y);
-
-  if (m_TimeStampsEnabled) {
-    paintTimeStamps(
-        painter,
-        QRect(2, y, this->width(), this->height()));
-  }
-}
-
 // Called when screen size changes so must recalculate bitmaps
 void Waterfall::resizeEvent(QResizeEvent* event)
 {
@@ -299,4 +254,9 @@ void Waterfall::addNewWfLine(const float* wfData, int size, int repeats)
     memcpy(subseqScanLineData, scanLineData,
         static_cast<size_t>(w) * sizeof(uint32_t));
   }
+}
+
+void Waterfall::drawWaterfall(QPainter &painter)
+{
+  painter.drawImage(0, m_SpectrumPlotHeight, m_WaterfallImage);
 }

@@ -47,11 +47,11 @@ class Waterfall : public AbstractWaterfall
     bool saveWaterfall(const QString & filename) const override;
 
   protected:
-    //re-implemented widget event handlers
-    void paintEvent(QPaintEvent *event) override;
+    // re-implemented widget event handlers
     void resizeEvent(QResizeEvent* event) override;
 
     void addNewWfLine(const float *wfData, int size, int repeats) override;
+    void drawWaterfall(QPainter &) override;
 
   private:
     QColor      m_ColorTbl[256];

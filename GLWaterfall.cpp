@@ -768,55 +768,6 @@ GLWaterfall::paintGL(void)
       height() * dpi_factor, left, right);
 }
 
-// Called by QT when screen needs to be redrawn
-  void
-GLWaterfall::paintEvent(QPaintEvent *ev)
-{
-  QOpenGLWidget::paintEvent(ev);
-  QPainter painter(this);
-  qint64  StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
-  qint64  EndFreq = StartFreq + m_Span;
-
-  m_DemodFreqX = xFromFreq(m_DemodCenterFreq);
-  m_DemodLowCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodLowCutFreq);
-  m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
-
-  painter.setRenderHint(QPainter::Antialiasing);
-  painter.drawPixmap(0, 0, m_2DPixmap);
-
-  // Draw named channel cutoffs
-  if (m_channelsEnabled) {
-    for (auto i = m_channelSet.find(StartFreq); i != m_channelSet.cend(); ++i) {
-      auto p = i.value();
-      int x_fCenter = xFromFreq(p->frequency);
-      int x_fMin = xFromFreq(p->frequency + p->lowFreqCut);
-      int x_fMax = xFromFreq(p->frequency + p->highFreqCut);
-
-      if (EndFreq < p->frequency + p->lowFreqCut)
-        break;
-
-      WFHelpers::drawChannelCutoff(
-          painter,
-          m_SpectrumPlotHeight,
-          x_fMin,
-          x_fMax,
-          x_fCenter,
-          p->markerColor,
-          p->cutOffColor,
-          !p->bandLike);
-    }
-  }
-
-  // Draw demod filter box
-  if (m_FilterBoxEnabled)
-    this->drawFilterBox(painter, m_SpectrumPlotHeight);
-
-  if (m_TimeStampsEnabled)
-    paintTimeStamps(
-        painter,
-        QRect(2, m_SpectrumPlotHeight, this->width(), this->height()));
-}
-
 void GLWaterfall::addNewWfLine(const float* wfData, int size, int repeats)
 {
   for (int i = 0; i < repeats; i++)

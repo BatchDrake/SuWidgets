@@ -228,9 +228,6 @@ class GLWaterfall : public AbstractWaterfall
     void onContextBeingDestroyed();
 
   protected:
-    //re-implemented widget event handlers
-    void paintEvent(QPaintEvent *event) override;
-
     void addNewWfLine(const float *wfData, int size, int repeats) override;
 
   private:

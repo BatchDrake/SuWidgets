@@ -321,7 +321,7 @@ class AbstractWaterfall : public QOpenGLWidget
 
   protected:
     //re-implemented widget event handlers
-    virtual void paintEvent(QPaintEvent *event) = 0;
+    virtual void paintEvent(QPaintEvent *event);
     virtual void resizeEvent(QResizeEvent* event);
     void mouseMoveEvent(QMouseEvent * event);
     void mousePressEvent(QMouseEvent * event);
@@ -385,6 +385,7 @@ class AbstractWaterfall : public QOpenGLWidget
     void drawBookmarks(DrawingContext &, qint64, qint64, int xAxisTop);
     void drawAxes(DrawingContext &, qint64, qint64);
     void drawSpectrum(QPainter &);
+    virtual void drawWaterfall(QPainter &) {}
 
     virtual void addNewWfLine(const float *wfData, int size, int repeats) = 0;
 
