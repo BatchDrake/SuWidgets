@@ -207,8 +207,6 @@ class GLWaterfall : public AbstractWaterfall
 
     bool isGLWaterfall() override { return true; }
 
-    void draw() override;
-
     void setPalette(const QColor *table) override
     {
       this->glCtx.setPalette(table);
@@ -236,8 +234,6 @@ class GLWaterfall : public AbstractWaterfall
     void addNewWfLine(const float *wfData, int size, int repeats) override;
 
   private:
-    void drawSpectrum(QPainter &, int forceHeight = -1);
-
     GLWaterfallOpenGLContext glCtx;
 };
 

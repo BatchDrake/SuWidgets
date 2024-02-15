@@ -45,7 +45,6 @@ class Waterfall : public AbstractWaterfall
     void setPalette(const QColor *table) override;
     void clearWaterfall() override;
     bool saveWaterfall(const QString & filename) const override;
-    void draw() override;
 
   protected:
     //re-implemented widget event handlers

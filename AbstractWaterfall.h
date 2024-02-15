@@ -62,7 +62,7 @@ class AbstractWaterfall : public QOpenGLWidget
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
 
-    virtual void draw() = 0; //call to draw new fft data onto screen plot
+    void draw(); // call to draw new fft data onto screen plot
     void setLocked(bool locked) { m_Locked = locked; }
     void setFreqDragLocked(bool locked) { m_freqDragLocked = locked; }
     void setRunningState(bool running) { m_Running = running; }
@@ -384,6 +384,7 @@ class AbstractWaterfall : public QOpenGLWidget
     int  drawFATs(DrawingContext &, qint64, qint64);
     void drawBookmarks(DrawingContext &, qint64, qint64, int xAxisTop);
     void drawAxes(DrawingContext &, qint64, qint64);
+    void drawSpectrum(QPainter &);
 
     virtual void addNewWfLine(const float *wfData, int size, int repeats) = 0;
 

@@ -782,8 +782,6 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
   m_DemodHiCutFreqX = xFromFreq(m_DemodCenterFreq + m_DemodHiCutFreq);
 
   painter.setRenderHint(QPainter::Antialiasing);
-  int y = m_Percent2DScreen * m_Size.height() / 100;
-
   painter.drawPixmap(0, 0, m_2DPixmap);
 
   // Draw named channel cutoffs
@@ -799,7 +797,7 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
 
       WFHelpers::drawChannelCutoff(
           painter,
-          y,
+          m_SpectrumPlotHeight,
           x_fMin,
           x_fMax,
           x_fCenter,
@@ -811,159 +809,12 @@ GLWaterfall::paintEvent(QPaintEvent *ev)
 
   // Draw demod filter box
   if (m_FilterBoxEnabled)
-    this->drawFilterBox(painter, y);
-
-  drawSpectrum(painter, y);
+    this->drawFilterBox(painter, m_SpectrumPlotHeight);
 
   if (m_TimeStampsEnabled)
     paintTimeStamps(
         painter,
-        QRect(2, y, this->width(), this->height()));
-}
-
-  void
-GLWaterfall::drawSpectrum(QPainter &painter, int forceHeight)
-{
-  int     i, n;
-  int     xmin, xmax;
-  qint64  limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
-  QPoint  LineBuf[MAX_SCREENSIZE];
-  int w = painter.device()->width();
-  int h = forceHeight < 0 ? painter.device()->height() : forceHeight;
-
-  // workaround for "fixed" line drawing since Qt 5
-  // see http://stackoverflow.com/questions/16990326
-#if QT_VERSION >= 0x050000
-  painter.translate(0.5, 0.5);
-#endif
-
-  // Do we have valid FFT data?
-  if (m_fftDataSize < 1)
-    return;
-
-  // get new scaled fft data
-  getScreenIntegerFFTData(
-      h,
-      qMin(w, MAX_SCREENSIZE),
-      m_PandMaxdB,
-      m_PandMindB,
-      qBound(
-        -limit,
-        m_tentativeCenterFreq + m_FftCenter,
-        limit) - (qint64)m_Span/2,
-      qBound(
-        -limit,
-        m_tentativeCenterFreq + m_FftCenter,
-        limit) + (qint64)m_Span/2,
-      m_fftData,
-      m_fftbuf,
-      &xmin,
-      &xmax);
-
-  // draw the pandapter
-  painter.setPen(m_FftColor);
-  n = xmax - xmin;
-  for (i = 0; i < n; i++) {
-    LineBuf[i].setX(i + xmin);
-    LineBuf[i].setY(m_fftbuf[i + xmin]);
-  }
-
-  if (m_FftFill) {
-    painter.setBrush(QBrush(m_FftFillCol, Qt::SolidPattern));
-    if (n < MAX_SCREENSIZE-2) {
-      LineBuf[n].setX(xmax-1);
-      LineBuf[n].setY(h);
-      LineBuf[n+1].setX(xmin);
-      LineBuf[n+1].setY(h);
-      painter.drawPolygon(LineBuf, n+2);
-    } else {
-      LineBuf[MAX_SCREENSIZE-2].setX(xmax-1);
-      LineBuf[MAX_SCREENSIZE-2].setY(h);
-      LineBuf[MAX_SCREENSIZE-1].setX(xmin);
-      LineBuf[MAX_SCREENSIZE-1].setY(h);
-      painter.drawPolygon(LineBuf, n);
-    }
-  } else {
-    painter.drawPolyline(LineBuf, n);
-  }
-
-  // Peak detection
-  if (m_PeakDetection > 0) {
-    m_Peaks.clear();
-
-    float   mean = 0;
-    float   sum_of_sq = 0;
-    for (i = 0; i < n; i++) {
-      mean += m_fftbuf[i + xmin];
-      sum_of_sq += m_fftbuf[i + xmin] * m_fftbuf[i + xmin];
-    }
-    mean /= n;
-    float stdev= sqrt(sum_of_sq / n - mean * mean );
-
-    int lastPeak = -1;
-    for (i = 0; i < n; i++) {
-      //m_PeakDetection times the std over the mean or better than current peak
-      float d = (lastPeak == -1) ? (mean - m_PeakDetection * stdev) :
-        m_fftbuf[lastPeak + xmin];
-
-      if (m_fftbuf[i + xmin] < d)
-        lastPeak=i;
-
-      if (lastPeak != -1 &&
-          (i - lastPeak > PEAK_H_TOLERANCE || i == n-1))
-      {
-        m_Peaks.insert(lastPeak + xmin, m_fftbuf[lastPeak + xmin]);
-        painter.drawEllipse(lastPeak + xmin - 5,
-            m_fftbuf[lastPeak + xmin] - 5, 10, 10);
-        lastPeak = -1;
-      }
-    }
-  }
-
-  // Peak hold
-  if (m_PeakHoldActive) {
-    for (i = 0; i < n; i++) {
-      if (!m_PeakHoldValid || m_fftbuf[i] < m_fftPeakHoldBuf[i])
-        m_fftPeakHoldBuf[i] = m_fftbuf[i];
-
-      LineBuf[i].setX(i + xmin);
-      LineBuf[i].setY(m_fftPeakHoldBuf[i + xmin]);
-    }
-    painter.setPen(m_PeakHoldColor);
-    painter.drawPolyline(LineBuf, n);
-
-    m_PeakHoldValid = true;
-  }
-}
-
-// Called to update spectrum data for displaying on the screen
-  void
-GLWaterfall::draw()
-{
-  int     w;
-  int     h;
-
-  if (m_DrawOverlay) {
-    drawOverlay();
-    m_DrawOverlay = false;
-  }
-
-  // -----8<------------------------------------------------------------------
-  // In the loving memory of a waterfall drawing code that use to hog my CPU
-  // for years now. It's sad it's gone, I'm glad is not here anymore.
-  // -----8<------------------------------------------------------------------
-
-  // get/draw the 2D spectrum
-  w = m_2DPixmap.width();
-  h = m_2DPixmap.height();
-
-  if (w != 0 && h != 0) {
-    // first copy into 2Dbitmap the overlay bitmap.
-    m_2DPixmap = m_OverlayPixmap.copy(0, 0, w, h);
-  }
-
-  // trigger a new paintEvent
-  update();
+        QRect(2, m_SpectrumPlotHeight, this->width(), this->height()));
 }
 
 void GLWaterfall::addNewWfLine(const float* wfData, int size, int repeats)
