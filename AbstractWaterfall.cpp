@@ -103,8 +103,9 @@ AbstractWaterfall::AbstractWaterfall(QWidget *parent) : QOpenGLWidget(parent)
   m_DrawOverlay = true;
   m_2DPixmap = QPixmap(0,0);
   m_OverlayPixmap = QPixmap(0,0);
-  m_WaterfallImage = QImage();
   m_Size = QSize(0,0);
+  m_SpectrumPlotHeight = 0;
+  m_WaterfallHeight = 0;
   m_GrabPosition = 0;
   m_Percent2DScreen = 30;	//percent of screen used for 2D display
   m_VdivDelta = 30;
@@ -501,8 +502,8 @@ void AbstractWaterfall::setWaterfallSpan(quint64 span_ms)
 {
   int dpi_factor = isGLWaterfall() ? screen()->devicePixelRatio() : 1;
   wf_span = span_ms;
-  if (m_WaterfallImage.height() > 0)
-    msec_per_wfline = wf_span / (m_WaterfallImage.height() * dpi_factor);
+  if (m_WaterfallHeight > 0)
+    msec_per_wfline = wf_span / (m_WaterfallHeight * dpi_factor);
   clearWaterfall();
 }
 
@@ -797,35 +798,18 @@ void AbstractWaterfall::resizeEvent(QResizeEvent* event)
   if (m_Size != size())
   {
     // if changed, resize pixmaps to new screensize
-    int     fft_plot_height;
-
     m_Size = size();
-    fft_plot_height = m_Percent2DScreen * m_Size.height() / 100;
-    m_OverlayPixmap = QPixmap(m_Size.width(), fft_plot_height);
+    m_SpectrumPlotHeight = m_Percent2DScreen * m_Size.height() / 100;
+    m_WaterfallHeight = m_Size.height() - m_SpectrumPlotHeight;
+    m_OverlayPixmap = QPixmap(m_Size.width(), m_SpectrumPlotHeight);
     m_OverlayPixmap.fill(Qt::black);
-    m_2DPixmap = QPixmap(m_Size.width(), fft_plot_height);
+    m_2DPixmap = QPixmap(m_Size.width(), m_SpectrumPlotHeight);
     m_2DPixmap.fill(Qt::black);
-
-    int height = (100 - m_Percent2DScreen) * m_Size.height() / 100;
-    if (m_WaterfallImage.isNull())
-    {
-      m_WaterfallImage = QImage(
-          m_Size.width(),
-          height,
-          QImage::Format::Format_RGB32);
-      m_WaterfallImage.fill(Qt::black);
-    }
-    else
-    {
-      m_WaterfallImage = m_WaterfallImage.scaled(m_Size.width(), height,
-          Qt::IgnoreAspectRatio,
-          Qt::SmoothTransformation);
-    }
 
     m_PeakHoldValid = false;
 
     if (wf_span > 0)
-      msec_per_wfline = wf_span / (height * dpi_factor);
+      msec_per_wfline = wf_span / (m_WaterfallHeight * dpi_factor);
   }
 
   updateOverlay();

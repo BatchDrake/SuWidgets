@@ -698,7 +698,6 @@ GLWaterfall::~GLWaterfall()
   void
 GLWaterfall::clearWaterfall()
 {
-  m_WaterfallImage.fill(Qt::black);
 }
 
 /**

@@ -45,6 +45,8 @@
 ///////////////////////////// Waterfall ////////////////////////////////////////
 Waterfall::Waterfall(QWidget *parent) : AbstractWaterfall(parent)
 {
+  m_WaterfallImage = QImage();
+
   // default waterfall color scheme
   for (int i = 0; i < 256; i++)
   {
@@ -213,6 +215,33 @@ void Waterfall::paintEvent(QPaintEvent *)
     paintTimeStamps(
         painter,
         QRect(2, y, this->width(), this->height()));
+  }
+}
+
+// Called when screen size changes so must recalculate bitmaps
+void Waterfall::resizeEvent(QResizeEvent* event)
+{
+  AbstractWaterfall::resizeEvent(event);
+
+  if (!size().isValid())
+    return;
+
+  if (m_WaterfallImage.isNull())
+  {
+    m_WaterfallImage = QImage(
+        m_Size.width(),
+        m_WaterfallHeight,
+        QImage::Format::Format_RGB32);
+    m_WaterfallImage.fill(Qt::black);
+  }
+  else if (m_WaterfallImage.width() != m_Size.width() ||
+           m_WaterfallImage.height() != m_WaterfallHeight)
+  {
+    m_WaterfallImage = m_WaterfallImage.scaled(
+        m_Size.width(),
+        m_WaterfallHeight,
+        Qt::IgnoreAspectRatio,
+        Qt::SmoothTransformation);
   }
 }
 

@@ -50,12 +50,14 @@ class Waterfall : public AbstractWaterfall
   protected:
     //re-implemented widget event handlers
     void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
     void addNewWfLine(const float *wfData, int size, int repeats) override;
 
   private:
     QColor      m_ColorTbl[256];
     uint32_t    m_UintColorTbl[256];
+    QImage      m_WaterfallImage;
 };
 
 #endif // PLOTTER_H

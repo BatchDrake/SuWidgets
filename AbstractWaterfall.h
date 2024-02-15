@@ -322,7 +322,7 @@ class AbstractWaterfall : public QOpenGLWidget
   protected:
     //re-implemented widget event handlers
     virtual void paintEvent(QPaintEvent *event) = 0;
-    void resizeEvent(QResizeEvent* event);
+    virtual void resizeEvent(QResizeEvent* event);
     void mouseMoveEvent(QMouseEvent * event);
     void mousePressEvent(QMouseEvent * event);
     void mouseReleaseEvent(QMouseEvent * event);
@@ -414,7 +414,6 @@ class AbstractWaterfall : public QOpenGLWidget
     eCapturetype    m_CursorCaptured;
     QPixmap     m_2DPixmap;
     QPixmap     m_OverlayPixmap;
-    QImage      m_WaterfallImage;
     QSize       m_Size;
     QString     m_Str;
     QString     m_HDivText[HORZ_DIVS_MAX+1];
@@ -439,6 +438,8 @@ class AbstractWaterfall : public QOpenGLWidget
     int         m_CursorCaptureDelta;
     int         m_GrabPosition;
     int         m_Percent2DScreen;
+    int         m_SpectrumPlotHeight;
+    int         m_WaterfallHeight;
 
     qint64      m_FLowCmin;
     qint64      m_FLowCmax;
