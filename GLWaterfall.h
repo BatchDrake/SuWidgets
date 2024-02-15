@@ -204,7 +204,6 @@ class GLWaterfall : public AbstractWaterfall
 
     void initializeGL(void) override;
     void paintGL(void) override;
-    void resizeGL(int, int) override;
 
     bool isGLWaterfall() override { return true; }
 

@@ -768,12 +768,6 @@ GLWaterfall::paintGL(void)
       height() * dpi_factor, left, right);
 }
 
-  void
-GLWaterfall::resizeGL(int, int)
-{
-}
-
-
 // Called by QT when screen needs to be redrawn
   void
 GLWaterfall::paintEvent(QPaintEvent *ev)
