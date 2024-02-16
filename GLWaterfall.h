@@ -205,7 +205,7 @@ class GLWaterfall : public AbstractWaterfall
     void initializeGL(void) override;
     void paintGL(void) override;
 
-    bool isGLWaterfall() override { return true; }
+    bool isHdpiAware() override { return true; }
 
     void setPalette(const QColor *table) override
     {

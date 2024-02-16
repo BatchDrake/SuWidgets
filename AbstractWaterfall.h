@@ -76,7 +76,7 @@ class AbstractWaterfall : public QOpenGLWidget
     void setTimeStampsEnabled(bool enabled) { m_TimeStampsEnabled = enabled; }
     void setTimeStampsUTC(bool utc) { m_TimeStampsUTC = utc; drawOverlay(); }
 
-    virtual bool isGLWaterfall() { return false; }
+    virtual bool isHdpiAware() { return false; }
 
     void setChannelsEnabled(bool enabled) { m_channelsEnabled = enabled; updateOverlay(); }
 
