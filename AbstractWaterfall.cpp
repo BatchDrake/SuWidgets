@@ -547,7 +547,7 @@ int AbstractWaterfall::getNearestPeak(QPoint pt)
 /** Set waterfall span in milliseconds */
 void AbstractWaterfall::setWaterfallSpan(quint64 span_ms)
 {
-  int dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
+  qreal dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
   wf_span = span_ms;
   if (m_WaterfallHeight > 0)
     msec_per_wfline = wf_span / (m_WaterfallHeight * dpi_factor);
@@ -833,7 +833,7 @@ void AbstractWaterfall::wheelEvent(QWheelEvent * event)
 // Called when screen size changes so must recalculate bitmaps
 void AbstractWaterfall::resizeEvent(QResizeEvent* event)
 {
-  int dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
+  qreal dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
 
   // mandatory to call for QOpenGLWidget to resize framebuffer
   if (event != nullptr)
@@ -872,7 +872,7 @@ void AbstractWaterfall::paintTimeStamps(
   int textHeight = metrics.height();
   int items = 0;
   int leftSpacing = 0;
-  int dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
+  qreal dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
 
   auto it = m_TimeStamps.begin();
 
