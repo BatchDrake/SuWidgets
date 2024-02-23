@@ -80,8 +80,8 @@ static const char *wfVertexShader   = "                                        \
                                        varying   vec2 f_texture_coords;                                           \
                                        uniform   mat4 ortho;                                                      \
                                        \
-                                       void                                                                       \
-                                       main(void)                                                                 \
+                                     void                                                                       \
+                                       main()                                                                 \
 {                                                                          \
   gl_Position      = ortho * vec4(vertex_coords, 1.0);                    \
     f_texture_coords = texture_coords;                                      \
@@ -98,8 +98,8 @@ static const char *wfFragmentShader = "                                        \
                                        uniform float     c_x0;                                                    \
                                        uniform float     c_m;                                                     \
                                        \
-                                       void                                                                       \
-                                       main(void)                                                                 \
+                                     void                                                                       \
+                                       main()                                                                 \
 {                                                                          \
   float x = f_texture_coords.x * c_m + c_x0;                               \
     float y = f_texture_coords.y + t - floor(f_texture_coords.y + t);        \
@@ -114,8 +114,8 @@ static const char *wfFragmentShader = "                                        \
   ";
 
 ///////////////////////////// GLLine //////////////////////////////////////////
-  void
-GLLine::normalize(void)
+void
+GLLine::normalize()
 {
   int i;
   int res = resolution();
@@ -124,16 +124,15 @@ GLLine::normalize(void)
 #pragma GCC ivdep
   for (i = 0; i < res; ++i)
     data[i] = (data[i] - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR;
-
 }
 
-  void
-GLLine::rescaleMean(void)
+void
+GLLine::rescaleMean()
 {
   float *data = this->data();
   int res = resolution();
   int i = 0, q = 0, p = res;
-  int l = this->levels;
+  int l = m_levels;
 
   normalize();
 
@@ -148,13 +147,13 @@ GLLine::rescaleMean(void)
   }
 }
 
-  void
-GLLine::rescaleMax(void)
+void
+GLLine::rescaleMax()
 {
   float *data = this->data();
   int res = resolution();
   int i = 0, q = 0, p = res;
-  int l = this->levels;
+  int l = m_levels;
 
   normalize();
 
@@ -169,7 +168,7 @@ GLLine::rescaleMax(void)
   }
 }
 
-  void
+void
 GLLine::assignMean(const float *values)
 {
   float *data = this->data();
@@ -180,7 +179,7 @@ GLLine::assignMean(const float *values)
   rescaleMean();
 }
 
-  void
+void
 GLLine::assignMax(const float *values)
 {
   float *data = this->data();
@@ -192,7 +191,7 @@ GLLine::assignMax(const float *values)
 }
 
 
-  void
+void
 GLLine::reduceMean(const float *values, int length)
 {
   int res       = resolution();
@@ -215,12 +214,12 @@ GLLine::reduceMean(const float *values, int length)
   }
 }
 
-  void
+void
 GLLine::reduceMax(const float *values, int length)
 {
   int res       = resolution();
   int chunkSize = length / res;
-  float *data = this->data();
+  float *data   = this->data();
 
   if (chunkSize > 0) {
     int i, p = 0;
@@ -258,9 +257,9 @@ GLWaterfallOpenGLContext::GLWaterfallOpenGLContext() :
   m_rowCount = maxHeight;
 }
 
-GLWaterfallOpenGLContext::~GLWaterfallOpenGLContext(void)
+GLWaterfallOpenGLContext::~GLWaterfallOpenGLContext()
 {
-  this->finalize();
+  finalize();
 
   delete m_vertexShader;
   delete m_fragmentShader;
@@ -268,8 +267,8 @@ GLWaterfallOpenGLContext::~GLWaterfallOpenGLContext(void)
   delete m_palette;
 }
 
-  void
-GLWaterfallOpenGLContext::initialize(void)
+void
+GLWaterfallOpenGLContext::initialize()
 {
   GLint texSize;
   QImage firstPal = QImage(256, 1, QImage::Format_RGBX8888);
@@ -320,7 +319,7 @@ GLWaterfallOpenGLContext::initialize(void)
   m_ibo.allocate(vertex_indices, sizeof(vertex_indices));
 
   m_waterfall = new QOpenGLTexture(QOpenGLTexture::Target2D);
-  this->resetWaterfall();
+  resetWaterfall();
 
   m_palette = new QOpenGLTexture(QOpenGLTexture::Target2D);
   m_palette->setWrapMode(QOpenGLTexture::ClampToEdge);
@@ -341,8 +340,8 @@ GLWaterfallOpenGLContext::initialize(void)
   m_program.bind();
 }
 
-  void
-GLWaterfallOpenGLContext::resetWaterfall(void)
+void
+GLWaterfallOpenGLContext::resetWaterfall()
 {
   GLLine nullLine;
 
@@ -378,8 +377,8 @@ GLWaterfallOpenGLContext::resetWaterfall(void)
   m_row = 0;
 }
 
-  void
-GLWaterfallOpenGLContext::flushPalette(void)
+void
+GLWaterfallOpenGLContext::flushPalette()
 {
   glTexSubImage2D(
       GL_TEXTURE_2D,
@@ -393,8 +392,8 @@ GLWaterfallOpenGLContext::flushPalette(void)
       m_paletBuf.data());
 }
 
-  void
-GLWaterfallOpenGLContext::disposeLastLine(void)
+void
+GLWaterfallOpenGLContext::disposeLastLine()
 {
   if (!m_history.empty()) {
     GLLine &line = m_history.back();
@@ -411,8 +410,8 @@ GLWaterfallOpenGLContext::disposeLastLine(void)
   }
 }
 
-  void
-GLWaterfallOpenGLContext::flushOneLine(void)
+void
+GLWaterfallOpenGLContext::flushOneLine()
 {
   GLLine &line = m_history.back();
   int row = m_rowCount - (m_row % m_rowCount) - 1;
@@ -428,16 +427,16 @@ GLWaterfallOpenGLContext::flushOneLine(void)
         GL_RED,
         GL_FLOAT,
         line.data());
-    this->disposeLastLine();
+    disposeLastLine();
     m_row = (m_row + 1) % m_rowCount;
   } else {
     // Wrong line size. Just discard.
-    this->disposeLastLine();
+    disposeLastLine();
   }
 }
 
-  void
-GLWaterfallOpenGLContext::flushLinesBulk(void)
+void
+GLWaterfallOpenGLContext::flushLinesBulk()
 {
   int maxRows = m_rowCount - (m_row % m_rowCount);
   int count = 0;
@@ -450,7 +449,7 @@ GLWaterfallOpenGLContext::flushLinesBulk(void)
     GLLine &line = m_history.back();
 
     if (m_rowSize != line.resolution()) {
-      this->disposeLastLine();
+      disposeLastLine();
       break;
     }
 
@@ -458,7 +457,7 @@ GLWaterfallOpenGLContext::flushLinesBulk(void)
         bulkData.data() + (maxRows - i - 1) * alloc,
         line.data(),
         alloc * sizeof(float));
-    this->disposeLastLine();
+    disposeLastLine();
 
     ++count;
   }
@@ -478,24 +477,24 @@ GLWaterfallOpenGLContext::flushLinesBulk(void)
   }
 }
 
-  void
-GLWaterfallOpenGLContext::flushLines(void)
+void
+GLWaterfallOpenGLContext::flushLines()
 {
   while (!m_history.empty()) {
     if (m_history.size() >= GL_WATERFALL_MIN_BULK_TRANSFER)
-      this->flushLinesBulk();
+      flushLinesBulk();
     else
-      this->flushOneLine();
+      flushOneLine();
   }
 }
 
-  void
-GLWaterfallOpenGLContext::flushLinePool(void)
+void
+GLWaterfallOpenGLContext::flushLinePool()
 {
   m_pool.clear();
 }
 
-  void
+void
 GLWaterfallOpenGLContext::setPalette(const QColor *table)
 {
   uint8_t *asBytes = reinterpret_cast<uint8_t *>(m_paletBuf.data());
@@ -510,7 +509,7 @@ GLWaterfallOpenGLContext::setPalette(const QColor *table)
   m_updatePalette = true;
 }
 
-  void
+void
 GLWaterfallOpenGLContext::pushFFTData(
     const float *__restrict__ fftData,
     int size)
@@ -521,10 +520,10 @@ GLWaterfallOpenGLContext::pushFFTData(
     size = m_maxRowSize;
 
   if (size != m_rowSize) {
-    this->flushLinePool();
+    flushLinePool();
 
     m_rowSize = size;
-    this->resetWaterfall();
+    resetWaterfall();
   }
 
   if (!m_pool.empty()) {
@@ -558,14 +557,14 @@ GLWaterfallOpenGLContext::pushFFTData(
   }
 }
 
-  void
+void
 GLWaterfallOpenGLContext::setDynamicRange(float mindB, float maxdB)
 {
-  this->m  = (maxdB - mindB) / GL_WATERFALL_TEX_DR;
-  this->x0 = (mindB - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR;
+  m_m  = (maxdB - mindB) / GL_WATERFALL_TEX_DR;
+  m_x0 = (mindB - GL_WATERFALL_TEX_MIN_DB) / GL_WATERFALL_TEX_DR;
 }
 
-  void
+void
 GLWaterfallOpenGLContext::finalize()
 {
   if (m_vao.isCreated())
@@ -580,7 +579,7 @@ GLWaterfallOpenGLContext::finalize()
     m_palette->destroy();
 }
 
-  void
+void
 GLWaterfallOpenGLContext::recalcGeometric(int width, int height, float zoom)
 {
   int d = static_cast<int>(floor(log2(m_rowSize / (width * zoom))));
@@ -589,15 +588,15 @@ GLWaterfallOpenGLContext::recalcGeometric(int width, int height, float zoom)
     d = 0;
 
   // Define the texture coordinates where the best mipmap can be found
-  this->c_x0 = 1.f - 1.f / static_cast<float>(1 << d);
-  this->c_x1 = 1.f - 1.f / static_cast<float>(1 << (d + 1));
+  m_c_x0 = 1.f - 1.f / static_cast<float>(1 << d);
+  m_c_x1 = 1.f - 1.f / static_cast<float>(1 << (d + 1));
 
   m_width  = width;
   m_height = height;
   m_zoom   = zoom;
 }
 
-  void
+void
 GLWaterfallOpenGLContext::render(
     int x,
     int y,
@@ -611,7 +610,7 @@ GLWaterfallOpenGLContext::render(
 
   // We only care about horizontal zoom
   if (width != m_width || fabsf(zoom - m_zoom) > 1e-6f)
-    this->recalcGeometric(width, height, zoom);
+    recalcGeometric(width, height, zoom);
 
   glPushAttrib(GL_ALL_ATTRIB_BITS); // IMPORTANT TO PREVENT CONFLICTS WITH QPAINTER
 
@@ -646,10 +645,10 @@ GLWaterfallOpenGLContext::render(
 
   m_program.setUniformValue("ortho", ortho);
   m_program.setUniformValue("t", -m_row / (float) m_rowCount);
-  m_program.setUniformValue("x0", this->x0);
-  m_program.setUniformValue("m",  this->m);
-  m_program.setUniformValue("c_x0", this->c_x0);
-  m_program.setUniformValue("c_m",  this->c_x1 - this->c_x0);
+  m_program.setUniformValue("x0", m_x0);
+  m_program.setUniformValue("m",  m_m);
+  m_program.setUniformValue("c_x0", m_c_x0);
+  m_program.setUniformValue("c_m",  m_c_x1 - m_c_x0);
   m_vao.release();
   m_vao.bind();
 
@@ -660,7 +659,7 @@ GLWaterfallOpenGLContext::render(
   // Update palette (if necessary)
   m_palette->bind(1);
   if (m_updatePalette) {
-    this->flushPalette();
+    flushPalette();
     m_updatePalette = false;
   }
 
@@ -691,11 +690,11 @@ GLWaterfall::GLWaterfall(QWidget *parent) : AbstractWaterfall(parent)
 GLWaterfall::~GLWaterfall()
 {
   makeCurrent();
-  this->glCtx.finalize();
+  m_glCtx.finalize();
   doneCurrent();
 }
 
-  void
+void
 GLWaterfall::clearWaterfall()
 {
 }
@@ -713,25 +712,25 @@ GLWaterfall::saveWaterfall(const QString &) const
   return false;
 }
 
-  void
-GLWaterfall::initializeGL(void)
+void
+GLWaterfall::initializeGL()
 {
-  this->glCtx.initialize();
+  m_glCtx.initialize();
 
   connect(
-      this->context(),
+      context(),
       SIGNAL(aboutToBeDestroyed()),
       this,
       SLOT(onContextBeingDestroyed()));
 
-  this->drawOverlay();
+  drawOverlay();
 }
 
-  void
+void
 GLWaterfall::onContextBeingDestroyed()
 {
   makeCurrent();
-  this->glCtx.finalize();
+  m_glCtx.finalize();
   doneCurrent();
 }
 
@@ -743,7 +742,7 @@ void GLWaterfall::setWaterfallRange(float min, float max)
   m_WfMindB = min;
   m_WfMaxdB = max;
 
-  this->glCtx.setDynamicRange(min - m_gain, max - m_gain);
+  m_glCtx.setDynamicRange(min - m_gain, max - m_gain);
 
   // no overlay change is necessary
 }
@@ -755,8 +754,8 @@ void GLWaterfall::setWaterfallRange(float min, float max)
 //        f0       f1
 //
 
-  void
-GLWaterfall::paintGL(void)
+void
+GLWaterfall::paintGL()
 {
   int y = m_Percent2DScreen * m_Size.height() / 100;
   qint64 f0 = m_FftCenter - m_Span / 2;
@@ -764,12 +763,12 @@ GLWaterfall::paintGL(void)
   qreal  right = (qreal) (+m_SampleFreq - f0) / (qreal) m_Span - .5f;
   int dpi_factor = screen()->devicePixelRatio();
 
-  this->glCtx.render(0, y * dpi_factor, width() * dpi_factor,
+  m_glCtx.render(0, y * dpi_factor, width() * dpi_factor,
       height() * dpi_factor, left, right);
 }
 
 void GLWaterfall::addNewWfLine(const float* wfData, int size, int repeats)
 {
   for (int i = 0; i < repeats; i++)
-    this->glCtx.pushFFTData(wfData, size);
+    m_glCtx.pushFFTData(wfData, size);
 }

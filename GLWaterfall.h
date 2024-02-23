@@ -50,46 +50,52 @@
 
 class GLLine : public std::vector<float>
 {
-  int levels = 0;
+  int m_levels = 0;
 
   public:
-  inline void initialize(void)
+  inline void initialize()
   {
     assign(size(), 0);
   }
 
-  static inline int allocationFor(int res)
+  static inline int
+  allocationFor(int res)
   {
     return res << 1;
   }
 
-  static inline int resolutionFor(int alloc)
+  static inline int
+  resolutionFor(int alloc)
   {
     return alloc >> 1;
   }
 
-  inline void setResolution(int res)
+  inline void
+  setResolution(int res)
   {
-    levels = static_cast<int>(ceil(log2(res))) + 1;
+    m_levels = static_cast<int>(ceil(log2(res))) + 1;
     resize(static_cast<size_t>(allocationFor(res)));
     initialize();
   }
 
-  inline int allocation(void) const
+  inline int
+  allocation() const
   {
-    return static_cast<int>(this->size());
+    return static_cast<int>(size());
   }
 
-  inline int resolution(void) const
+  inline int
+  resolution() const
   {
     return resolutionFor(allocation());
   }
 
-  inline void setValueMax(int index, float val)
+  inline void
+  setValueMax(int index, float val)
   {
     int p = 0;
     int res = resolution();
-    int l = this->levels;
+    int l = m_levels;
     float *data = this->data();
     size_t i;
 
@@ -105,11 +111,12 @@ class GLLine : public std::vector<float>
     }
   }
 
-  inline void setValueMean(int index, float val)
+  inline void
+  setValueMean(int index, float val)
   {
     int p = 0;
     int res = resolution();
-    int l = this->levels;
+    int l = m_levels;
     float *data = this->data();
     float k = 1.;
     size_t i;
@@ -127,10 +134,10 @@ class GLLine : public std::vector<float>
     }
   }
 
-  void normalize(void);
+  void normalize();
 
-  void rescaleMean(void);
-  void rescaleMax(void);
+  void rescaleMean();
+  void rescaleMax();
 
   void assignMean(const float *values);
   void assignMax(const float *values);
@@ -162,16 +169,16 @@ struct GLWaterfallOpenGLContext {
   bool                     m_useMaxBlending = false;
 
   // Level adjustment
-  float                    m            = 1.f;
-  float                    x0           = 0.f;
+  float                    m_m             = 1.f;
+  float                    m_x0            = 0.f;
   bool                     m_updatePalette = false;
 
   // Geometric parameters
-  float                    c_x0     = 0;
-  float                    c_x1     = 0;
-  float                    m_zoom   = 1;
-  int                      m_width  = 0;
-  int                      m_height = 0;
+  float                    m_c_x0     = 0;
+  float                    m_c_x1     = 0;
+  float                    m_zoom     = 1;
+  int                      m_width    = 0;
+  int                      m_height   = 0;
 
   GLWaterfallOpenGLContext();
   ~GLWaterfallOpenGLContext();
@@ -182,12 +189,12 @@ struct GLWaterfallOpenGLContext {
   void                     recalcGeometric(int, int, float);
   void                     setPalette(const QColor *table);
   void                     pushFFTData(const float *fftData, int size);
-  void                     flushOneLine(void);
-  void                     disposeLastLine(void);
-  void                     flushLinesBulk(void);
-  void                     flushLines(void);
-  void                     flushLinePool(void);
-  void                     flushPalette(void);
+  void                     flushOneLine();
+  void                     disposeLastLine();
+  void                     flushLinesBulk();
+  void                     flushLines();
+  void                     flushLinePool();
+  void                     flushPalette();
   void                     setDynamicRange(float, float);
   void                     resetWaterfall();
   void                     render(int, int, int, int, float, float);
@@ -198,29 +205,33 @@ class GLWaterfall : public AbstractWaterfall
 {
   Q_OBJECT
 
-  public:
-    explicit GLWaterfall(QWidget *parent = 0);
-    ~GLWaterfall();
+  GLWaterfallOpenGLContext m_glCtx;
 
-    void initializeGL(void) override;
-    void paintGL(void) override;
+  public:
+    explicit GLWaterfall(QWidget *parent = nullptr);
+    ~GLWaterfall() override;
+
+    void initializeGL() override;
+    void paintGL() override;
 
     bool isHdpiAware() override { return true; }
 
-    void setPalette(const QColor *table) override
+    void
+    setPalette(const QColor *table) override
     {
-      this->glCtx.setPalette(table);
-      this->update();
+      m_glCtx.setPalette(table);
+      update();
     }
 
-    void setMaxBlending(bool val) override
+    void
+    setMaxBlending(bool val) override
     {
-      this->glCtx.m_useMaxBlending = val;
+      m_glCtx.m_useMaxBlending = val;
     }
 
     void setWaterfallRange(float min, float max) override;
 
-    void clearWaterfall(void) override;
+    void clearWaterfall() override;
     bool saveWaterfall(const QString & filename) const override;
 
   public slots:
@@ -229,9 +240,6 @@ class GLWaterfall : public AbstractWaterfall
 
   protected:
     void addNewWfLine(const float *wfData, int size, int repeats) override;
-
-  private:
-    GLWaterfallOpenGLContext glCtx;
 };
 
 #endif // GL_WATERFALL_H
