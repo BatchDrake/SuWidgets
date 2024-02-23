@@ -38,9 +38,13 @@ class Waterfall : public AbstractWaterfall
 {
   Q_OBJECT
 
+  QColor      m_ColorTbl[256];
+  uint32_t    m_UintColorTbl[256];
+  QImage      m_WaterfallImage;
+
   public:
     explicit Waterfall(QWidget *parent = 0);
-    ~Waterfall();
+    ~Waterfall() override;
 
     void setPalette(const QColor *table) override;
     void clearWaterfall() override;
@@ -52,11 +56,6 @@ class Waterfall : public AbstractWaterfall
 
     void addNewWfLine(const float *wfData, int size, int repeats) override;
     void drawWaterfall(QPainter &) override;
-
-  private:
-    QColor      m_ColorTbl[256];
-    uint32_t    m_UintColorTbl[256];
-    QImage      m_WaterfallImage;
 };
 
 #endif // PLOTTER_H

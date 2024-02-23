@@ -81,7 +81,8 @@ Waterfall::~Waterfall()
 {
 }
 
-void Waterfall::setPalette(const QColor *table)
+void
+Waterfall::setPalette(const QColor *table)
 {
   unsigned int i;
 
@@ -96,7 +97,8 @@ void Waterfall::setPalette(const QColor *table)
   this->update();
 }
 
-void Waterfall::clearWaterfall()
+void
+Waterfall::clearWaterfall()
 {
   m_WaterfallImage.fill(Qt::black);
 }
@@ -108,7 +110,8 @@ void Waterfall::clearWaterfall()
  *
  * We assume that frequency strings are up to date
  */
-bool Waterfall::saveWaterfall(const QString & filename) const
+bool
+Waterfall::saveWaterfall(const QString & filename) const
 {
   QBrush          axis_brush(QColor(0x00, 0x00, 0x00, 0x70), Qt::SolidPattern);
   QPixmap         pixmap = QPixmap::fromImage(m_WaterfallImage);
@@ -126,7 +129,7 @@ bool Waterfall::saveWaterfall(const QString & filename) const
   h = pixmap.height();
   hxa = font_metrics.height() + 5;    // height of X axis
   y = h - hxa;
-  pixperdiv = (float) w / (float) m_HorDivs;
+  pixperdiv = SCAST(float, w) / SCAST(float, m_HorDivs);
 
   painter.setBrush(axis_brush);
   painter.setPen(QColor(0x0, 0x0, 0x0, 0x70));
@@ -136,31 +139,33 @@ bool Waterfall::saveWaterfall(const QString & filename) const
   painter.setPen(QColor(0xFF, 0xFF, 0xFF, 0xFF));
 
   // skip last frequency entry
-  for (i = 2; i < m_HorDivs - 1; i++)
-  {
+  for (i = 2; i < m_HorDivs - 1; i++) {
     // frequency tick marks
-    x = (int)((float)i * pixperdiv);
+    x = SCAST(int, SCAST(float, i) * pixperdiv);
     painter.drawLine(x, y, x, y + 5);
 
     // frequency strings
-    x = (int)((float)i * pixperdiv - pixperdiv / 2.0);
-    rect.setRect(x, y, (int)pixperdiv, hxa);
+    x = SCAST(int, SCAST(float, i) * pixperdiv - .5f * pixperdiv);
+
+    rect.setRect(x, y, SCAST(int, pixperdiv), hxa);
     painter.drawText(rect, Qt::AlignHCenter|Qt::AlignBottom, m_HDivText[i]);
   }
-  rect.setRect(w - pixperdiv - 10, y, pixperdiv, hxa);
+
+  rect.setRect(w - SCAST(int, pixperdiv) - 10, y, SCAST(int, pixperdiv), hxa);
   painter.drawText(rect, Qt::AlignRight|Qt::AlignBottom, tr("MHz"));
 
-  quint64 msec;
+  qint64 msec;
   int tdivs = h / 70 + 1;
-  pixperdiv = (float) h / (float) tdivs;
+  pixperdiv = SCAST(float, h) / SCAST(float, tdivs);
   tt.setTimeSpec(Qt::OffsetFromUTC);
-  for (i = 1; i < tdivs; i++)
-  {
-    y = (int)((float)i * pixperdiv);
+
+  for (i = 1; i < tdivs; i++) {
+    y = SCAST(int, SCAST(float, i) * pixperdiv);
+
     if (msec_per_wfline > 0)
-      msec =  tlast_wf_ms - y * msec_per_wfline;
+      msec = SCAST(qint64, tlast_wf_ms - y * msec_per_wfline);
     else
-      msec =  tlast_wf_ms - y * 1000 / fft_rate;
+      msec = SCAST(qint64, tlast_wf_ms - y * 1000 / fft_rate);
 
     tt.setMSecsSinceEpoch(msec);
     rect.setRect(0, y - font_metrics.height(), wya - 5, font_metrics.height());
@@ -170,7 +175,7 @@ bool Waterfall::saveWaterfall(const QString & filename) const
     painter.drawText(rect, Qt::AlignRight|Qt::AlignVCenter, tt.toString("hh:mm:ss"));
   }
 
-  return pixmap.save(filename, 0, -1);
+  return pixmap.save(filename, nullptr, -1);
 }
 
 // Called when screen size changes so must recalculate bitmaps
@@ -181,17 +186,14 @@ void Waterfall::resizeEvent(QResizeEvent* event)
   if (!size().isValid())
     return;
 
-  if (m_WaterfallImage.isNull())
-  {
+  if (m_WaterfallImage.isNull()) {
     m_WaterfallImage = QImage(
         m_Size.width(),
         m_WaterfallHeight,
         QImage::Format::Format_RGB32);
     m_WaterfallImage.fill(Qt::black);
-  }
-  else if (m_WaterfallImage.width() != m_Size.width() ||
-           m_WaterfallImage.height() != m_WaterfallHeight)
-  {
+  } else if (m_WaterfallImage.width() != m_Size.width() ||
+           m_WaterfallImage.height() != m_WaterfallHeight) {
     m_WaterfallImage = m_WaterfallImage.scaled(
         m_Size.width(),
         m_WaterfallHeight,
@@ -200,63 +202,63 @@ void Waterfall::resizeEvent(QResizeEvent* event)
   }
 }
 
-void Waterfall::addNewWfLine(const float* wfData, int size, int repeats)
+void
+Waterfall::addNewWfLine(const float* wfData, int size, int repeats)
 {
   int w = m_WaterfallImage.width();
   int h = m_WaterfallImage.height();
   int xmin, xmax;
-  qint64 limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
+  qint64 limit = (SCAST(qint64, m_SampleFreq) + m_Span) / 2 - 1;
 
   if (w == 0 || h == 0 || size == 0)
     return;
 
   // get scaled FFT data
   int n = qMin(w, MAX_SCREENSIZE);
-  getScreenIntegerFFTData(255, n, m_WfMaxdB, m_WfMindB,
-      qBound(
-        -limit,
-        m_tentativeCenterFreq + m_FftCenter,
-        limit) - (qint64)m_Span/2,
-      qBound(
-        -limit,
-        m_tentativeCenterFreq + m_FftCenter,
-        limit) + (qint64)m_Span/2,
-      wfData, m_fftbuf,
-      &xmin, &xmax);
+
+  getScreenIntegerFFTData(
+        255,
+        n,
+        m_WfMaxdB,
+        m_WfMindB,
+        qBound(
+          -limit,
+          m_tentativeCenterFreq + m_FftCenter,
+          limit) - SCAST(qint64, m_Span) / 2,
+        qBound(
+          -limit,
+          m_tentativeCenterFreq + m_FftCenter,
+          limit) + SCAST(qint64, m_Span)/2,
+        wfData,
+        m_fftbuf,
+        &xmin,
+        &xmax);
 
   // move current data down required amount (must do before attaching a QPainter object)
   memmove(
       m_WaterfallImage.scanLine(repeats),
       m_WaterfallImage.scanLine(0),
-      static_cast<size_t>(w) * (static_cast<size_t>(h) - repeats)
+      SCAST(size_t, w) * (SCAST(size_t, h - repeats))
       * sizeof(uint32_t));
 
-  uint32_t *scanLineData =
-    reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(0));
+  uint32_t *scanLineData = RCAST(uint32_t *, m_WaterfallImage.scanLine(0));
 
-  memset(
-      scanLineData,
-      0,
-      static_cast<unsigned>(xmin) * sizeof(uint32_t));
+  memset(scanLineData, 0, SCAST(unsigned, xmin) * sizeof(uint32_t));
 
-  memset(
-      scanLineData + xmax,
-      0,
-      static_cast<unsigned>(w - xmax) * sizeof(uint32_t));
+  memset(scanLineData + xmax, 0, SCAST(unsigned, w - xmax) * sizeof(uint32_t));
 
   for (int i = xmin; i < xmax; i++)
     scanLineData[i] = m_UintColorTbl[255 - m_fftbuf[i]];
 
   // copy as needed onto extra lines
   for (int j = 1; j < repeats; j++) {
-    uint32_t *subseqScanLineData =
-      reinterpret_cast<uint32_t *>(m_WaterfallImage.scanLine(j));
-    memcpy(subseqScanLineData, scanLineData,
-        static_cast<size_t>(w) * sizeof(uint32_t));
+    uint32_t *nextLine = RCAST(uint32_t *, m_WaterfallImage.scanLine(j));
+    memcpy(nextLine, scanLineData, SCAST(size_t, w) * sizeof(uint32_t));
   }
 }
 
-void Waterfall::drawWaterfall(QPainter &painter)
+void
+Waterfall::drawWaterfall(QPainter &painter)
 {
   painter.drawImage(0, m_SpectrumPlotHeight, m_WaterfallImage);
 }

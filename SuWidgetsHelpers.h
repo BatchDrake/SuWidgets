@@ -35,6 +35,7 @@ class QLayout;
 
 #define SUWIDGETS_DEFAULT_PRECISION 3
 #define SCAST(type, value) static_cast<type>(value)
+#define RCAST(type, value) reinterpret_cast<type>(value)
 
 #define BLOCKSIG_BEGIN(object)                   \
   do {                                           \
