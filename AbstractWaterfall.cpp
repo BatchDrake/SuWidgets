@@ -305,7 +305,7 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
       // move Y scale up/down
       float delta_px = m_Yzero - pt.y();
       float delta_db = delta_px * fabs(m_PandMindB - m_PandMaxdB) /
-        (float)m_OverlayPixmap.height();
+        (float)m_SpectrumPlotHeight;
       m_PandMindB -= delta_db;
       m_PandMaxdB -= delta_db;
       if (out_of_range(m_PandMindB, m_PandMaxdB))
@@ -337,7 +337,7 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
         setCursor(QCursor(Qt::ClosedHandCursor));
         // pan viewable range or move center frequency
         int delta_px = m_Xzero - pt.x();
-        qint64 delta_hz = delta_px * m_Span / m_OverlayPixmap.width();
+        qint64 delta_hz = delta_px * m_Span / m_Size.width();
         if (event->buttons() & m_freqDragBtn)
         {
           if (!m_Locked && !m_freqDragLocked) {
@@ -724,7 +724,7 @@ void AbstractWaterfall::zoomStepX(float step, int x)
       (float)(m_SampleFreq) * 10.0f);
 
   // Frequency where event occured is kept fixed under mouse
-  float ratio = (float)x / (float)m_OverlayPixmap.width();
+  float ratio = (float)x / (float)m_Size.width();
   qint64 fixed_hz = freqFromX(x);
   qint64 f_min = fixed_hz - ratio * new_range;
   qint64 f_max = f_min + new_range;
@@ -765,9 +765,9 @@ void AbstractWaterfall::wheelEvent(QWheelEvent * event)
     // Vertical zoom. Wheel down: zoom out, wheel up: zoom in
     // During zoom we try to keep the point (dB or kHz) under the cursor fixed
     qreal zoom_fac = pow(0.9, numSteps);
-    qreal ratio = pt.y() / m_OverlayPixmap.height();
+    qreal ratio = pt.y() / m_SpectrumPlotHeight;
     qreal db_range = m_PandMaxdB - m_PandMindB;
-    qreal y_range = m_OverlayPixmap.height();
+    qreal y_range = m_SpectrumPlotHeight;
     qreal db_per_pix = db_range / y_range;
     qreal fixed_db = m_PandMaxdB - pt.y() * db_per_pix;
 
@@ -848,9 +848,13 @@ void AbstractWaterfall::resizeEvent(QResizeEvent* event)
     m_Size = size();
     m_SpectrumPlotHeight = m_Percent2DScreen * m_Size.height() / 100;
     m_WaterfallHeight = m_Size.height() - m_SpectrumPlotHeight;
-    m_OverlayPixmap = QPixmap(m_Size.width(), m_SpectrumPlotHeight);
+    m_OverlayPixmap = QPixmap(m_Size.width() * dpi_factor,
+        m_SpectrumPlotHeight * dpi_factor);
+    m_OverlayPixmap.setDevicePixelRatio(dpi_factor);
     m_OverlayPixmap.fill(Qt::black);
-    m_2DPixmap = QPixmap(m_Size.width(), m_SpectrumPlotHeight);
+    m_2DPixmap = QPixmap(m_Size.width() * dpi_factor,
+        m_SpectrumPlotHeight * dpi_factor);
+    m_2DPixmap.setDevicePixelRatio(dpi_factor);
     m_2DPixmap.fill(Qt::black);
 
     m_PeakHoldValid = false;
@@ -1354,7 +1358,7 @@ void AbstractWaterfall::makeFrequencyStrs()
 // Convert from screen coordinate to frequency
 int AbstractWaterfall::xFromFreq(qint64 freq)
 {
-  int w = m_OverlayPixmap.width();
+  int w = m_Size.width();
   qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span/2;
   int x = w * ((qreal)freq - StartFreq)/(qreal)m_Span;
   if (x < 0)
@@ -1367,7 +1371,7 @@ int AbstractWaterfall::xFromFreq(qint64 freq)
 // Convert from frequency to screen coordinate
 qint64 AbstractWaterfall::freqFromX(int x)
 {
-  int w = m_OverlayPixmap.width();
+  int w = m_Size.width();
   qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
   qint64 f = StartFreq + m_Span * ((qreal)x / w);
   return f;
@@ -1377,10 +1381,10 @@ qint64 AbstractWaterfall::freqFromX(int x)
 quint64 AbstractWaterfall::msecFromY(int y)
 {
   // ensure we are in the waterfall region
-  if (y < m_OverlayPixmap.height())
+  if (y < m_SpectrumPlotHeight)
     return 0;
 
-  int dy = y - m_OverlayPixmap.height();
+  int dy = y - m_SpectrumPlotHeight;
 
   if (msec_per_wfline > 0)
     return tlast_wf_ms - dy * msec_per_wfline;
@@ -2045,8 +2049,8 @@ void AbstractWaterfall::drawOverlay()
 
   ctx.painter = &painter;
   ctx.metrics = &metrics;
-  ctx.width   = m_OverlayPixmap.width();
-  ctx.height  = m_OverlayPixmap.height();
+  ctx.width   = m_Size.width();
+  ctx.height  = m_SpectrumPlotHeight;
 
   painter.setFont(m_Font);
 
@@ -2168,8 +2172,8 @@ void AbstractWaterfall::drawSpectrum(QPainter &painter)
   int     xmin, xmax;
   qint64  limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
   QPoint  LineBuf[MAX_SCREENSIZE];
-  int w = painter.device()->width();
-  int h = painter.device()->height();
+  int w = m_Size.width();
+  int h = m_SpectrumPlotHeight;
 
   // workaround for "fixed" line drawing since Qt 5
   // see http://stackoverflow.com/questions/16990326
