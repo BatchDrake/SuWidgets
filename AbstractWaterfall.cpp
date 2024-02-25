@@ -2166,7 +2166,7 @@ void AbstractWaterfall::resetFftAccumulator()
   m_samplesInAccum = 0;
 }
 
-void AbstractWaterfall::drawSpectrum(QPainter &painter)
+void AbstractWaterfall::drawSpectrum()
 {
   int     i, n;
   int     xmin, xmax;
@@ -2174,6 +2174,10 @@ void AbstractWaterfall::drawSpectrum(QPainter &painter)
   QPoint  LineBuf[MAX_SCREENSIZE];
   int w = m_Size.width();
   int h = m_SpectrumPlotHeight;
+
+  // draw the pandapter spectrum over the overlay (really underlay)
+  m_2DPixmap = m_OverlayPixmap.copy();
+  QPainter painter(&m_2DPixmap);
 
   // workaround for "fixed" line drawing since Qt 5
   // see http://stackoverflow.com/questions/16990326
@@ -2300,14 +2304,8 @@ void AbstractWaterfall::draw()
   w = m_2DPixmap.width();
   h = m_2DPixmap.height();
 
-  if (w != 0 && h != 0) {
-    // first copy into 2Dbitmap the overlay bitmap.
-    m_2DPixmap = m_OverlayPixmap.copy(0, 0, w, h);
-
-    // draw the pandapter spectrum over the overlay (really underlay)
-    QPainter painter(&m_2DPixmap);
-    drawSpectrum(painter);
-  }
+  if (w != 0 && h != 0)
+    drawSpectrum();
 
   // trigger a new paintEvent
   update();
