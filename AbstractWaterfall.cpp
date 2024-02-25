@@ -718,17 +718,17 @@ void AbstractWaterfall::mouseReleaseEvent(QMouseEvent * event)
 void AbstractWaterfall::zoomStepX(float step, int x)
 {
   // calculate new range shown on FFT
-  float new_range = qBound(10.0f,
+  qint64 new_range = qBound(10.0f,
       (float)(m_Span) * step,
       (float)(m_SampleFreq) * 10.0f);
 
   // Frequency where event occured is kept fixed under mouse
   float ratio = (float)x / (float)m_OverlayPixmap.width();
-  float fixed_hz = freqFromX(x);
-  float f_max = fixed_hz + (1.0 - ratio) * new_range;
-  float f_min = f_max - new_range;
+  qint64 fixed_hz = freqFromX(x);
+  qint64 f_min = fixed_hz - ratio * new_range;
+  qint64 f_max = f_min + new_range;
 
-  qint64 fc = (qint64)(f_min + (f_max - f_min) / 2.0);
+  qint64 fc = (f_min + f_max) / 2;
 
   setFftCenterFreq(fc - m_CenterFreq);
   setSpanFreq(new_range);
@@ -1368,7 +1368,7 @@ qint64 AbstractWaterfall::freqFromX(int x)
 {
   int w = m_OverlayPixmap.width();
   qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
-  qint64 f = (qint64)(StartFreq + (qreal)m_Span * (qreal)x / (qreal)w);
+  qint64 f = StartFreq + m_Span * ((qreal)x / w);
   return f;
 }
 
