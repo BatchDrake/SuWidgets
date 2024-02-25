@@ -718,8 +718,8 @@ void AbstractWaterfall::mouseReleaseEvent(QMouseEvent * event)
 // Make a single zoom step on the X axis.
 void AbstractWaterfall::zoomStepX(float step, int x)
 {
-  // calculate new range shown on FFT
-  qint64 new_range = qBound(10.0f,
+  // calculate new range shown on FFT, at least 5 bins
+  qint64 new_range = qBound(5.0f * m_SampleFreq / m_fftDataSize,
       (float)(m_Span) * step,
       (float)(m_SampleFreq) * 10.0f);
 
