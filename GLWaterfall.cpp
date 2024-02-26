@@ -761,7 +761,7 @@ GLWaterfall::paintGL()
   qint64 f0 = m_FftCenter - m_Span / 2;
   qreal  left  = (qreal) ( - f0) / (qreal) m_Span - .5f;
   qreal  right = (qreal) (+m_SampleFreq - f0) / (qreal) m_Span - .5f;
-  int dpi_factor = screen()->devicePixelRatio();
+  qreal  dpi_factor = screen()->devicePixelRatio();
 
   m_glCtx.render(0, y * dpi_factor, width() * dpi_factor,
       height() * dpi_factor, left, right);

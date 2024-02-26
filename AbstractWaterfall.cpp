@@ -305,7 +305,7 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
       // move Y scale up/down
       float delta_px = m_Yzero - pt.y();
       float delta_db = delta_px * fabs(m_PandMindB - m_PandMaxdB) /
-        (float)m_OverlayPixmap.height();
+        (float)m_SpectrumPlotHeight;
       m_PandMindB -= delta_db;
       m_PandMaxdB -= delta_db;
       if (out_of_range(m_PandMindB, m_PandMaxdB))
@@ -337,7 +337,7 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
         setCursor(QCursor(Qt::ClosedHandCursor));
         // pan viewable range or move center frequency
         int delta_px = m_Xzero - pt.x();
-        qint64 delta_hz = delta_px * m_Span / m_OverlayPixmap.width();
+        qint64 delta_hz = delta_px * m_Span / m_Size.width();
         if (event->buttons() & m_freqDragBtn)
         {
           if (!m_Locked && !m_freqDragLocked) {
@@ -547,7 +547,7 @@ int AbstractWaterfall::getNearestPeak(QPoint pt)
 /** Set waterfall span in milliseconds */
 void AbstractWaterfall::setWaterfallSpan(quint64 span_ms)
 {
-  int dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
+  qreal dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
   wf_span = span_ms;
   if (m_WaterfallHeight > 0)
     msec_per_wfline = wf_span / (m_WaterfallHeight * dpi_factor);
@@ -718,15 +718,15 @@ void AbstractWaterfall::mouseReleaseEvent(QMouseEvent * event)
 // Make a single zoom step on the X axis.
 void AbstractWaterfall::zoomStepX(float step, int x)
 {
-  // calculate new range shown on FFT
-  qint64 new_range = qBound(10.0f,
-      (float)(m_Span) * step,
-      (float)(m_SampleFreq) * 10.0f);
+  // calculate new range shown on FFT, at least 5 bins
+  qint64 new_range = qBound(5.0 * m_SampleFreq / m_fftDataSize,
+      (double)(m_Span) * step,
+      (double)(m_SampleFreq) * 10.0);
 
   // Frequency where event occured is kept fixed under mouse
-  float ratio = (float)x / (float)m_OverlayPixmap.width();
+  double ratio = (double)x / (double)m_Size.width();
   qint64 fixed_hz = freqFromX(x);
-  qint64 f_min = fixed_hz - ratio * new_range;
+  qint64 f_min = (fixed_hz - ratio * new_range) + 0.5; // +0.5 for rounding
   qint64 f_max = f_min + new_range;
 
   qint64 fc = (f_min + f_max) / 2;
@@ -765,9 +765,9 @@ void AbstractWaterfall::wheelEvent(QWheelEvent * event)
     // Vertical zoom. Wheel down: zoom out, wheel up: zoom in
     // During zoom we try to keep the point (dB or kHz) under the cursor fixed
     qreal zoom_fac = pow(0.9, numSteps);
-    qreal ratio = pt.y() / m_OverlayPixmap.height();
+    qreal ratio = pt.y() / m_SpectrumPlotHeight;
     qreal db_range = m_PandMaxdB - m_PandMindB;
-    qreal y_range = m_OverlayPixmap.height();
+    qreal y_range = m_SpectrumPlotHeight;
     qreal db_per_pix = db_range / y_range;
     qreal fixed_db = m_PandMaxdB - pt.y() * db_per_pix;
 
@@ -833,7 +833,7 @@ void AbstractWaterfall::wheelEvent(QWheelEvent * event)
 // Called when screen size changes so must recalculate bitmaps
 void AbstractWaterfall::resizeEvent(QResizeEvent* event)
 {
-  int dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
+  qreal dpi_factor = screen()->devicePixelRatio();
 
   // mandatory to call for QOpenGLWidget to resize framebuffer
   if (event != nullptr)
@@ -848,15 +848,15 @@ void AbstractWaterfall::resizeEvent(QResizeEvent* event)
     m_Size = size();
     m_SpectrumPlotHeight = m_Percent2DScreen * m_Size.height() / 100;
     m_WaterfallHeight = m_Size.height() - m_SpectrumPlotHeight;
-    m_OverlayPixmap = QPixmap(m_Size.width(), m_SpectrumPlotHeight);
+    m_OverlayPixmap = QPixmap(m_Size.width() * dpi_factor,
+        m_SpectrumPlotHeight * dpi_factor);
+    m_OverlayPixmap.setDevicePixelRatio(dpi_factor);
     m_OverlayPixmap.fill(Qt::black);
-    m_2DPixmap = QPixmap(m_Size.width(), m_SpectrumPlotHeight);
-    m_2DPixmap.fill(Qt::black);
 
     m_PeakHoldValid = false;
 
     if (wf_span > 0)
-      msec_per_wfline = wf_span / (m_WaterfallHeight * dpi_factor);
+      msec_per_wfline = wf_span / (m_WaterfallHeight * (isHdpiAware() ? dpi_factor : 1));
   }
 
   updateOverlay();
@@ -872,7 +872,7 @@ void AbstractWaterfall::paintTimeStamps(
   int textHeight = metrics.height();
   int items = 0;
   int leftSpacing = 0;
-  int dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
+  qreal dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
 
   auto it = m_TimeStamps.begin();
 
@@ -1354,7 +1354,7 @@ void AbstractWaterfall::makeFrequencyStrs()
 // Convert from screen coordinate to frequency
 int AbstractWaterfall::xFromFreq(qint64 freq)
 {
-  int w = m_OverlayPixmap.width();
+  int w = m_Size.width();
   qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span/2;
   int x = w * ((qreal)freq - StartFreq)/(qreal)m_Span;
   if (x < 0)
@@ -1367,9 +1367,9 @@ int AbstractWaterfall::xFromFreq(qint64 freq)
 // Convert from frequency to screen coordinate
 qint64 AbstractWaterfall::freqFromX(int x)
 {
-  int w = m_OverlayPixmap.width();
+  int w = m_Size.width();
   qint64 StartFreq = m_CenterFreq + m_FftCenter - m_Span / 2;
-  qint64 f = StartFreq + m_Span * ((qreal)x / w);
+  qint64 f = StartFreq + m_Span * ((qreal)x / w) + 0.5; // +0.5 for rounding
   return f;
 }
 
@@ -1377,10 +1377,10 @@ qint64 AbstractWaterfall::freqFromX(int x)
 quint64 AbstractWaterfall::msecFromY(int y)
 {
   // ensure we are in the waterfall region
-  if (y < m_OverlayPixmap.height())
+  if (y < m_SpectrumPlotHeight)
     return 0;
 
-  int dy = y - m_OverlayPixmap.height();
+  int dy = y - m_SpectrumPlotHeight;
 
   if (msec_per_wfline > 0)
     return tlast_wf_ms - dy * msec_per_wfline;
@@ -2045,8 +2045,8 @@ void AbstractWaterfall::drawOverlay()
 
   ctx.painter = &painter;
   ctx.metrics = &metrics;
-  ctx.width   = m_OverlayPixmap.width();
-  ctx.height  = m_OverlayPixmap.height();
+  ctx.width   = m_Size.width();
+  ctx.height  = m_SpectrumPlotHeight;
 
   painter.setFont(m_Font);
 
@@ -2162,24 +2162,30 @@ void AbstractWaterfall::resetFftAccumulator()
   m_samplesInAccum = 0;
 }
 
-void AbstractWaterfall::drawSpectrum(QPainter &painter)
+void AbstractWaterfall::drawSpectrum()
 {
-  int     i, n;
+  int     i, n, w, h;
   int     xmin, xmax;
   qint64  limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
   QPoint  LineBuf[MAX_SCREENSIZE];
-  int w = painter.device()->width();
-  int h = painter.device()->height();
+
+  // draw the pandapter spectrum over the overlay (really underlay)
+  m_2DPixmap = m_OverlayPixmap.copy();
+
+  // Do we have valid FFT data?
+  if (m_fftDataSize < 1)
+    return;
+
+  w = m_2DPixmap.width();
+  h = m_2DPixmap.height();
+  m_2DPixmap.setDevicePixelRatio(1); // for much faster drawing
+  QPainter painter(&m_2DPixmap);
 
   // workaround for "fixed" line drawing since Qt 5
   // see http://stackoverflow.com/questions/16990326
 #if QT_VERSION >= 0x050000
   painter.translate(0.5, 0.5);
 #endif
-
-  // Do we have valid FFT data?
-  if (m_fftDataSize < 1)
-    return;
 
   // get new scaled fft data
   getScreenIntegerFFTData(
@@ -2274,6 +2280,9 @@ void AbstractWaterfall::drawSpectrum(QPainter &painter)
 
     m_PeakHoldValid = true;
   }
+
+  painter.end();
+  m_2DPixmap.setDevicePixelRatio(screen()->devicePixelRatio());
 }
 
 // Called to update spectrum data for displaying on the screen
@@ -2293,17 +2302,11 @@ void AbstractWaterfall::draw()
   // -----8<------------------------------------------------------------------
 
   // get/draw the 2D spectrum
-  w = m_2DPixmap.width();
-  h = m_2DPixmap.height();
+  w = m_OverlayPixmap.width();
+  h = m_OverlayPixmap.height();
 
-  if (w != 0 && h != 0) {
-    // first copy into 2Dbitmap the overlay bitmap.
-    m_2DPixmap = m_OverlayPixmap.copy(0, 0, w, h);
-
-    // draw the pandapter spectrum over the overlay (really underlay)
-    QPainter painter(&m_2DPixmap);
-    drawSpectrum(painter);
-  }
+  if (w != 0 && h != 0)
+    drawSpectrum();
 
   // trigger a new paintEvent
   update();

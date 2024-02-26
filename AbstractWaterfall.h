@@ -384,7 +384,7 @@ class AbstractWaterfall : public QOpenGLWidget
     int  drawFATs(DrawingContext &, qint64, qint64);
     void drawBookmarks(DrawingContext &, qint64, qint64, int xAxisTop);
     void drawAxes(DrawingContext &, qint64, qint64);
-    void drawSpectrum(QPainter &);
+    void drawSpectrum();
     virtual void drawWaterfall(QPainter &) {}
 
     virtual void addNewWfLine(const float *wfData, int size, int repeats) = 0;
