@@ -38,6 +38,7 @@
 #include <QtGlobal>
 #include <QToolTip>
 #include <QDebug>
+#include <cstring>
 
 #include "AbstractWaterfall.h"
 #include "SuWidgetsHelpers.h"
