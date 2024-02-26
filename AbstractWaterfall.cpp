@@ -833,7 +833,7 @@ void AbstractWaterfall::wheelEvent(QWheelEvent * event)
 // Called when screen size changes so must recalculate bitmaps
 void AbstractWaterfall::resizeEvent(QResizeEvent* event)
 {
-  qreal dpi_factor = isHdpiAware() ? screen()->devicePixelRatio() : 1;
+  qreal dpi_factor = screen()->devicePixelRatio();
 
   // mandatory to call for QOpenGLWidget to resize framebuffer
   if (event != nullptr)
@@ -852,15 +852,11 @@ void AbstractWaterfall::resizeEvent(QResizeEvent* event)
         m_SpectrumPlotHeight * dpi_factor);
     m_OverlayPixmap.setDevicePixelRatio(dpi_factor);
     m_OverlayPixmap.fill(Qt::black);
-    m_2DPixmap = QPixmap(m_Size.width() * dpi_factor,
-        m_SpectrumPlotHeight * dpi_factor);
-    m_2DPixmap.setDevicePixelRatio(dpi_factor);
-    m_2DPixmap.fill(Qt::black);
 
     m_PeakHoldValid = false;
 
     if (wf_span > 0)
-      msec_per_wfline = wf_span / (m_WaterfallHeight * dpi_factor);
+      msec_per_wfline = wf_span / (m_WaterfallHeight * (isHdpiAware() ? dpi_factor : 1));
   }
 
   updateOverlay();
@@ -2168,15 +2164,21 @@ void AbstractWaterfall::resetFftAccumulator()
 
 void AbstractWaterfall::drawSpectrum()
 {
-  int     i, n;
+  int     i, n, w, h;
   int     xmin, xmax;
   qint64  limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
   QPoint  LineBuf[MAX_SCREENSIZE];
-  int w = m_Size.width();
-  int h = m_SpectrumPlotHeight;
 
   // draw the pandapter spectrum over the overlay (really underlay)
   m_2DPixmap = m_OverlayPixmap.copy();
+
+  // Do we have valid FFT data?
+  if (m_fftDataSize < 1)
+    return;
+
+  w = m_2DPixmap.width();
+  h = m_2DPixmap.height();
+  m_2DPixmap.setDevicePixelRatio(1); // for much faster drawing
   QPainter painter(&m_2DPixmap);
 
   // workaround for "fixed" line drawing since Qt 5
@@ -2184,10 +2186,6 @@ void AbstractWaterfall::drawSpectrum()
 #if QT_VERSION >= 0x050000
   painter.translate(0.5, 0.5);
 #endif
-
-  // Do we have valid FFT data?
-  if (m_fftDataSize < 1)
-    return;
 
   // get new scaled fft data
   getScreenIntegerFFTData(
@@ -2282,6 +2280,9 @@ void AbstractWaterfall::drawSpectrum()
 
     m_PeakHoldValid = true;
   }
+
+  painter.end();
+  m_2DPixmap.setDevicePixelRatio(screen()->devicePixelRatio());
 }
 
 // Called to update spectrum data for displaying on the screen
@@ -2301,8 +2302,8 @@ void AbstractWaterfall::draw()
   // -----8<------------------------------------------------------------------
 
   // get/draw the 2D spectrum
-  w = m_2DPixmap.width();
-  h = m_2DPixmap.height();
+  w = m_OverlayPixmap.width();
+  h = m_OverlayPixmap.height();
 
   if (w != 0 && h != 0)
     drawSpectrum();
