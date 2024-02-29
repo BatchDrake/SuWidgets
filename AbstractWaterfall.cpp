@@ -2022,10 +2022,8 @@ void AbstractWaterfall::drawAxes(DrawingContext &ctx, qint64 StartFreq, qint64 E
   rect.setRect(HOR_MARGIN, 0, unitWidth, th);
   ctx.painter->drawText(rect, Qt::AlignRight|Qt::AlignVCenter, m_unitName);
 
-#ifdef GL_WATERFALL_BOOKMARKS_SUPPORT
   if (m_BookmarksEnabled && m_BookmarkSource != nullptr)
     this->drawBookmarks(ctx, StartFreq, EndFreq, xAxisTop);
-#endif // GL_WATERFALL_BOOKMARKS_SUPPORT
 }
 
 // Called to draw an overlay bitmap containing grid and text that
