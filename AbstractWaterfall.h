@@ -258,7 +258,11 @@ class AbstractWaterfall : public QOpenGLWidget
 
     void setFftCenterFreq(qint64 f) {
       qint64 limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
-      m_FftCenter = qBound(-limit, f, limit);
+      qint64 center = qBound(-limit, f, limit);
+      if (m_FftCenter != center) {
+        m_FftCenter = center;
+        emit newFftCenterFreq(m_FftCenter);
+      }
     }
 
     int     getNearestPeak(QPoint pt);
@@ -288,6 +292,7 @@ class AbstractWaterfall : public QOpenGLWidget
 
   signals:
     void newCenterFreq(qint64 f);
+    void newFftCenterFreq(qint64 f);
     void newDemodFreq(qint64 freq, qint64 delta); /* delta is the offset from the center */
     void newLowCutFreq(int f);
     void newHighCutFreq(int f);
