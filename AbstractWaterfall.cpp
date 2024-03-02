@@ -1102,6 +1102,73 @@ void AbstractWaterfall::setNewFftData(
   draw();
 }
 
+/**
+ * Set new FFT data for a subset of the frequency range.
+ * @param fftData Pointer to the new FFT data.
+ * @param size The FFT size.
+ * @param startFreq Start of the frequency range covered by the FFT data (in Hz)
+ * @param endFreq End of the frequency range covered by the FFT data (in Hz)
+ */
+void AbstractWaterfall::setNewPartialFftData(
+    const float *fftData,
+    int size,
+    qint64 startFreq,
+    qint64 endFreq,
+    QDateTime const &t,
+    bool looped)
+{
+  if (!m_partialFreqActive) {
+    size_t full_size = size * m_SampleFreq / (endFreq - startFreq);
+    m_fullFftData.resize(full_size);
+    std::fill(m_fullFftData.begin(), m_fullFftData.end(), -255);
+    m_partialFreqActive = true;
+  }
+
+  m_partialFftData = fftData;
+  m_partialFftDataSize = size;
+  m_partialFreqStart = startFreq;
+  m_partialFreqEnd = endFreq;
+
+  qint64 fullStartFreq = m_CenterFreq - m_SampleFreq/2;
+  double fullBinSize = m_SampleFreq / m_fullFftData.size();
+  double partialBinSize = (endFreq - startFreq) / size;
+  int lastBinIndex = -1;
+  int lastBinCount;
+  float lastBinAccum;
+
+  // fit the partial data into the full data
+  // TODO: optimize me, and blend/interpolate edge bins
+  for (int i = 0; i < size; i++) {
+    qint64 binFreq = startFreq + i*partialBinSize;
+    int fullBinIndex = (binFreq - fullStartFreq) / fullBinSize;
+    if (fullBinIndex != lastBinIndex) {
+      if (lastBinIndex >= 0 && lastBinIndex < (ssize_t)m_fullFftData.size()) {
+        m_fullFftData[lastBinIndex] = lastBinAccum / lastBinCount;
+      }
+      lastBinIndex = fullBinIndex;
+      lastBinCount = 0;
+      lastBinAccum = 0;
+    }
+
+    lastBinAccum += fftData[i];
+    lastBinCount++;
+  }
+
+  if (lastBinIndex > 0 && lastBinIndex < (ssize_t)m_fullFftData.size()) {
+    m_fullFftData[lastBinIndex] = lastBinAccum / lastBinCount;
+  }
+
+  setNewFftData(m_fullFftData.data(), m_fullFftData.size(), t, looped);
+}
+
+void AbstractWaterfall::clearPartialFftData()
+{
+  m_fullFftData.clear();
+  m_partialFftData = nullptr;
+  m_partialFftDataSize = 0;
+  m_partialFreqActive = false;
+}
+
 void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
     float maxdB, float mindB,
     qint64 startFreq, qint64 stopFreq,

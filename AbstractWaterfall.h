@@ -110,6 +110,16 @@ class AbstractWaterfall : public QOpenGLWidget
         QDateTime const &t = QDateTime::currentDateTime(),
         bool looped = false);
 
+    void setNewPartialFftData(
+        const float *fftData,
+        int size,
+        qint64 startFreq,
+        qint64 endFreq,
+        QDateTime const &t = QDateTime::currentDateTime(),
+        bool looped = false);
+
+    void clearPartialFftData();
+
     virtual void setPalette(const QColor *table) = 0;
 
     virtual void setMaxBlending(bool val)
@@ -396,6 +406,15 @@ class AbstractWaterfall : public QOpenGLWidget
     // FFT line averaging accumulator
     std::vector<float>  m_accum;
     int                 m_samplesInAccum;
+
+    // In partial update mode, keep a buffer of full frequency range data
+    // Full frequency range is m_CenterFreq +- (m_SampleFreq/2)
+    std::vector<float>  m_fullFftData;
+    const float        *m_partialFftData;
+    int                 m_partialFftDataSize;
+    bool                m_partialFreqActive = false;
+    qint64              m_partialFreqStart;
+    qint64              m_partialFreqEnd;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     Qt::MouseButton m_freqDragBtn = Qt::MiddleButton;
