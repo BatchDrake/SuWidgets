@@ -231,6 +231,11 @@ class AbstractWaterfall : public QOpenGLWidget
       return static_cast<quint64>(this->m_Span);
     }
 
+    float getZoomLevel(void) const
+    {
+      return (float)m_SampleFreq / m_Span;
+    }
+
     qint64 getFftCenterFreq(void) const
     {
       return this->m_FftCenter;
@@ -242,7 +247,7 @@ class AbstractWaterfall : public QOpenGLWidget
     void setFreqDigits(int digits) { m_FreqDigits = digits>=0 ? digits : 0; }
 
     /* Determines full bandwidth. */
-    void setSampleRate(float rate)
+    void setSampleRate(double rate)
     {
       if (rate > 0.0)
       {
@@ -251,7 +256,7 @@ class AbstractWaterfall : public QOpenGLWidget
       }
     }
 
-    float getSampleRate(void)
+    double getSampleRate(void)
     {
       return m_SampleFreq;
     }
@@ -490,7 +495,7 @@ class AbstractWaterfall : public QOpenGLWidget
     BookmarkSource *m_BookmarkSource = nullptr;
 #endif // WATERFALL_BOOKMARKS_SUPPORT
     qint64      m_Span;
-    float       m_SampleFreq;    /*!< Sample rate. */
+    double      m_SampleFreq;    /*!< Sample rate. */
     qint32      m_FreqUnits;
     qint32      m_CumWheelDelta;
     int         m_ClickResolution;

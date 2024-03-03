@@ -750,8 +750,7 @@ void AbstractWaterfall::zoomStepX(float step, int x)
   m_Span = new_range;
   setFftCenterFreq(fc - m_CenterFreq);
 
-  float factor = (float)m_SampleFreq / (float)m_Span;
-  emit newZoomLevel(factor);
+  emit newZoomLevel(getZoomLevel());
 
   m_PeakHoldValid = false;
 }
