@@ -341,7 +341,8 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
         if (event->buttons() & m_freqDragBtn)
         {
           if (!m_Locked && !m_freqDragLocked) {
-            qint64 centerFreq = boundCenterFreq(m_CenterFreq + delta_hz);
+            qint64 centerFreq = boundCenterFreq(roundFreq(
+                  m_CenterFreq + delta_hz, m_ClickResolution));
             delta_hz = centerFreq - m_CenterFreq;
 
             m_CenterFreq += delta_hz;
@@ -359,11 +360,11 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
           setFftCenterFreq(m_FftCenter + delta_hz);
         }
 
-        updateOverlay();
-
-        m_PeakHoldValid = false;
-
-        m_Xzero = pt.x();
+        if (delta_hz != 0) {
+          updateOverlay();
+          m_PeakHoldValid = false;
+          m_Xzero = pt.x();
+        }
       }
   }
   else if (LEFT == m_CursorCaptured)
