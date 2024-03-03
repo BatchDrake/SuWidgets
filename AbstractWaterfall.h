@@ -257,7 +257,7 @@ class AbstractWaterfall : public QOpenGLWidget
     }
 
     void setFftCenterFreq(qint64 f) {
-      qint64 limit = ((qint64)m_SampleFreq + m_Span) / 2 - 1;
+      qint64 limit = m_SampleFreq >= m_Span ? ((qint64)m_SampleFreq - m_Span) / 2 : 0;
       qint64 center = qBound(-limit, f, limit);
       if (m_FftCenter != center) {
         m_FftCenter = center;

@@ -721,7 +721,7 @@ void AbstractWaterfall::zoomStepX(float step, int x)
   // calculate new range shown on FFT, at least 5 bins
   qint64 new_range = qBound(m_fftDataSize > 0 ? 5.0 * m_SampleFreq / m_fftDataSize : 10.0,
       (double)(m_Span) * step,
-      (double)(m_SampleFreq) * 10.0);
+      (double)(m_SampleFreq));
 
   // Frequency where event occured is kept fixed under mouse
   double ratio = (double)x / (double)m_Size.width();
@@ -729,10 +729,25 @@ void AbstractWaterfall::zoomStepX(float step, int x)
   qint64 f_min = (fixed_hz - ratio * new_range) + 0.5; // +0.5 for rounding
   qint64 f_max = f_min + new_range;
 
-  qint64 fc = (f_min + f_max) / 2;
+  // Keep edges of plot in valid frequency range
+  qint64 min_limit = m_CenterFreq - m_SampleFreq/2;
+  qint64 max_limit = m_CenterFreq + m_SampleFreq/2;
+  if (f_min < min_limit) {
+    f_min = min_limit;
+    f_max = f_min + new_range;
+  } else if (f_max > max_limit) {
+    f_max = max_limit;
+    f_min = f_max - new_range;
+  }
 
+  qint64 fc = (f_min + f_max) / 2;
+  updateOverlay();
+
+  // Explicitly set m_Span instead of calling setSpanFreq(), which also calls
+  // setFftCenterFreq() and updateOverlay() internally. Span needs to be set
+  // before frequency limits can be checked in setFftCenterFreq().
+  m_Span = new_range;
   setFftCenterFreq(fc - m_CenterFreq);
-  setSpanFreq(new_range);
 
   float factor = (float)m_SampleFreq / (float)m_Span;
   emit newZoomLevel(factor);
