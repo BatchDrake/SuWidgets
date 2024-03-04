@@ -338,7 +338,8 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
         // pan viewable range or move center frequency
         int delta_px = m_Xzero - pt.x();
         qint64 delta_hz = delta_px * m_Span / m_Size.width();
-        if (event->buttons() & m_freqDragBtn)
+        if ((event->buttons() & m_freqDragBtn) ||
+            (event->modifiers() & Qt::ShiftModifier))
         {
           if (!m_Locked && !m_freqDragLocked) {
             qint64 centerFreq = boundCenterFreq(roundFreq(
