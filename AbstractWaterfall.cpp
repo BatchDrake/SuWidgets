@@ -1133,6 +1133,19 @@ void AbstractWaterfall::setNewPartialFftData(
     QDateTime const &t,
     bool looped)
 {
+  qint64 fullStartFreq = m_CenterFreq - m_SampleFreq/2;
+  double fullBinSize = m_SampleFreq / m_fullFftData.size();
+  double partialBinSize = (endFreq - startFreq) / size;
+
+  ssize_t fullStartIndex = qBound(
+      static_cast<ssize_t>(0),
+      static_cast<ssize_t>((startFreq - fullStartFreq) / fullBinSize),
+      static_cast<ssize_t>(m_fullFftData.size() - 1));
+  ssize_t fullEndIndex = qBound(
+      fullStartIndex + 1,
+      static_cast<ssize_t>((endFreq - fullStartFreq) / fullBinSize),
+      static_cast<ssize_t>(m_fullFftData.size()));
+
   if (!m_partialFreqActive) {
     size_t k = 1;
     size_t full_size = size * m_SampleFreq / (endFreq - startFreq);
@@ -1148,33 +1161,32 @@ void AbstractWaterfall::setNewPartialFftData(
   m_partialFreqStart = startFreq;
   m_partialFreqEnd = endFreq;
 
-  qint64 fullStartFreq = m_CenterFreq - m_SampleFreq/2;
-  double fullBinSize = m_SampleFreq / m_fullFftData.size();
-  double partialBinSize = (endFreq - startFreq) / size;
-  int lastBinIndex = -1;
-  int lastBinCount;
-  float lastBinAccum;
-
   // fit the partial data into the full data
-  // TODO: optimize me, and blend/interpolate edge bins
-  for (int i = 0; i < size; i++) {
-    qint64 binFreq = startFreq + i*partialBinSize;
-    int fullBinIndex = (binFreq - fullStartFreq) / fullBinSize;
-    if (fullBinIndex != lastBinIndex) {
-      if (lastBinIndex >= 0 && lastBinIndex < (ssize_t)m_fullFftData.size()) {
-        m_fullFftData[lastBinIndex] = lastBinAccum / lastBinCount;
-      }
-      lastBinIndex = fullBinIndex;
-      lastBinCount = 0;
-      lastBinAccum = 0;
+  for (ssize_t i = fullStartIndex; i < fullEndIndex; i++) {
+    double fullBinFreq = fullStartFreq + i*fullBinSize;
+    double nextFullBinFreq = fullStartFreq + (i+1)*fullBinSize;
+
+    ssize_t startIndex = qBound(
+        static_cast<ssize_t>(0),
+        static_cast<ssize_t>((fullBinFreq - startFreq) / partialBinSize),
+        static_cast<ssize_t>(size - 1));
+    ssize_t endIndex = qBound(
+        startIndex + 1,
+        static_cast<ssize_t>((nextFullBinFreq - startFreq) / partialBinSize),
+        static_cast<ssize_t>(size));
+
+    float accum = 0;
+    int count = 0;
+
+    startIndex = qBound(static_cast<ssize_t>(0), startIndex, static_cast<ssize_t>(size - 1));
+    endIndex = qBound(startIndex + 1, endIndex, static_cast<ssize_t>(size));
+
+    for (ssize_t j = startIndex; j < endIndex; j++) {
+      accum += fftData[j];
+      count++;
     }
 
-    lastBinAccum += fftData[i];
-    lastBinCount++;
-  }
-
-  if (lastBinIndex > 0 && lastBinIndex < (ssize_t)m_fullFftData.size()) {
-    m_fullFftData[lastBinIndex] = lastBinAccum / lastBinCount;
+    m_fullFftData[i] = accum / count;
   }
 
   setNewFftData(m_fullFftData.data(), m_fullFftData.size(), t, looped);
