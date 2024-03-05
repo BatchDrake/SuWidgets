@@ -1134,7 +1134,10 @@ void AbstractWaterfall::setNewPartialFftData(
     bool looped)
 {
   if (!m_partialFreqActive) {
+    size_t k = 1;
     size_t full_size = size * m_SampleFreq / (endFreq - startFreq);
+    while (k < full_size) k <<= 1;
+    full_size = k; // round up to next biggest power of 2 if needed
     m_fullFftData.resize(full_size);
     std::fill(m_fullFftData.begin(), m_fullFftData.end(), -255);
     m_partialFreqActive = true;
