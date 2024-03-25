@@ -501,8 +501,8 @@ Waveform::mousePressEvent(QMouseEvent *event)
     m_clickX = event->position().x();
     m_clickY = event->position().y();
 #else
-    clickX = event->x();
-    clickY = event->y();
+    m_clickX = event->x();
+    m_clickY = event->y();
 #endif
 
     m_clickSample = px2samp(m_clickX);
