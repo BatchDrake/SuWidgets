@@ -29,12 +29,12 @@ class WaveWorker : public QObject {
 
   SUSCOUNT m_since = 0;
   WaveViewTree *m_owner = nullptr;
-  bool cancelFlag = false;
-  bool running = true;
+  bool m_cancelFlag = false;
+  bool m_running = true;
 
   // Used to wait for completion
-  QMutex mutex;
-  QWaitCondition finishedCondition;
+  QMutex m_mutex;
+  QWaitCondition m_finishedCondition;
 
   // Private methods
   void buildNextView(

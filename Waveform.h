@@ -200,91 +200,91 @@ class Waveform : public ThrottleableWidget
       NOTIFY verticalUnitsChanged)
 
   // Properties
-  QColor background;
-  QColor foreground;
-  QColor selection;
-  QColor subSelection;
-  QColor envelope;
-  QColor axes;
-  QColor text;
-  QString horizontalAxis = "t";
-  QString horizontalUnits = "s";
-  QString verticalUnits = "";
+  QColor m_background;
+  QColor m_foreground;
+  QColor m_selection;
+  QColor m_subSelection;
+  QColor m_envelope;
+  QColor m_axes;
+  QColor m_text;
+  QString m_horizontalAxis = "t";
+  QString m_horizontalUnits = "s";
+  QString m_verticalUnits = "";
 
-  QList<WaveMarker>      markerList;
-  QList<WaveVCursor>     vCursorList;
-  QList<WaveACursor>     aCursorList;
-  QMap<qreal, WavePoint> pointMap;
+  QList<WaveMarker>      m_markerList;
+  QList<WaveVCursor>     m_vCursorList;
+  QList<WaveACursor>     m_aCursorList;
+  QMap<qreal, WavePoint> m_pointMap;
 
-  qreal oX = 0;
+  qreal m_oX = 0;
 
-  bool periodicSelection = false;
+  bool m_periodicSelection = false;
 
-  int divsPerSelection = 1;
+  int m_divsPerSelection = 1;
 
   // State
-  QSize geometry;
-  bool haveGeometry = false;
-  bool axesDrawn = false;
-  bool waveDrawn = false;
-  bool selUpdated = false;
-  bool enableFeedback = true;
+  QSize m_geometry;
+  bool m_haveGeometry = false;
+  bool m_axesDrawn = false;
+  bool m_waveDrawn = false;
+  bool m_selUpdated = false;
+  bool m_enableFeedback = true;
 
-  QImage  waveform;
-  QPixmap contentPixmap; // Data and vertical axes
-  QPixmap axesPixmap;    // Only horizontal axes
+  QImage  m_waveform;
+  QPixmap m_contentPixmap; // Data and vertical axes
+  QPixmap m_axesPixmap;    // Only horizontal axes
 
   // Interactive state
-  qreal savedMin;
-  qreal savedMax;
+  qreal m_savedMin;
+  qreal m_savedMax;
 
-  qint64 savedStart;
-  qint64 savedEnd;
+  qint64 m_savedStart;
+  qint64 m_savedEnd;
 
-  qint64 clickX;
-  qint64 clickY;
+  qint64 m_clickX;
+  qint64 m_clickY;
 
-  qint64 clickSample;
+  qint64 m_clickSample;
 
-  int  frequencyTextHeight;
-  bool frequencyDragging = false;
+  int  m_frequencyTextHeight;
+  bool m_frequencyDragging = false;
 
-  int  valueTextWidth = 0;
-  bool valueDragging = false;
+  int  m_valueTextWidth = 0;
+  bool m_valueDragging = false;
 
-  bool hSelDragging = false;
+  bool m_hSelDragging = false;
 
-  bool haveCursor = false;
-  int  currMouseX = 0;
+  bool m_haveCursor = false;
+  int  m_currMouseX = 0;
 
-  bool askedToKeepView = false;
+  bool m_askedToKeepView = false;
 
   // Limits
   WaveView   m_view;
   WaveBuffer m_data;
 
   // Tick length (in pixels) in which we place a time mark, starting form t0
-  qreal hDivSamples;
-  int   hDigits;
-  qreal vDivUnits;
-  int   vDigits;
+  qreal m_hDivSamples;
+  int   m_hDigits;
+  qreal m_vDivUnits;
+  int   m_vDigits;
 
   // Level height (in pixels) in which we place a level mark, from 0
-  qreal levelHeight = 0;
+  qreal m_levelHeight = 0;
 
   // Horizontal selection (in samples)
-  bool  hSelection = false;
-  qreal hSelStart = 0;
-  qreal hSelEnd   = 0;
+  bool  m_hSelection = false;
+  qreal m_hSelStart = 0;
+  qreal m_hSelEnd   = 0;
 
   // Vertical selection (int floating point units)
-  bool  vSelection = false;
-  qreal vSelStart  = 0;
-  qreal vSelEnd    = 0;
+  bool  m_vSelection = false;
+  qreal m_vSelStart  = 0;
+  qreal m_vSelEnd    = 0;
 
   // Behavioral properties
-  bool autoScroll = false;
-  bool autoFitToEnvelope = true;
+  bool m_autoScroll = false;
+  bool m_autoFitToEnvelope = true;
 
   void drawHorizontalAxes();
   void drawVerticalAxes();
@@ -304,7 +304,7 @@ class Waveform : public ThrottleableWidget
   inline bool
   somethingDirty() const
   {
-    return !this->waveDrawn || !this->axesDrawn || !this->selUpdated;
+    return !m_waveDrawn || !m_axesDrawn || !m_selUpdated;
   }
 
 protected:
@@ -371,27 +371,27 @@ public:
     inline qreal
     px2samp(qreal px) const
     {
-      return m_view.px2samp(px - this->valueTextWidth);
+      return m_view.px2samp(px - m_valueTextWidth);
     }
 
     inline qreal
     samp2px(qreal samp) const
     {
-      return m_view.samp2px(samp) + this->valueTextWidth;
+      return m_view.samp2px(samp) + m_valueTextWidth;
     }
 
     inline qint64
     getVerticalAxisWidth() const
     {
-      return this->valueTextWidth;
+      return m_valueTextWidth;
     }
 
     inline void
     setPointMap(const QMap<qreal, WavePoint> &map)
     {
-      if (!this->pointMap.empty() || !map.empty()) {
-        this->pointMap = map;
-        this->waveDrawn = false;
+      if (!m_pointMap.empty() || !map.empty()) {
+        m_pointMap = map;
+        m_waveDrawn = false;
         this->invalidate();
       }
     }
@@ -401,14 +401,14 @@ public:
     {
       if (it->saved_t != it->t) {
         WavePoint prev = *it;
-        this->pointMap.erase(it);
+        m_pointMap.erase(it);
         prev.saved_t = prev.t;
-        auto ret = this->pointMap.insert(prev.t, prev);
-        this->waveDrawn = false;
+        auto ret = m_pointMap.insert(prev.t, prev);
+        m_waveDrawn = false;
         this->invalidate();
         return ret;
       } else {
-        this->waveDrawn = false;
+        m_waveDrawn = false;
         this->invalidate();
         return it;
       }
@@ -417,8 +417,8 @@ public:
     inline void
     removePoint(const QMap<qreal, WavePoint>::iterator &it)
     {
-      this->pointMap.erase(it);
-      this->waveDrawn = false;
+      m_pointMap.erase(it);
+      m_waveDrawn = false;
       this->invalidate();
     }
 
@@ -433,8 +433,8 @@ public:
       p.angle = angle;
       p.saved_t = t;
 
-      auto ret = this->pointMap.insert(p.t, p);
-      this->waveDrawn = false;
+      auto ret = m_pointMap.insert(p.t, p);
+      m_waveDrawn = false;
       this->invalidate();
       return ret;
     }
@@ -442,9 +442,9 @@ public:
     inline void
     setMarkerList(const QList<WaveMarker> &list)
     {
-      if (!this->markerList.empty() || !list.empty()) {
-        this->markerList = list;
-        this->waveDrawn = false;
+      if (!m_markerList.empty() || !list.empty()) {
+        m_markerList = list;
+        m_waveDrawn = false;
         this->invalidate();
       }
     }
@@ -452,9 +452,9 @@ public:
     inline void
     setVCursorList(const QList<WaveVCursor> &list)
     {
-      if (!this->vCursorList.empty() || !list.empty()) {
-        this->vCursorList = list;
-        this->waveDrawn = false;
+      if (!m_vCursorList.empty() || !list.empty()) {
+        m_vCursorList = list;
+        m_waveDrawn = false;
         this->invalidate();
       }
     }
@@ -462,9 +462,9 @@ public:
     inline void
     setACursorList(const QList<WaveACursor> &list)
     {
-      if (!this->aCursorList.empty() || !list.empty()) {
-        this->aCursorList = list;
-        this->waveDrawn = false;
+      if (!m_aCursorList.empty() || !list.empty()) {
+        m_aCursorList = list;
+        m_waveDrawn = false;
         this->invalidate();
       }
     }
@@ -478,13 +478,13 @@ public:
     inline qreal
     px2t(qreal px) const
     {
-      return m_view.px2t(px - this->valueTextWidth);
+      return m_view.px2t(px - m_valueTextWidth);
     }
 
     inline qreal
     t2px(qreal t) const
     {
-      return m_view.t2px(t) + this->valueTextWidth;
+      return m_view.t2px(t) + m_valueTextWidth;
     }
 
     inline qreal
@@ -532,8 +532,8 @@ public:
   void
   setBackgroundColor(const QColor &c)
   {
-    this->background = c;
-    this->axesDrawn = false;
+    m_background = c;
+    m_axesDrawn = false;
     this->invalidate();
     emit backgroundColorChanged();
   }
@@ -541,14 +541,14 @@ public:
   const QColor &
   getBackgroundColor() const
   {
-    return this->background;
+    return m_background;
   }
 
   void
   setAxesColor(const QColor &c)
   {
-    this->axes = c;
-    this->axesDrawn = false;
+    m_axes = c;
+    m_axesDrawn = false;
     this->invalidate();
     emit axesColorChanged();
   }
@@ -556,14 +556,14 @@ public:
   const QColor &
   getAxesColor() const
   {
-    return this->axes;
+    return m_axes;
   }
 
   void
   setTextColor(const QColor &c)
   {
-    this->text = c;
-    this->axesDrawn = false;
+    m_text = c;
+    m_axesDrawn = false;
     this->invalidate();
     emit textColorChanged();
   }
@@ -571,14 +571,14 @@ public:
   const QColor &
   getTextColor() const
   {
-    return this->text;
+    return m_text;
   }
 
   void
   setSelectionColor(const QColor &c)
   {
-    this->selection = c;
-    this->selUpdated = false;
+    m_selection = c;
+    m_selUpdated = false;
     this->invalidate();
     emit textColorChanged();
   }
@@ -586,14 +586,14 @@ public:
   const QColor &
   getSelectionColor() const
   {
-    return this->selection;
+    return m_selection;
   }
 
   void
   setSubSelectionColor(const QColor &c)
   {
-    this->selection = c;
-    this->selUpdated = false;
+    m_selection = c;
+    m_selUpdated = false;
     this->invalidate();
     emit textColorChanged();
   }
@@ -601,15 +601,15 @@ public:
   const QColor &
   getSubSelectionColor() const
   {
-    return this->selection;
+    return m_selection;
   }
 
   void
   setForegroundColor(const QColor &c)
   {
-    this->foreground = c;
-    m_view.setForeground(this->foreground);
-    this->axesDrawn = false;
+    m_foreground = c;
+    m_view.setForeground(m_foreground);
+    m_axesDrawn = false;
     this->invalidate();
     emit foregroundColorChanged();
   }
@@ -617,14 +617,14 @@ public:
   const QColor &
   getForegroundColor() const
   {
-    return this->foreground;
+    return m_foreground;
   }
 
   void
   setEnvelopeColor(const QColor &c)
   {
-    this->envelope = c;
-    this->axesDrawn = false;
+    m_envelope = c;
+    m_axesDrawn = false;
     this->invalidate();
     emit envelopeColorChanged();
   }
@@ -632,7 +632,7 @@ public:
   const QColor &
   getEnvelopeColor() const
   {
-    return this->envelope;
+    return m_envelope;
   }
 
   qreal
@@ -649,7 +649,7 @@ public:
 
     if (!sufreleq(rate, m_view.getSampleRate(), 1e-5f)) {
       m_view.setSampleRate(rate);
-      this->axesDrawn = false;
+      m_axesDrawn = false;
       this->recalculateDisplayData();
       this->invalidate();
       emit sampleRateChanged();
@@ -659,14 +659,14 @@ public:
   QString
   getHorizontalUnits() const
   {
-    return this->horizontalUnits;
+    return m_horizontalUnits;
   }
 
   void
   setHorizontalUnits(QString units)
   {
-    this->horizontalUnits = units;
-    this->axesDrawn = false;
+    m_horizontalUnits = units;
+    m_axesDrawn = false;
     this->invalidate();
     emit horizontalUnitsChanged();
   }
@@ -674,14 +674,14 @@ public:
   QString
   getHorizontalAxis() const
   {
-    return this->horizontalAxis;
+    return m_horizontalAxis;
   }
 
   void
   setHorizontalAxis(QString axis)
   {
-    this->horizontalAxis = axis;
-    this->axesDrawn = false;
+    m_horizontalAxis = axis;
+    m_axesDrawn = false;
     this->invalidate();
     emit horizontalAxisChanged();
   }
@@ -689,14 +689,14 @@ public:
   QString
   getVerticalUnits() const
   {
-    return this->verticalUnits;
+    return m_verticalUnits;
   }
 
   void
   setVerticalUnits(QString units)
   {
-    this->verticalUnits = units;
-    this->axesDrawn = false;
+    m_verticalUnits = units;
+    m_axesDrawn = false;
     this->invalidate();
     emit verticalUnitsChanged();
   }
@@ -706,9 +706,9 @@ public:
   {
     if (divs < 1)
       divs = 1;
-    this->divsPerSelection = divs;
-    if (this->hSelection)
-      this->selUpdated = false;
+    m_divsPerSelection = divs;
+    if (m_hSelection)
+      m_selUpdated = false;
     this->invalidate();
   }
 
@@ -752,7 +752,7 @@ public:
   inline qreal
   getCursorTime() const
   {
-    return this->px2t(this->currMouseX);
+    return this->px2t(m_currMouseX);
   }
 
   void
@@ -760,22 +760,22 @@ public:
   {
     m_view.setPalette(table);
 
-    this->waveDrawn = false;
-    this->axesDrawn = false;
+    m_waveDrawn = false;
+    m_axesDrawn = false;
     this->invalidate();
   }
 
   void
   setOriginX(qreal origin)
   {
-    this->oX = origin;
+    m_oX = origin;
   }
 
 
   inline void
   setEnableFeedback(bool enable)
   {
-    this->enableFeedback = enable;
+    m_enableFeedback = enable;
   }
 
   inline qreal
@@ -785,7 +785,7 @@ public:
   }
 
   Waveform(QWidget *parent = nullptr);
-  ~Waveform();
+  ~Waveform() override;
 
   void setData(
       const std::vector<SUCOMPLEX> *,

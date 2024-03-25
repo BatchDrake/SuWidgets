@@ -56,17 +56,17 @@ class WaveWorker;
 class WaveViewTree : public QObject, public QList<WaveLimitVector> {
   Q_OBJECT
 
-  QThread         *workerThread;
-  WaveWorker      *currentWorker = nullptr;
-  const SUCOMPLEX *data = nullptr;
-  SUSCOUNT         length = 0;
+  QThread         *m_workerThread;
+  WaveWorker      *m_currentWorker = nullptr;
+  const SUCOMPLEX *m_data = nullptr;
+  SUSCOUNT         m_length = 0;
 
-  SUCOMPLEX        oMin, oMax;
-  SUCOMPLEX        mean;
-  SUFLOAT          rms;
-  SuWidgetsHelpers::KahanState state;
+  SUCOMPLEX        m_oMin, m_oMax;
+  SUCOMPLEX        m_mean;
+  SUFLOAT          m_rms;
+  SuWidgetsHelpers::KahanState m_state;
 
-  bool             complete = true;
+  bool             m_complete = true;
 
   friend class WaveWorker;
 
@@ -86,49 +86,49 @@ public:
   inline bool
   isComplete(void) const
   {
-    return this->complete;
+    return this->m_complete;
   }
 
   inline bool
   isRunning(void) const
   {
-    return this->currentWorker != nullptr;
+    return this->m_currentWorker != nullptr;
   }
 
   inline SUCOMPLEX
   getMax(void) const
   {
-    return this->complete ? oMax : 0;
+    return this->m_complete ? m_oMax : 0;
   }
 
   inline SUCOMPLEX
   getMin(void) const
   {
-    return this->complete ? oMin : 0;
+    return this->m_complete ? m_oMin : 0;
   }
 
   inline SUCOMPLEX
   getMean(void) const
   {
-    return this->complete ? mean : 0;
+    return this->m_complete ? m_mean : 0;
   }
 
   inline SUFLOAT
   getRMS(void) const
   {
-    return this->complete ? rms : 0;
+    return this->m_complete ? m_rms : 0;
   }
 
   inline const SUCOMPLEX *
   getData(void) const
   {
-    return this->data;
+    return this->m_data;
   }
 
   inline SUSCOUNT
   getLength(void) const
   {
-    return this->length;
+    return this->m_length;
   }
 
   WaveViewTree(QObject *parent = nullptr);

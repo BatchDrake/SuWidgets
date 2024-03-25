@@ -488,8 +488,7 @@ WaveView::drawWave(QPainter &painter)
   }
 
   // Nothing to paint? Leave.
-  if (m_waveTree->getLength() == 0
-      || m_waveTree->size() == 0)
+  if (m_waveTree->getLength() == 0 || m_waveTree->size() == 0)
     return;
 
   painter.save();
@@ -533,7 +532,7 @@ void
 WaveView::setBuffer(const SUCOMPLEX *data, size_t size)
 {
   if (m_waveTree == &m_ownWaveTree) {
-    m_waveTree->clear();
+    BLOCKSIG(m_waveTree, clear());
     m_waveTree->reprocess(data, size);
   }
 }
