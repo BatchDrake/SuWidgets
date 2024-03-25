@@ -458,20 +458,20 @@ Waveform::mouseMoveEvent(QMouseEvent *event)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
   m_currMouseX = event->position().x();
 #else
-  currMouseX = event->x();
+  m_currMouseX = event->x();
 #endif
 
   if (m_frequencyDragging)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     scrollHorizontal(m_clickX, event->position().x());
 #else
-    scrollHorizontal(clickX, event->x());
+    scrollHorizontal(m_clickX, event->x());
 #endif
   else if (m_valueDragging)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     scrollVertical(m_clickY, event->position().y());
 #else
-    scrollVertical(clickY, event->y());
+    scrollVertical(m_clickY, event->y());
 #endif
   else if (m_hSelDragging)
     selectHorizontal(
