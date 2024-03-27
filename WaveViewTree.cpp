@@ -35,6 +35,7 @@ WaveWorker::WaveWorker(WaveViewTree *owner, SUSCOUNT since, QObject *parent) :
 
 WaveWorker::~WaveWorker()
 {
+
 }
 
 void
@@ -551,7 +552,7 @@ WaveViewTree::onWorkerFinished(void)
 {
   m_complete = true;
 
-  if (m_currentWorker != nullptr) {
+  if (m_currentWorker != nullptr && !m_currentWorker->running()) {
     m_currentWorker->deleteLater();
     m_currentWorker = nullptr;
   }
@@ -564,7 +565,7 @@ WaveViewTree::onWorkerCancelled(void)
 {
   m_complete = false;
 
-  if (m_currentWorker != nullptr) {
+  if (m_currentWorker != nullptr && m_currentWorker->isCancelled()) {
     m_currentWorker->deleteLater();
     m_currentWorker = nullptr;
   }

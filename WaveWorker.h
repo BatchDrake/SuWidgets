@@ -48,6 +48,9 @@ public:
   WaveWorker(WaveViewTree *, SUSCOUNT since, QObject *parent = nullptr);
   ~WaveWorker() override;
 
+  inline bool running() const { return m_running; }
+  inline bool isCancelled() const { return m_cancelFlag; }
+
 public slots:
   void run(void);
   void cancel(void);
