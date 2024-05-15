@@ -230,6 +230,8 @@ Waterfall::addNewWfLine(const float* wfData, int size, int repeats)
           m_tentativeCenterFreq + m_FftCenter,
           limit) + SCAST(qint64, m_Span)/2,
         wfData,
+        m_SampleFreq,
+        m_fftDataSize,
         m_fftbuf,
         &xmin,
         &xmax);

@@ -1203,8 +1203,8 @@ void AbstractWaterfall::clearPartialFftData()
 void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
     float maxdB, float mindB,
     qint64 startFreq, qint64 stopFreq,
-    const float *inBuf, qint32 *outBuf,
-    int *xmin, int *xmax)
+    const float *inBuf, qint64 inSampleFreq, int inFftSize,
+    qint32 *outBuf, qint32 *xmin, qint32 *xmax)
 {
   qint32 i;
   qint32 y;
@@ -1213,23 +1213,21 @@ void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWi
   qint32 xprev = -1;
   qint32 minbin, maxbin;
   qint32 m_BinMin, m_BinMax;
-  qint32 m_FFTSize = m_fftDataSize;
-  const float *m_pFFTAveBuf = inBuf;
 
   mindB -= m_gain;
   maxdB -= m_gain;
 
   float  dBGainFactor = ((float)plotHeight) / fabs(maxdB - mindB);
-  qint32* m_pTranslateTbl = new qint32[qMax(m_FFTSize, plotWidth)];
+  qint32* m_pTranslateTbl = new qint32[qMax(inFftSize, plotWidth)];
 
   /** FIXME: qint64 -> qint32 **/
-  m_BinMin = (qint32)((float)startFreq * (float)m_FFTSize / m_SampleFreq);
-  m_BinMin += (m_FFTSize/2);
-  m_BinMax = (qint32)((float)stopFreq * (float)m_FFTSize / m_SampleFreq);
-  m_BinMax += (m_FFTSize/2);
+  m_BinMin = (qint32)((float)startFreq * (float)inFftSize / inSampleFreq);
+  m_BinMin += (inFftSize/2);
+  m_BinMax = (qint32)((float)stopFreq * (float)inFftSize / inSampleFreq);
+  m_BinMax += (inFftSize/2);
 
-  minbin = qBound(0, m_BinMin, m_FFTSize - 1);
-  maxbin = qBound(0, m_BinMax, m_FFTSize - 1);
+  minbin = qBound(0, m_BinMin, inFftSize - 1);
+  maxbin = qBound(0, m_BinMax, inFftSize - 1);
 
   bool largeFft = (maxbin - minbin) > plotWidth; // true if more fft point than plot points
 
@@ -1255,7 +1253,7 @@ void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWi
     // more FFT points than plot points
     for (i = minbin; i < maxbin; i++ )
     {
-      y = (qint32)(dBGainFactor*(maxdB-m_pFFTAveBuf[i]));
+      y = (qint32)(dBGainFactor*(maxdB-inBuf[i]));
 
       if (y > plotHeight)
         y = plotHeight;
@@ -1287,10 +1285,10 @@ void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWi
     for (x = 0; x < plotWidth; x++ )
     {
       i = m_pTranslateTbl[x]; // get plot to fft bin coordinate transform
-      if(i < 0 || i >= m_FFTSize)
+      if(i < 0 || i >= inFftSize)
         y = plotHeight;
       else
-        y = (qint32)(dBGainFactor*(maxdB-m_pFFTAveBuf[i]));
+        y = (qint32)(dBGainFactor*(maxdB-inBuf[i]));
 
       if (y > plotHeight)
         y = plotHeight;
@@ -1302,6 +1300,16 @@ void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWi
   }
 
   delete [] m_pTranslateTbl;
+}
+
+void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
+    float maxdB, float mindB,
+    qint64 startFreq, qint64 stopFreq,
+    qint32 *outBuf, qint32 *xmin, qint32 *xmax)
+{
+  getScreenIntegerFFTData(plotHeight, plotWidth, maxdB, mindB, startFreq, stopFreq,
+      m_fftData, m_SampleFreq, m_fftDataSize,
+      outBuf, xmin, xmax);
 }
 
 void AbstractWaterfall::setFftRange(float min, float max)
@@ -2297,7 +2305,6 @@ void AbstractWaterfall::drawSpectrum()
         -limit,
         m_tentativeCenterFreq + m_FftCenter,
         limit) + (qint64)m_Span/2,
-      m_fftData,
       m_fftbuf,
       &xmin,
       &xmax);

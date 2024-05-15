@@ -397,8 +397,12 @@ class AbstractWaterfall : public QOpenGLWidget
     void getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
         float maxdB, float mindB,
         qint64 startFreq, qint64 stopFreq,
-        const float *inBuf, qint32 *outBuf,
-        qint32 *maxbin, qint32 *minbin);
+        const float *inBuf, qint64 inSampleFreq, int inFftSize,
+        qint32 *outBuf, qint32 *xmin, qint32 *xmax);
+    void getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWidth,
+        float maxdB, float mindB,
+        qint64 startFreq, qint64 stopFreq,
+        qint32 *outBuf, qint32 *xmin, qint32 *xmax);
     void calcDivSize (qint64 low, qint64 high, int divswanted, qint64 &adjlow, qint64 &step, int& divs);
 
     int  drawFATs(DrawingContext &, qint64, qint64);
