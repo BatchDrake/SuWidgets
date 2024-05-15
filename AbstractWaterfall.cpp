@@ -1307,9 +1307,23 @@ void AbstractWaterfall::getScreenIntegerFFTData(qint32 plotHeight, qint32 plotWi
     qint64 startFreq, qint64 stopFreq,
     qint32 *outBuf, qint32 *xmin, qint32 *xmax)
 {
-  getScreenIntegerFFTData(plotHeight, plotWidth, maxdB, mindB, startFreq, stopFreq,
-      m_fftData, m_SampleFreq, m_fftDataSize,
-      outBuf, xmin, xmax);
+  // startFreq and stopFreq are relative to m_CenterFreq
+  qint64 absStartFreq = startFreq + m_CenterFreq;
+  qint64 absStopFreq = stopFreq + m_CenterFreq;
+
+  if (!m_partialFftData || absStartFreq < m_partialFreqStart || absStopFreq > m_partialFreqEnd)
+  {
+    getScreenIntegerFFTData(plotHeight, plotWidth, maxdB, mindB, startFreq, stopFreq,
+        m_fftData, m_SampleFreq, m_fftDataSize,
+        outBuf, xmin, xmax);
+  } else {
+    qint64 relPartialCenter = m_partialFreqStart +
+        (m_partialFreqEnd - m_partialFreqStart)/2  - m_CenterFreq;
+    getScreenIntegerFFTData(plotHeight, plotWidth, maxdB, mindB,
+        startFreq - relPartialCenter, stopFreq - relPartialCenter,
+        m_partialFftData, m_partialFreqEnd - m_partialFreqStart, m_partialFftDataSize,
+        outBuf, xmin, xmax);
+  }
 }
 
 void AbstractWaterfall::setFftRange(float min, float max)
