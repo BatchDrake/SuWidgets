@@ -626,6 +626,9 @@ GLWaterfallOpenGLContext::render(
   ortho.translate(2 * left, 0);
   ortho.scale(zoom, 1);
 
+  m_vbo.bind();
+  m_ibo.bind();
+
   m_program.setAttributeBuffer(
       "vertex_coords",
       GL_FLOAT,
