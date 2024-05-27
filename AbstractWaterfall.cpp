@@ -1133,6 +1133,16 @@ void AbstractWaterfall::setNewPartialFftData(
     QDateTime const &t,
     bool looped)
 {
+  if (!m_partialFreqActive) {
+    size_t k = 1;
+    size_t full_size = size * m_SampleFreq / (endFreq - startFreq);
+    while (k < full_size) k <<= 1;
+    full_size = k; // round up to next biggest power of 2 if needed
+    m_fullFftData.resize(full_size);
+    std::fill(m_fullFftData.begin(), m_fullFftData.end(), -255);
+    m_partialFreqActive = true;
+  }
+
   qint64 fullStartFreq = m_CenterFreq - m_SampleFreq/2;
   double fullBinSize = m_SampleFreq / m_fullFftData.size();
   double partialBinSize = (endFreq - startFreq) / size;
@@ -1145,16 +1155,6 @@ void AbstractWaterfall::setNewPartialFftData(
       fullStartIndex + 1,
       static_cast<ssize_t>((endFreq - fullStartFreq) / fullBinSize),
       static_cast<ssize_t>(m_fullFftData.size()));
-
-  if (!m_partialFreqActive) {
-    size_t k = 1;
-    size_t full_size = size * m_SampleFreq / (endFreq - startFreq);
-    while (k < full_size) k <<= 1;
-    full_size = k; // round up to next biggest power of 2 if needed
-    m_fullFftData.resize(full_size);
-    std::fill(m_fullFftData.begin(), m_fullFftData.end(), -255);
-    m_partialFreqActive = true;
-  }
 
   m_partialFftData = fftData;
   m_partialFftDataSize = size;
