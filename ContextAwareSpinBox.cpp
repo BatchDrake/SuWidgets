@@ -50,6 +50,15 @@ int BlockCursorStyle::pixelMetric(
 void
 ContextAwareSpinBox::focusInEvent(QFocusEvent *event)
 {
+  int prefixLen = static_cast<int>(prefix().size());
+  int suffixLen = static_cast<int>(suffix().size());
+  int textLen = static_cast<int>(lineEdit()->text().length());
+  int dec = decimals();
+  int decSize = dec > 0 ? dec + 1 : 0;
+  int intLen = textLen - decSize - (prefixLen + suffixLen);
+
+  lineEdit()->setCursorPosition(prefixLen + intLen);
+
   QDoubleSpinBox::focusInEvent(event);
 }
 
