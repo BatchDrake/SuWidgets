@@ -20,6 +20,73 @@
 #include <QLineEdit>
 #include <cmath>
 #include "ContextAwareSpinBox.h"
+#include <QProxyStyle>
+
+class BlockCursorStyle : public QProxyStyle
+{
+public:
+  BlockCursorStyle(QStyle *style = nullptr) : QProxyStyle(style) { }
+
+  int pixelMetric(
+      PixelMetric,
+      const QStyleOption *option = nullptr,
+      const QWidget *widget = nullptr) const override;
+};
+
+int BlockCursorStyle::pixelMetric(
+    PixelMetric metric,
+    const QStyleOption *option,
+    const QWidget *widget) const
+{
+  switch (metric) {
+    case PM_TextCursorWidth:
+      return -9;
+
+    default:
+      return QProxyStyle::pixelMetric(metric,option,widget);
+  }
+}
+
+void
+ContextAwareSpinBox::focusInEvent(QFocusEvent *event)
+{
+  int prefixLen = static_cast<int>(prefix().size());
+  int suffixLen = static_cast<int>(suffix().size());
+  int textLen = static_cast<int>(lineEdit()->text().length());
+  int dec = decimals();
+  int decSize = dec > 0 ? dec + 1 : 0;
+  int intLen = textLen - decSize - (prefixLen + suffixLen);
+
+  lineEdit()->setCursorPosition(prefixLen + intLen);
+
+  QDoubleSpinBox::focusInEvent(event);
+}
+
+void
+ContextAwareSpinBox::focusOutEvent(QFocusEvent *event)
+{
+  QDoubleSpinBox::focusOutEvent(event);
+}
+
+ContextAwareSpinBox::ContextAwareSpinBox(QWidget *parent) : QDoubleSpinBox(parent)
+{
+  m_baseStyle  = lineEdit()->style();
+  m_blockStyle = new BlockCursorStyle(m_baseStyle);
+
+  connect(
+        lineEdit(),
+        SIGNAL(cursorPositionChanged(int, int)),
+        this,
+        SLOT(onCursorPositionChanged(int, int)));
+
+  lineEdit()->setStyle(m_blockStyle);
+}
+
+ContextAwareSpinBox::~ContextAwareSpinBox()
+{
+  if (m_blockStyle != nullptr)
+    m_blockStyle->deleteLater();
+}
 
 qreal
 ContextAwareSpinBox::currentStep() const
@@ -107,4 +174,29 @@ ContextAwareSpinBox::setMinimumStep()
 {
   int textLen = static_cast<int>(lineEdit()->text().length());
   lineEdit()->setCursorPosition(textLen);
+}
+
+void
+ContextAwareSpinBox::onCursorPositionChanged(int oldPos, int newPos)
+{
+  int prefixLen = static_cast<int>(prefix().size());
+  int suffixLen = static_cast<int>(suffix().size());
+  int textLen = static_cast<int>(lineEdit()->text().length());
+  int dec = decimals();
+  int decSize = dec > 0 ? dec + 1 : 0;
+  int intLen = textLen - decSize - (prefixLen + suffixLen);
+  int pos = lineEdit()->cursorPosition() - prefixLen;
+
+  if (pos == intLen + 1) {
+    if (oldPos < newPos) // Moving forward
+      lineEdit()->setCursorPosition(prefixLen + pos + 1);
+    else // Whatever is this
+      lineEdit()->setCursorPosition(prefixLen + pos - 1);
+    return;
+  }
+
+  if (pos > intLen + decSize)
+    lineEdit()->setCursorPosition(prefixLen + intLen + decSize);
+  else if (pos < 0)
+    lineEdit()->setCursorPosition(prefixLen);
 }

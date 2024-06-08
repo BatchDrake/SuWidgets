@@ -25,14 +25,25 @@ class ContextAwareSpinBox : public QDoubleSpinBox
 {
   Q_OBJECT
 
+  QStyle *m_blockStyle = nullptr;
+  QStyle *m_baseStyle = nullptr;
+
   using QDoubleSpinBox::QDoubleSpinBox;
   int stepToCursor(qreal) const;
 
 public:
+  ContextAwareSpinBox(QWidget *parent = nullptr);
+  ~ContextAwareSpinBox() override;
+
   virtual void stepBy(int steps) override;
   virtual qreal currentStep() const;
+  virtual void focusInEvent(QFocusEvent *) override;
+  virtual void focusOutEvent(QFocusEvent *) override;
   void setSingleStep(double val);
   void setMinimumStep();
+
+public slots:
+  void onCursorPositionChanged(int, int);
 };
 
 #endif // CONTEXTAWARESPINBOX_H
