@@ -84,8 +84,6 @@ ContextAwareSpinBox::ContextAwareSpinBox(QWidget *parent) : QDoubleSpinBox(paren
 
 ContextAwareSpinBox::~ContextAwareSpinBox()
 {
-  if (m_blockStyle != nullptr)
-    m_blockStyle->deleteLater();
 }
 
 qreal
