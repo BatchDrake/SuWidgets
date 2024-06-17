@@ -210,12 +210,16 @@ FrequencySpinBox::setValue(double val)
   double min = this->allowSubMultiples ? this->min : 1.;
 
   if (fabs(val - this->currValue) >= min) {
+    double oldValue = this->currValue;
     this->currValue = val;
 
     if (this->autoUnitMultiplier)
       this->adjustUnitMultiplier();
 
     this->refreshUi();
+
+    if (this->currValue != oldValue)
+      emit valueChanged(this->currValue);
   }
 }
 
