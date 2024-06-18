@@ -24,8 +24,13 @@
 
 class BlockCursorStyle : public QProxyStyle
 {
+  ContextAwareSpinBox *m_spinBox = nullptr;
+
 public:
-  BlockCursorStyle(QStyle *style = nullptr) : QProxyStyle(style) { }
+  BlockCursorStyle(QStyle *style, ContextAwareSpinBox *spinbox) : QProxyStyle(style)
+  {
+    m_spinBox = spinbox;
+  }
 
   int pixelMetric(
       PixelMetric,
@@ -40,10 +45,12 @@ int BlockCursorStyle::pixelMetric(
 {
   switch (metric) {
     case PM_TextCursorWidth:
-      return -9;
+      return m_spinBox->blockEnabled()
+          ? -9
+          : QProxyStyle::pixelMetric(metric, option, widget);
 
     default:
-      return QProxyStyle::pixelMetric(metric,option,widget);
+      return QProxyStyle::pixelMetric(metric, option, widget);
   }
 }
 
@@ -71,7 +78,7 @@ ContextAwareSpinBox::focusOutEvent(QFocusEvent *event)
 ContextAwareSpinBox::ContextAwareSpinBox(QWidget *parent) : QDoubleSpinBox(parent)
 {
   m_baseStyle  = lineEdit()->style();
-  m_blockStyle = new BlockCursorStyle(m_baseStyle);
+  m_blockStyle = new BlockCursorStyle(m_baseStyle, this);
 
   connect(
         lineEdit(),
@@ -197,4 +204,19 @@ ContextAwareSpinBox::onCursorPositionChanged(int oldPos, int newPos)
     lineEdit()->setCursorPosition(prefixLen + intLen + decSize);
   else if (pos < 0)
     lineEdit()->setCursorPosition(prefixLen);
+}
+
+void
+ContextAwareSpinBox::setBlockEnabled(bool en)
+{
+  if (en != m_blockEnabled) {
+    m_blockEnabled = en;
+    update();
+  }
+}
+
+bool
+ContextAwareSpinBox::blockEnabled() const
+{
+  return m_blockEnabled;
 }

@@ -25,8 +25,9 @@ class ContextAwareSpinBox : public QDoubleSpinBox
 {
   Q_OBJECT
 
-  QStyle *m_blockStyle = nullptr;
-  QStyle *m_baseStyle = nullptr;
+  QStyle *m_blockStyle   = nullptr;
+  QStyle *m_baseStyle    = nullptr;
+  bool    m_blockEnabled = false;
 
   using QDoubleSpinBox::QDoubleSpinBox;
   int stepToCursor(qreal) const;
@@ -39,8 +40,11 @@ public:
   virtual qreal currentStep() const;
   virtual void focusInEvent(QFocusEvent *) override;
   virtual void focusOutEvent(QFocusEvent *) override;
+
   void setSingleStep(double val);
   void setMinimumStep();
+  void setBlockEnabled(bool);
+  bool blockEnabled() const;
 
 public slots:
   void onCursorPositionChanged(int, int);
