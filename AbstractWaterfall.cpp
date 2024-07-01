@@ -331,7 +331,7 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     if (event->buttons() & (Qt::LeftButton | Qt::MiddleButton))
 #else
-      if (event->buttons() & (Qt::LeftButton | Qt::MidButton))
+    if (event->buttons() & (Qt::LeftButton | Qt::MidButton))
 #endif // QT_VERSION
       {
         setCursor(QCursor(Qt::ClosedHandCursor));
@@ -349,10 +349,12 @@ void AbstractWaterfall::mouseMoveEvent(QMouseEvent* event)
             m_CenterFreq += delta_hz;
             m_DemodCenterFreq += delta_hz;
 
-            ////////////// TODO: Edit this to fake spectrum scroll /////////
-            ////////////// DONE: Something like this:
-            ///
-            m_tentativeCenterFreq += delta_hz;
+            // Scroll the spectrum only if data flow is stopped.
+            // When running, the hardware may be delayed in retuning, so some new
+            // PSDs at the old centre frequency may still arrive, causing visual
+            // jumping/shaking of the spectrum.
+            if (!m_Running)
+              m_tentativeCenterFreq += delta_hz;
 
             if (delta_hz != 0)
               emit newCenterFreq(m_CenterFreq);
