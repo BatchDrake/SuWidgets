@@ -46,9 +46,6 @@ public:
   void setMinimumStep();
   void setBlockEnabled(bool);
   bool blockEnabled() const;
-
-public slots:
-  void onCursorPositionChanged(int, int);
 };
 
 #endif // CONTEXTAWARESPINBOX_H

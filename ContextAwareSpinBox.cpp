@@ -79,12 +79,6 @@ ContextAwareSpinBox::ContextAwareSpinBox(QWidget *parent) : QDoubleSpinBox(paren
   m_baseStyle  = lineEdit()->style();
   m_blockStyle = new BlockCursorStyle(m_baseStyle, this);
 
-  connect(
-        lineEdit(),
-        SIGNAL(cursorPositionChanged(int, int)),
-        this,
-        SLOT(onCursorPositionChanged(int, int)));
-
   lineEdit()->setStyle(m_blockStyle);
 }
 
@@ -194,26 +188,6 @@ ContextAwareSpinBox::setMinimumStep()
 {
   int textLen = static_cast<int>(lineEdit()->text().length());
   lineEdit()->setCursorPosition(textLen);
-}
-
-void
-ContextAwareSpinBox::onCursorPositionChanged(int oldPos, int newPos)
-{
-  int prefixLen = static_cast<int>(prefix().size());
-  int suffixLen = static_cast<int>(suffix().size());
-  int textLen = static_cast<int>(lineEdit()->text().length());
-  int decSize = decimalLength();
-  int intLen = textLen - decSize - (prefixLen + suffixLen);
-  int pos = lineEdit()->cursorPosition() - prefixLen;
-
-  // don't interfere with text selection, since setCursorPosition breaks it
-  if (lineEdit()->hasSelectedText())
-    return;
-
-  if (pos > intLen + decSize)
-    lineEdit()->setCursorPosition(prefixLen + intLen + decSize);
-  else if (pos < 0)
-    lineEdit()->setCursorPosition(prefixLen);
 }
 
 void
