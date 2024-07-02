@@ -120,6 +120,8 @@ ContextAwareSpinBox::currentStep() const
 
   if (pos < 0)
     pos = intLen;
+  else if (pos > intLen + decSize)
+    pos = intLen + decSize;
 
   // 1387.01 --> LEN = 7, DECIMALS = 2
   //             INT = 7 - 2 - 1 = 4
@@ -207,14 +209,6 @@ ContextAwareSpinBox::onCursorPositionChanged(int oldPos, int newPos)
   // don't interfere with text selection, since setCursorPosition breaks it
   if (lineEdit()->hasSelectedText())
     return;
-
-  if (pos == intLen + 1) {
-    if (oldPos < newPos) // Moving forward
-      lineEdit()->setCursorPosition(prefixLen + pos + 1);
-    else // Whatever is this
-      lineEdit()->setCursorPosition(prefixLen + pos - 1);
-    return;
-  }
 
   if (pos > intLen + decSize)
     lineEdit()->setCursorPosition(prefixLen + intLen + decSize);
