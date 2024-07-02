@@ -31,6 +31,7 @@ class ContextAwareSpinBox : public QDoubleSpinBox
 
   using QDoubleSpinBox::QDoubleSpinBox;
   int stepToCursor(qreal) const;
+  int decimalLength() const;
 
 public:
   ContextAwareSpinBox(QWidget *parent = nullptr);
