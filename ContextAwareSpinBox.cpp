@@ -204,6 +204,10 @@ ContextAwareSpinBox::onCursorPositionChanged(int oldPos, int newPos)
   int intLen = textLen - decSize - (prefixLen + suffixLen);
   int pos = lineEdit()->cursorPosition() - prefixLen;
 
+  // don't interfere with text selection, since setCursorPosition breaks it
+  if (lineEdit()->hasSelectedText())
+    return;
+
   if (pos == intLen + 1) {
     if (oldPos < newPos) // Moving forward
       lineEdit()->setCursorPosition(prefixLen + pos + 1);
