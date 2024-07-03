@@ -216,18 +216,9 @@ class GLWaterfall : public AbstractWaterfall
 
     bool isHdpiAware() override { return true; }
 
-    void
-    setPalette(const QColor *table) override
-    {
-      m_glCtx.setPalette(table);
-      update();
-    }
+    void setPalette(const QColor *table) override;
 
-    void
-    setMaxBlending(bool val) override
-    {
-      m_glCtx.m_useMaxBlending = val;
-    }
+    void setMaxBlending(bool val) override;
 
     void setWaterfallRange(float min, float max) override;
 

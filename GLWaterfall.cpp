@@ -737,6 +737,19 @@ GLWaterfall::onContextBeingDestroyed()
   doneCurrent();
 }
 
+void
+GLWaterfall::setPalette(const QColor *table)
+{
+  m_glCtx.setPalette(table);
+  update();
+}
+
+void
+GLWaterfall::setMaxBlending(bool val)
+{
+  m_glCtx.m_useMaxBlending = val;
+}
+
 void GLWaterfall::setWaterfallRange(float min, float max)
 {
   if (out_of_range(min, max))
@@ -772,6 +785,8 @@ GLWaterfall::paintGL()
 
 void GLWaterfall::addNewWfLine(const float* wfData, int size, int repeats)
 {
+  makeCurrent();
+
   for (int i = 0; i < repeats; i++)
     m_glCtx.pushFFTData(wfData, size);
 }
