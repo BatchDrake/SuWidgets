@@ -31,6 +31,7 @@ class ContextAwareSpinBox : public QDoubleSpinBox
 
   using QDoubleSpinBox::QDoubleSpinBox;
   int stepToCursor(qreal) const;
+  int decimalLength() const;
 
 public:
   ContextAwareSpinBox(QWidget *parent = nullptr);
@@ -45,9 +46,6 @@ public:
   void setMinimumStep();
   void setBlockEnabled(bool);
   bool blockEnabled() const;
-
-public slots:
-  void onCursorPositionChanged(int, int);
 };
 
 #endif // CONTEXTAWARESPINBOX_H

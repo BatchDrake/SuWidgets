@@ -60,8 +60,7 @@ ContextAwareSpinBox::focusInEvent(QFocusEvent *event)
   int prefixLen = static_cast<int>(prefix().size());
   int suffixLen = static_cast<int>(suffix().size());
   int textLen = static_cast<int>(lineEdit()->text().length());
-  int dec = decimals();
-  int decSize = dec > 0 ? dec + 1 : 0;
+  int decSize = decimalLength();
   int intLen = textLen - decSize - (prefixLen + suffixLen);
 
   lineEdit()->setCursorPosition(prefixLen + intLen);
@@ -80,17 +79,27 @@ ContextAwareSpinBox::ContextAwareSpinBox(QWidget *parent) : QDoubleSpinBox(paren
   m_baseStyle  = lineEdit()->style();
   m_blockStyle = new BlockCursorStyle(m_baseStyle, this);
 
-  connect(
-        lineEdit(),
-        SIGNAL(cursorPositionChanged(int, int)),
-        this,
-        SLOT(onCursorPositionChanged(int, int)));
-
   lineEdit()->setStyle(m_blockStyle);
 }
 
 ContextAwareSpinBox::~ContextAwareSpinBox()
 {
+}
+
+int
+ContextAwareSpinBox::decimalLength() const
+{
+  int prefixLen = static_cast<int>(prefix().size());
+  int suffixLen = static_cast<int>(suffix().size());
+  int textLen = static_cast<int>(lineEdit()->text().size());
+
+  QString numberText = lineEdit()->text().mid(prefixLen, textLen - prefixLen - suffixLen);
+  int decPos = numberText.indexOf('.');
+
+  if (decPos >= 0)
+    return numberText.size() - decPos;
+  else
+    return 0;
 }
 
 qreal
@@ -99,13 +108,14 @@ ContextAwareSpinBox::currentStep() const
   int prefixLen = static_cast<int>(prefix().size());
   int suffixLen = static_cast<int>(suffix().size());
   int textLen = static_cast<int>(lineEdit()->text().length());
-  int dec = decimals();
-  int decSize = dec > 0 ? dec + 1 : 0;
+  int decSize = decimalLength();
   int intLen = textLen - decSize - (prefixLen + suffixLen);
   int pos = lineEdit()->cursorPosition() - prefixLen;
 
   if (pos < 0)
     pos = intLen;
+  else if (pos > intLen + decSize)
+    pos = intLen + decSize;
 
   // 1387.01 --> LEN = 7, DECIMALS = 2
   //             INT = 7 - 2 - 1 = 4
@@ -133,8 +143,7 @@ ContextAwareSpinBox::stepToCursor(qreal step) const
   int prefixLen = static_cast<int>(prefix().size());
   int suffixLen = static_cast<int>(suffix().size());
   int textLen = static_cast<int>(lineEdit()->text().length());
-  int dec = decimals();
-  int decSize = dec > 0 ? dec + 1 : 0;
+  int decSize = decimalLength();
   int intLen = textLen - decSize - (prefixLen + suffixLen);
 
   // 1387.01 --> LEN = 7, DECIMALS = 2
@@ -179,31 +188,6 @@ ContextAwareSpinBox::setMinimumStep()
 {
   int textLen = static_cast<int>(lineEdit()->text().length());
   lineEdit()->setCursorPosition(textLen);
-}
-
-void
-ContextAwareSpinBox::onCursorPositionChanged(int oldPos, int newPos)
-{
-  int prefixLen = static_cast<int>(prefix().size());
-  int suffixLen = static_cast<int>(suffix().size());
-  int textLen = static_cast<int>(lineEdit()->text().length());
-  int dec = decimals();
-  int decSize = dec > 0 ? dec + 1 : 0;
-  int intLen = textLen - decSize - (prefixLen + suffixLen);
-  int pos = lineEdit()->cursorPosition() - prefixLen;
-
-  if (pos == intLen + 1) {
-    if (oldPos < newPos) // Moving forward
-      lineEdit()->setCursorPosition(prefixLen + pos + 1);
-    else // Whatever is this
-      lineEdit()->setCursorPosition(prefixLen + pos - 1);
-    return;
-  }
-
-  if (pos > intLen + decSize)
-    lineEdit()->setCursorPosition(prefixLen + intLen + decSize);
-  else if (pos < 0)
-    lineEdit()->setCursorPosition(prefixLen);
 }
 
 void
