@@ -27,6 +27,7 @@ class ContextAwareSpinBox : public QDoubleSpinBox
 
   QStyle *m_blockStyle   = nullptr;
   QStyle *m_baseStyle    = nullptr;
+  QString m_decimSep     = ".";
   bool    m_blockEnabled = false;
 
   using QDoubleSpinBox::QDoubleSpinBox;

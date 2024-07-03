@@ -76,9 +76,12 @@ ContextAwareSpinBox::focusOutEvent(QFocusEvent *event)
 
 ContextAwareSpinBox::ContextAwareSpinBox(QWidget *parent) : QDoubleSpinBox(parent)
 {
+  QLocale curLocale;
+
   m_baseStyle  = lineEdit()->style();
   m_blockStyle = new BlockCursorStyle(m_baseStyle, this);
 
+  m_decimSep   = curLocale.decimalPoint();
   lineEdit()->setStyle(m_blockStyle);
 }
 
@@ -94,7 +97,7 @@ ContextAwareSpinBox::decimalLength() const
   int textLen = static_cast<int>(lineEdit()->text().size());
 
   QString numberText = lineEdit()->text().mid(prefixLen, textLen - prefixLen - suffixLen);
-  int decPos = numberText.indexOf('.');
+  int decPos = numberText.indexOf(m_decimSep);
 
   if (decPos >= 0)
     return numberText.size() - decPos;
