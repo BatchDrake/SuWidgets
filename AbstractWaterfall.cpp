@@ -1650,6 +1650,7 @@ void AbstractWaterfall::resetHorizontalZoom(void)
 {
   setFftCenterFreq(0);
   setSpanFreq(static_cast<qint64>(m_SampleFreq));
+  m_PeakHoldValid = false;
   emit newZoomLevel(1);
 }
 
