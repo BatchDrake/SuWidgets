@@ -98,8 +98,8 @@ Constellation::drawAxes(void)
     auto states = 1 << this->bits;
 
     SUCOMPLEX angle = 2 * M_PI / states;
-    SUCOMPLEX delta = SU_C_EXP(I * angle);
-    SUCOMPLEX curr = SU_C_EXP(I * .5f * angle);
+    SUCOMPLEX delta = SU_C_EXP(SU_I * angle);
+    SUCOMPLEX curr = SU_C_EXP(SU_I * .5f * angle);
 
     for (int i = 0; i < states; ++i) {
       this->drawMarkerAt(painter, SU_C_REAL(curr), SU_C_IMAG(curr));

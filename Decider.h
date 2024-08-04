@@ -27,6 +27,11 @@
 #include <cstdint>
 #include <vector>
 
+// Qt 6 broke something
+#ifdef I
+#  undef I
+#endif
+
 typedef uint8_t Symbol;
 
 #define SUWIDGETS_DETECT_ARGUMENT(dest, orig) \

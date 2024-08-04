@@ -344,11 +344,19 @@ void
 LCD::mousePressEvent(QMouseEvent *ev)
 {
   if (this->haveLockRect)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (this->lockRect.contains(ev->position()))
+#else
     if (this->lockRect.contains(ev->x(), ev->y()))
+#endif
       this->setLocked(!this->isLocked());
 
   if (this->glyphWidth > 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    this->selectDigit((this->width - ev->position().x()) / this->glyphWidth);
+#else
     this->selectDigit((this->width - ev->x()) / this->glyphWidth);
+#endif
 }
 
 void
@@ -389,9 +397,16 @@ LCD::wheelEvent(QWheelEvent *ev)
 #else
     int x = ev->x();
 #endif // QT_VERSION
-    int amount = ev->angleDelta().y() > 0 ? 1 : -1;
+
+    // accumulate small wheel events up to a step
+    cumWheelDelta += ev->angleDelta().y();
+    int numSteps = cumWheelDelta / (8*15);
+    if (abs(numSteps) == 0)
+        return;
+    cumWheelDelta = 0;
+
     int digit = (this->width - x) / this->glyphWidth;
-    this->scrollDigit(digit, amount);
+    this->scrollDigit(digit, numSteps > 0 ? 1 : -1);
     ev->accept();
   }
 }
@@ -413,7 +428,11 @@ LCD::mouseMoveEvent(QMouseEvent *event)
   }
 
   if (rect.contains(event->pos()))
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    digit = (this->width - event->position().x()) / this->glyphWidth;
+#else
     digit = (this->width - event->x()) / this->glyphWidth;
+#endif
 
   if (digit != this->hoverDigit) {
     this->hoverDigit = digit;

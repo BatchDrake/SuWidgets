@@ -47,6 +47,8 @@ TimeSpinBox::TimeSpinBox(QWidget *parent) :
   this->clearUnits();
   this->addBasicTimeUnits();
 
+  ui->valueSpin->setKeyboardTracking(false);
+
   this->connectAll();
 }
 

@@ -97,8 +97,8 @@ Transition::drawAxes(void)
     auto states = 1 << this->bits;
 
     SUCOMPLEX angle = 2 * M_PI / states;
-    SUCOMPLEX delta = SU_C_EXP(I * angle);
-    SUCOMPLEX curr = SU_C_EXP(I * .5f * angle);
+    SUCOMPLEX delta = SU_C_EXP(SU_I * angle);
+    SUCOMPLEX curr = SU_C_EXP(SU_I * .5f * angle);
 
     for (int i = 0; i < states; ++i) {
       this->drawMarkerAt(painter, SU_C_REAL(curr), SU_C_IMAG(curr));
@@ -128,7 +128,7 @@ Transition::drawTransition(void)
     float alphaK;
 
     // Yay more Cobol
-    step = I * static_cast<SUCOMPLEX>(M_PI) / static_cast<SUFLOAT>(states);
+    step = SU_I * static_cast<SUCOMPLEX>(M_PI) / static_cast<SUFLOAT>(states);
     omega = 2.f * step;
 
     if (transMtxLen != this->transMtx.size())

@@ -30,7 +30,7 @@
     <number>0</number>
    </property>
    <item row="0" column="0">
-    <widget class="QDoubleSpinBox" name="frequencySpin">
+    <widget class="ContextAwareSpinBox" name="frequencySpin">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
        <horstretch>0</horstretch>
@@ -49,7 +49,7 @@
       <enum>QAbstractSpinBox::UpDownArrows</enum>
      </property>
      <property name="showGroupSeparator" stdset="0">
-      <bool>true</bool>
+      <bool>false</bool>
      </property>
      <property name="suffix">
       <string> MHz</string>
@@ -72,12 +72,18 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>16777215</width>
+       <width>24</width>
        <height>16777215</height>
       </size>
      </property>
+     <property name="font">
+      <font>
+       <pointsize>9</pointsize>
+       <bold>false</bold>
+      </font>
+     </property>
      <property name="text">
-      <string>&lt;</string>
+      <string>×</string>
      </property>
     </widget>
    </item>
@@ -91,15 +97,21 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>16777215</width>
+       <width>24</width>
        <height>16777215</height>
       </size>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>9</pointsize>
+       <bold>false</bold>
+      </font>
      </property>
      <property name="autoFillBackground">
       <bool>false</bool>
      </property>
      <property name="text">
-      <string>&gt;</string>
+      <string>÷</string>
      </property>
      <property name="flat">
       <bool>false</bool>
@@ -108,6 +120,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ContextAwareSpinBox</class>
+   <extends>QDoubleSpinBox</extends>
+   <header>ContextAwareSpinBox.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

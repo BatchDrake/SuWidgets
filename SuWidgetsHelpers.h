@@ -26,11 +26,33 @@
 #include "Version.h"
 #include <cmath>
 
+#ifdef I
+#  undef I
+#endif // I
+
 class QWidget;
 class QLayout;
 
 #define SUWIDGETS_DEFAULT_PRECISION 3
 #define SCAST(type, value) static_cast<type>(value)
+#define RCAST(type, value) reinterpret_cast<type>(value)
+
+#define BLOCKSIG_BEGIN(object)                   \
+  do {                                           \
+    QObject *obj = object;                       \
+    bool blocked = (object)->blockSignals(true)
+
+#define BLOCKSIG_END()                           \
+    obj->blockSignals(blocked);                  \
+  } while (false)
+
+#define BLOCKSIG(object, op)                     \
+  do {                                           \
+    bool blocked = (object)->blockSignals(true); \
+    (object)->op;                                \
+    (object)->blockSignals(blocked);             \
+  } while (false)
+
 
 class SuWidgetsHelpers {
 
@@ -47,6 +69,7 @@ class SuWidgetsHelpers {
       SUSCOUNT count = 0;
     };
 
+    static QString formatPowerOf10(qreal value);
     static QString formatBinaryQuantity(qint64 value, QString units = "B");
     static int getWidgetTextWidth(const QWidget *widget, QString const &text);
     static QLayout *findParentLayout(const QWidget *);

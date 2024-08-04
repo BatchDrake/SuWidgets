@@ -21,6 +21,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QColormap>
+#include <QApplication>
 #include <SuWidgetsHelpers.h>
 #include <assert.h>
 
@@ -28,99 +29,127 @@
 void
 WaveBuffer::operator=(const WaveBuffer &prev)
 {
-  this->view      = prev.view;
-  this->ownBuffer = prev.ownBuffer;
-  this->loan      = prev.loan;
+  m_view      = prev.m_view;
+  m_ownBuffer = prev.m_ownBuffer;
+  m_loan      = prev.m_loan;
+  m_ro        = prev.m_ro;
 
-  if (!this->isLoan())
-    this->buffer = &this->ownBuffer;
+  m_ro_data   = prev.m_ro_data;
+  m_ro_size   = prev.m_ro_size;
+
+  if (!isLoan())
+    m_buffer = &m_ownBuffer;
   else
-    this->buffer = prev.buffer;
+    m_buffer = prev.m_buffer;
 }
 
+// Constructor by allocation of new buffer
 WaveBuffer::WaveBuffer(WaveView *view)
 {
-  this->view   = view;
-  this->buffer = &this->ownBuffer;
-  this->loan   = false;
+  m_view   = view;
+  m_buffer = &m_ownBuffer;
+  m_loan   = false;
+  m_ro     = false;
 
-  assert(this->isLoan() || this->buffer == &this->ownBuffer);
+  assert(isLoan() || m_buffer == &m_ownBuffer);
 
-  if (view != nullptr)
-    this->view->setBuffer(this->buffer);
+  updateBuffer();
 }
 
+// Constructor by loan (read / write)
 WaveBuffer::WaveBuffer(WaveView *view, const std::vector<SUCOMPLEX> *vec)
 {
-  this->view = view;
-  this->loan = true;
-  this->buffer = vec;
+  m_view   = view;
+  m_loan   = true;
+  m_ro     = false;
+  m_buffer = vec;
 
-  if (view != nullptr)
-    this->view->setBuffer(this->buffer);
+  updateBuffer();
+}
+
+// Constructor by loan (read only)
+WaveBuffer::WaveBuffer(WaveView *view, const SUCOMPLEX *data, size_t size)
+{
+  m_view    = view;
+  m_buffer  = nullptr;
+  m_loan    = true;
+  m_ro      = true;
+
+  m_ro_data = data;
+  m_ro_size = size;
+
+  updateBuffer();
 }
 
 bool
 WaveBuffer::feed(SUCOMPLEX val)
 {
-  if (this->loan)
+  if (m_loan)
     return false;
 
-  this->ownBuffer.push_back(val);
+  m_ownBuffer.push_back(val);
 
-  if (view != nullptr)
-    this->view->refreshBuffer(&ownBuffer);
+  if (m_view != nullptr)
+    m_view->refreshBuffer(&m_ownBuffer);
 
   return true;
 }
 
 void
-WaveBuffer::rebuildViews(void)
+WaveBuffer::rebuildViews()
 {
-  if (this->view != nullptr)
-    this->view->refreshBuffer(this->buffer);
+  refreshBufferCache();
+
+  if (m_view != nullptr)
+    m_view->refreshBuffer(m_ro_data, m_ro_size);
 }
 
 bool
 WaveBuffer::feed(std::vector<SUCOMPLEX> const &vec)
 {
-  if (this->loan)
+  if (m_loan)
     return false;
 
-  this->ownBuffer.insert(this->ownBuffer.end(), vec.begin(), vec.end());
+  m_ownBuffer.insert(m_ownBuffer.end(), vec.begin(), vec.end());
+  refreshBufferCache();
 
-  if (view != nullptr)
-    this->view->refreshBuffer(&ownBuffer);
+  if (m_view != nullptr)
+    m_view->refreshBuffer(&m_ownBuffer);
 
   return true;
 }
 
 size_t
-WaveBuffer::length(void) const
+WaveBuffer::length() const
 {
-  assert(this->isLoan() || this->buffer == &this->ownBuffer);
-  return this->buffer->size();
+  assert(isLoan() || m_buffer == &m_ownBuffer);
+
+  return m_ro ? m_ro_size : m_buffer->size();
 }
 
 const SUCOMPLEX *
-WaveBuffer::data(void) const
+WaveBuffer::data() const
 {
-  assert(this->isLoan() || this->buffer == &this->ownBuffer);
-  return this->buffer->data();
+  assert(isLoan() || m_buffer == &m_ownBuffer);
+
+  return m_ro ? m_ro_data : m_buffer->data();
 }
 
 const std::vector<SUCOMPLEX> *
-WaveBuffer::loanedBuffer(void) const
+WaveBuffer::loanedBuffer() const
 {
-  if (!this->loan)
+  if (!m_loan)
     return nullptr;
 
-  return this->buffer;
+  if (m_ro)
+    return nullptr;
+
+  return m_buffer;
 }
 
 ////////////////////////// Geometry methods ////////////////////////////////////
 void
-Waveform::recalculateDisplayData(void)
+Waveform::recalculateDisplayData()
 {
   qreal range;
   qreal divLen;
@@ -132,7 +161,7 @@ Waveform::recalculateDisplayData(void)
   //  7.141 ... 2 ...  3. Only 3 divs if rounding to the 1e-3.
   //  7.141 ...15 ... 20 ... 25 ... 30. 5 divs if rounding to de 5e-4!
 
-  range = this->view.getViewInterval();
+  range = m_view.getViewInterval();
   divLen = pow(10, std::floor(std::log10(range)));
 
   // We progressively divide the division length, until we find a good match
@@ -147,10 +176,10 @@ Waveform::recalculateDisplayData(void)
     }
   }
 
-  this->hDivSamples = divLen * this->view.getSampleRate();
+  m_hDivSamples = divLen * m_view.getSampleRate();
 
   // Same procedure for vertical axis
-  range = this->view.getViewRange();
+  range = m_view.getViewRange();
   divLen = pow(10, std::floor(std::log10(range)));
   if (range / divLen < 5) {
     divLen /= 2;
@@ -163,23 +192,29 @@ Waveform::recalculateDisplayData(void)
   }
 
   // Conversion not necessary.
-  this->vDivUnits = divLen;
+  m_vDivUnits = divLen;
 }
 
 void
-Waveform::zoomHorizontalReset(void)
+Waveform::safeCancel()
 {
-  if (this->haveGeometry) {
-    qint64 length = SCAST(qint64, this->data.length());
+  m_view.safeCancel();
+}
+
+void
+Waveform::zoomHorizontalReset()
+{
+  if (m_haveGeometry) {
+    qint64 length = SCAST(qint64, m_data.length());
 
     if (length > 0)
-      this->zoomHorizontal(SCAST(qint64, 0), length - 1);
-    else if (this->getSampleRate() > 0)
-      this->zoomHorizontal(
+      zoomHorizontal(SCAST(qint64, 0), length - 1);
+    else if (getSampleRate() > 0)
+      zoomHorizontal(
           SCAST(qint64, 0),
-          SCAST(qint64, this->getSampleRate()));
+          SCAST(qint64, getSampleRate()));
     else
-      this->zoomHorizontal(SCAST(qint64, 0), SCAST(qint64, 0));
+      zoomHorizontal(SCAST(qint64, 0), SCAST(qint64, 0));
   }
 }
 
@@ -188,232 +223,230 @@ Waveform::zoomHorizontal(qint64 x, qreal amount)
 {
   qreal newRange;
   qreal fixedSamp;
-  qreal relPoint = static_cast<qreal>(x) / this->geometry.width();
+  qreal relPoint = static_cast<qreal>(x - m_valueTextWidth) / (m_view.width());
 
   //
   // This means that position at x remains the same, while the others shrink
   // or stretch accordingly
   //
 
-  fixedSamp = std::round(this->px2samp(x));
-  newRange  = std::ceil(amount * this->view.getViewSampleInterval());
+  fixedSamp = std::round(px2samp(x));
+  newRange  = std::ceil(amount * m_view.getViewSampleInterval());
 
-  this->zoomHorizontal(
-        static_cast<qint64>(std::floor(fixedSamp - relPoint * newRange)),
-        static_cast<qint64>(std::ceil(fixedSamp + (1.0 - relPoint) * newRange)));
+  zoomHorizontal(
+        static_cast<qint64>(std::round(fixedSamp - relPoint * newRange)),
+        static_cast<qint64>(std::round(fixedSamp + (1.0 - relPoint) * newRange)));
 }
 
 void
 Waveform::zoomHorizontal(qreal tStart, qreal tEnd)
 {
-  this->zoomHorizontal(
-        static_cast<qint64>(this->t2samp(tStart)),
-        static_cast<qint64>(this->t2samp(tEnd)));
+  zoomHorizontal(
+        static_cast<qint64>(t2samp(tStart)),
+        static_cast<qint64>(t2samp(tEnd)));
 }
 
 void
 Waveform::zoomHorizontal(qint64 start, qint64 end)
 {
-  qint64 currStart = this->getSampleStart();
-  qint64 currEnd   = this->getSampleEnd();
+  qint64 currStart = getSampleStart();
+  qint64 currEnd   = getSampleEnd();
 
   if (start != currStart || end != currEnd) {
-    this->view.setHorizontalZoom(start, end);
-    if (this->hSelection)
-      this->selUpdated = false;
-    this->axesDrawn = false;
-    this->recalculateDisplayData();
+    m_view.setHorizontalZoom(start, end);
+    if (m_hSelection)
+      m_selUpdated = false;
+    m_axesDrawn = false;
+    recalculateDisplayData();
     emit horizontalRangeChanged(start, end);
   }
 }
 
 void
-Waveform::saveHorizontal(void)
+Waveform::saveHorizontal()
 {
-  this->savedStart = this->getSampleStart();
-  this->savedEnd   = this->getSampleEnd();
+  m_savedStart = getSampleStart();
+  m_savedEnd   = getSampleEnd();
 }
 
 void
 Waveform::scrollHorizontal(qint64 orig, qint64 to)
 {
-  this->scrollHorizontal(to - orig);
+  scrollHorizontal(to - orig);
 }
 
 void
 Waveform::scrollHorizontal(qint64 delta)
 {
-  this->zoomHorizontal(
-        this->savedStart - static_cast<qint64>(delta * this->getSamplesPerPixel()),
-        this->savedEnd   - static_cast<qint64>(delta * this->getSamplesPerPixel()));
+  zoomHorizontal(
+        m_savedStart - static_cast<qint64>(delta * getSamplesPerPixel()),
+        m_savedEnd   - static_cast<qint64>(delta * getSamplesPerPixel()));
 }
 
 void
 Waveform::selectHorizontal(qreal orig, qreal to)
 {
-  this->hSelection = true;
+  m_hSelection = true;
 
   if (orig < to) {
-    this->hSelStart = orig;
-    this->hSelEnd   = to;
+    m_hSelStart = orig;
+    m_hSelEnd   = to;
   } else if (to < orig) {
-    this->hSelStart = to;
-    this->hSelEnd   = orig;
+    m_hSelStart = to;
+    m_hSelEnd   = orig;
   } else {
-    this->hSelection = false;
+    m_hSelection = false;
   }
 
-  this->selUpdated = false;
+  m_selUpdated = false;
 
-  emit horizontalSelectionChanged(this->hSelStart, this->hSelEnd);
+  emit horizontalSelectionChanged(m_hSelStart, m_hSelEnd);
 }
 
 bool
-Waveform::getHorizontalSelectionPresent(void) const
+Waveform::getHorizontalSelectionPresent() const
 {
-  return this->getDataLength() > 0 && this->hSelection;
+  return getDataLength() > 0 && m_hSelection;
 }
 
 qreal
-Waveform::getHorizontalSelectionStart(void) const
+Waveform::getHorizontalSelectionStart() const
 {
-  if (!this->getHorizontalSelectionPresent())
+  if (!getHorizontalSelectionPresent())
     return .0;
   else
-    return qBound(.0, this->hSelStart, SCAST(qreal, this->getDataLength() - 1));
+    return qBound(.0, m_hSelStart, SCAST(qreal, getDataLength() - 1));
 }
 
 qreal
-Waveform::getHorizontalSelectionEnd(void) const
+Waveform::getHorizontalSelectionEnd() const
 {
-  if (!this->getHorizontalSelectionPresent())
+  if (!getHorizontalSelectionPresent())
     return .0;
   else
-    return qBound(.0, this->hSelEnd, SCAST(qreal, this->getDataLength() - 1));
+    return qBound(.0, m_hSelEnd, SCAST(qreal, getDataLength() - 1));
 }
 
 void
 Waveform::setAutoScroll(bool value)
 {
-  this->autoScroll = value;
-  this->refreshData();
+  m_autoScroll = value;
+  refreshData();
 }
 
 void
-Waveform::zoomVerticalReset(void)
+Waveform::zoomVerticalReset()
 {
-  this->zoomVertical(-1., 1.);
+  zoomVertical(-1., 1.);
 }
 
 void
 Waveform::zoomVertical(qint64 y, qreal amount)
 {
-  qreal val = this->px2value(y);
+  qreal val = px2value(y);
 
-  this->zoomVertical(
-        (this->getMin() - val) * amount + val,
-        (this->getMax() - val) * amount + val);
+  zoomVertical(
+        (getMin() - val) * amount + val,
+        (getMax() - val) * amount + val);
 }
 
 void
 Waveform::zoomVertical(qreal min, qreal max)
 {
-  this->view.setVerticalZoom(min, max);
-  this->axesDrawn = false;
+  m_view.setVerticalZoom(min, max);
+  m_axesDrawn = false;
 
-  this->recalculateDisplayData();
+  recalculateDisplayData();
   emit verticalRangeChanged(min, max);
 }
 
 void
-Waveform::saveVertical(void)
+Waveform::saveVertical()
 {
-  this->savedMin = this->getMin();
-  this->savedMax = this->getMax();
+  m_savedMin = getMin();
+  m_savedMax = getMax();
 }
 
 void
 Waveform::scrollVertical(qint64 orig, qint64 to)
 {
-  this->scrollVertical(to - orig);
+  scrollVertical(to - orig);
 }
 
 void
 Waveform::scrollVertical(qint64 delta)
 {
-  this->zoomVertical(
-        this->savedMin + delta * this->getUnitsPerPx(),
-        this->savedMax + delta * this->getUnitsPerPx());
+  zoomVertical(
+        m_savedMin + delta * getUnitsPerPx(),
+        m_savedMax + delta * getUnitsPerPx());
 }
 
 void
 Waveform::selectVertical(qint64 orig, qint64 to)
 {
-  this->vSelection = true;
+  m_vSelection = true;
 
   if (orig < to) {
-    this->vSelStart = orig;
-    this->vSelEnd   = to;
+    m_vSelStart = orig;
+    m_vSelEnd   = to;
   } else if (to < orig) {
-    this->vSelStart = to;
-    this->vSelEnd   = orig;
+    m_vSelStart = to;
+    m_vSelEnd   = orig;
   } else {
-    this->vSelection = false;
+    m_vSelection = false;
   }
 
-  this->selUpdated = false;
+  m_selUpdated = false;
 
-  emit verticalSelectionChanged(this->vSelStart, this->vSelEnd);
+  emit verticalSelectionChanged(m_vSelStart, m_vSelEnd);
 }
 
 bool
-Waveform::getVerticalSelectionPresent(void) const
+Waveform::getVerticalSelectionPresent() const
 {
-  return this->vSelection;
+  return m_vSelection;
 }
 
 qreal
-Waveform::getVerticalSelectionStart(void) const
+Waveform::getVerticalSelectionStart() const
 {
-  return this->vSelStart;
+  return m_vSelStart;
 }
 
 qreal
-Waveform::getVerticalSelectionEnd(void) const
+Waveform::getVerticalSelectionEnd() const
 {
-  return this->vSelEnd;
+  return m_vSelEnd;
 }
 
 void
-Waveform::fitToEnvelope(void)
+Waveform::fitToEnvelope()
 {
-  qreal envelope = this->view.getEnvelope();
+  qreal envelope = m_view.getEnvelope();
 
   if (envelope > 0)
-    this->zoomVertical(-envelope, envelope);
-  else
-    this->zoomVerticalReset();
+    zoomVertical(-envelope, envelope);
 }
 
 void
 Waveform::setAutoFitToEnvelope(bool autoFit)
 {
-  this->autoFitToEnvelope = autoFit;
+  m_autoFitToEnvelope = autoFit;
 }
 
 
 void
-Waveform::resetSelection(void)
+Waveform::resetSelection()
 {
-  this->hSelection = this->vSelection = false;
-  this->selUpdated = false;
+  m_hSelection = m_vSelection = false;
+  m_selUpdated = false;
 }
 
 void
 Waveform::setPeriodicSelection(bool val)
 {
-  this->periodicSelection = val;
-  this->selUpdated = false;
+  m_periodicSelection = val;
+  m_selUpdated = false;
 }
 
 ///////////////////////////////// Events ///////////////////////////////////////
@@ -421,53 +454,113 @@ void
 Waveform::mouseMoveEvent(QMouseEvent *event)
 {
   // Emit mouseMove
-  this->haveCursor = true;
-  this->currMouseX = event->x();
+  m_haveCursor = true;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  m_currMouseX = event->position().x();
+#else
+  m_currMouseX = event->x();
+#endif
 
-  if (this->frequencyDragging)
-    this->scrollHorizontal(this->clickX, event->x());
-  else if (this->valueDragging)
-    this->scrollVertical(this->clickY, event->y());
-  else if (this->hSelDragging)
-    this->selectHorizontal(
-          static_cast<qint64>(this->px2samp(this->clickX)),
-          static_cast<qint64>(this->px2samp(event->x())));
+  if (m_frequencyDragging)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    scrollHorizontal(m_clickX, event->position().x());
+#else
+    scrollHorizontal(m_clickX, event->x());
+#endif
+  else if (m_valueDragging)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    scrollVertical(m_clickY, event->position().y());
+#else
+    scrollVertical(m_clickY, event->y());
+#endif
+  else if (m_hSelDragging)
+    selectHorizontal(
+          static_cast<qint64>(px2samp(samp2px(m_clickSample))),
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+          static_cast<qint64>(px2samp(event->position().x())));
+#else
+          static_cast<qint64>(px2samp(event->x())));
+#endif
 
-  emit hoverTime(this->px2t(this->currMouseX));
-  this->invalidate();
+  emit hoverTime(px2t(m_currMouseX));
+  invalidate();
 }
 
 void
 Waveform::mousePressEvent(QMouseEvent *event)
 {
   if (event->button() == Qt::RightButton) {
-    this->zoomHorizontalReset();
-    this->invalidateHard();
+    zoomHorizontalReset();
+    invalidateHard();
   } else {
     // Save selection
-    this->saveHorizontal();
-    this->saveVertical();
+    saveHorizontal();
+    saveVertical();
 
-    this->clickX = event->x();
-    this->clickY = event->y();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    m_clickX = event->position().x();
+    m_clickY = event->position().y();
+#else
+    m_clickX = event->x();
+    m_clickY = event->y();
+#endif
 
+    m_clickSample = px2samp(m_clickX);
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (event->button() == Qt::MiddleButton
+#else
     if (event->button() == Qt::MidButton
-        || this->clickY >= this->geometry.height() - this->frequencyTextHeight)
-      this->frequencyDragging = true;
-    else if (this->clickX < this->valueTextWidth)
-      this->valueDragging = true;
+#endif // QT_VERSION
+        || m_clickY >= m_geometry.height() - m_frequencyTextHeight)
+      m_frequencyDragging = true;
+    else if (m_clickX < m_valueTextWidth)
+      m_valueDragging = !m_autoFitToEnvelope && true;
     else
-      this->hSelDragging = true;
+      m_hSelDragging = true;
   }
 }
 
 void
 Waveform::mouseReleaseEvent(QMouseEvent *event)
 {
-  this->mouseMoveEvent(event);
-  this->frequencyDragging = false;
-  this->valueDragging     = false;
-  this->hSelDragging      = false;
+  mouseMoveEvent(event);
+  m_frequencyDragging = false;
+  m_valueDragging     = false;
+  m_hSelDragging      = false;
+}
+
+void
+Waveform::mouseDoubleClickEvent(QMouseEvent *event)
+{
+  int x = event->pos().x();
+  int y = event->pos().y();
+  qreal t = px2samp(x);
+  qreal v = px2value(y);
+
+  selectHorizontal(0, 0);
+
+  emit pointClicked(t, v, event->modifiers());
+}
+
+bool
+Waveform::event(QEvent *event)
+{
+  if (event->type() == QEvent::ToolTip) {
+    QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
+
+    int x = helpEvent->globalPos().x();
+    int y = helpEvent->globalPos().y();
+
+    qreal t = px2t(helpEvent->pos().x());
+    qreal v = px2value(helpEvent->pos().y());
+
+    emit toolTipAt(x, y, t, v);
+
+    return true;
+  }
+
+  return QWidget::event(event);
 }
 
 void
@@ -486,86 +579,114 @@ Waveform::wheelEvent(QWheelEvent *event)
   // delta value that is so big that jumps straight to the maximum
   // zoom level. The causes for this are yet to be determined.
 
-  if (delta >= -WAVEFORM_DELTA_LIMIT
-      && delta <= WAVEFORM_DELTA_LIMIT) {
+  if (delta >= -WAVEFORM_DELTA_LIMIT && delta <= WAVEFORM_DELTA_LIMIT) {
     qreal amount = std::pow(
           static_cast<qreal>(1.1),
           static_cast<qreal>(-delta / 120.));
-    if (x < this->valueTextWidth)
-      this->zoomVertical(static_cast<qint64>(y), amount);
-    else
-      this->zoomHorizontal(static_cast<qint64>(x), amount);
+    if (x < m_valueTextWidth) {
+      if (!m_autoFitToEnvelope)
+        zoomVertical(static_cast<qint64>(y), amount);
+    } else {
+      zoomHorizontal(static_cast<qint64>(x), amount);
+    }
 
-    this->invalidate();
+    invalidate();
   }
 }
 
 void
 Waveform::leaveEvent(QEvent *)
 {
-  this->haveCursor = false;
-  this->invalidate();
+  m_haveCursor = false;
+  invalidate();
 }
 
 //////////////////////////////// Drawing methods ///////////////////////////////////
 void
 Waveform::overlaySelection(QPainter &p)
 {
-  if (this->hSelection) {
-    // qreal selLen = this->hSelEnd - this->hSelStart;
-    int xStart = SCAST(int, this->samp2px(this->hSelStart));
-    int xEnd   = SCAST(int, this->samp2px(this->hSelEnd));
+  if (m_hSelection) {
+    // qreal selLen = hSelEnd - hSelStart;
+    int xStart = SCAST(int, samp2px(m_hSelStart));
+    int xEnd   = SCAST(int, samp2px(m_hSelEnd));
 
     QRect rect1(
           0,
           0,
           xStart,
-          this->geometry.height());
+          m_geometry.height());
 
     QRect rect2(
           xEnd,
           0,
-          this->geometry.width() - xEnd,
-          this->geometry.height());
+          m_geometry.width() - xEnd,
+          m_geometry.height());
 
-    if (rect1.x() < this->valueTextWidth)
-      rect1.setX(this->valueTextWidth);
+    if (rect1.x() < m_valueTextWidth)
+      rect1.setX(m_valueTextWidth);
 
-    if (rect1.right() >= this->geometry.width())
-      rect1.setRight(this->geometry.width() - 1);
+    if (rect1.right() >= m_geometry.width())
+      rect1.setRight(m_geometry.width() - 1);
 
-    if (rect2.x() < this->valueTextWidth)
-      rect2.setX(this->valueTextWidth);
+    if (rect2.x() < m_valueTextWidth)
+      rect2.setX(m_valueTextWidth);
 
-    if (rect2.right() >= this->geometry.width())
-      rect2.setRight(this->geometry.width() - 1);
+    if (rect2.right() >= m_geometry.width())
+      rect2.setRight(m_geometry.width() - 1);
 
 
     p.save();
     p.setOpacity(.5);
-    p.fillRect(rect1, this->selection);
-    p.fillRect(rect2, this->selection);
+    p.fillRect(rect1, m_selection);
+    p.fillRect(rect2, m_selection);
     p.restore();
   }
 }
 
 void
-Waveform::overlayMarkers(QPainter &p)
+Waveform::paintTriangle(
+    QPainter &p,
+    int x,
+    int y,
+    int orientation,
+    QColor const &color,
+    int side)
 {
-  if (this->markerList.size() > 0) {
+  QPainterPath path;
+
+  p.save();
+  p.translate(x, y);
+
+  if (orientation > 0)
+    p.rotate(orientation * 90);
+
+  path.moveTo(2 * side,  0);
+  path.lineTo( 0,    -side);
+  path.lineTo( 0,    +side);
+  path.lineTo(2 * side,  0);
+
+  p.setPen(Qt::NoPen);
+  p.fillPath(path, QBrush(color));
+
+  p.restore();
+}
+void
+Waveform::overlayPoints(QPainter &p)
+{
+  if (m_pointMap.size() > 0) {
     QFont font;
     QFontMetrics metrics(font);
-    QPen pen(this->text);
     QRect rect;
+    int orientation;
 
-    p.setPen(pen);
+    QMap<qreal, WavePoint>::iterator begin =
+        m_pointMap.lowerBound(samp2t(getSampleStart()));
+    QMap<qreal, WavePoint>::iterator end   =
+        m_pointMap.upperBound(samp2t(getSampleEnd()));
 
-    for (auto m = this->markerList.begin();
-         m != this->markerList.end();
-         ++m)
-    {
+    for (auto m = begin; m != end; ++m) {
       int tw;
-      qint64 px = SCAST(qint64, this->samp2px(m->x));
+      qint64 xpx = SCAST(qint64, t2px(m->t));
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
       tw = metrics.horizontalAdvance(m->string);
@@ -573,14 +694,97 @@ Waveform::overlayMarkers(QPainter &p)
       tw = metrics.width(m->string);
 #endif // QT_VERSION_CHECK
 
-      if (px >= 0 && px < this->geometry.width() - tw / 2) {
-        qreal y = m->x < this->getDataLength()
-            ? this->cast(this->getData()[m->x])
+      if (xpx >= 0 && xpx < m_geometry.width() - tw / 2) {
+        qreal y = m_view.isRealComponent()
+            ? SU_C_REAL(m->point)
+            : SU_C_IMAG(m->point);
+        int preferredYpx = value2px(y);
+        int ypx = qBound(0, preferredYpx, m_geometry.height() - metrics.height());
+        int angle;
+        int extra;
+        int gap;
+
+        if (preferredYpx < ypx) {
+          orientation = 3;
+          angle       = 45;
+          extra       = 10;
+          gap         = 10;
+        } else if (preferredYpx > ypx) {
+          angle       = -45;
+          orientation = 1;
+          extra       = -10;
+          gap         = 10;
+        } else {
+          angle       = m->angle;
+          orientation = 0;
+          extra       = 0;
+          gap         = 0;
+        }
+
+        p.save();
+          if (orientation == 0) {
+            p.setBrush(m->color);
+            p.setPen(Qt::NoPen);
+            p.drawEllipse(QPoint(xpx, ypx), WAVEFORM_POINT_RADIUS, WAVEFORM_POINT_RADIUS);
+          } else {
+            paintTriangle(p, xpx, ypx + extra, orientation, m->color);
+          }
+        p.restore();
+
+        if (m->string.size() > 0) {
+          p.save();
+            p.setPen(m->color);
+            p.translate(xpx, ypx);
+
+            if (angle != 0)
+              p.rotate(angle);
+
+            rect.setRect(
+                WAVEFORM_POINT_RADIUS + WAVEFORM_POINT_SPACING + gap,
+                -metrics.height() / 2,
+                tw,
+                metrics.height());
+            p.setOpacity(1);
+            p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom,m->string);
+          p.restore();
+        }
+      }
+    }
+  }
+}
+
+void
+Waveform::overlayMarkers(QPainter &p)
+{
+  if (m_markerList.size() > 0) {
+    QFont font;
+    QFontMetrics metrics(font);
+    QPen pen(m_text);
+    QRect rect;
+
+    p.setPen(pen);
+
+    for (auto m = m_markerList.begin();
+         m != m_markerList.end();
+         ++m)
+    {
+      int tw;
+      qint64 px = SCAST(qint64, samp2px(m->x));
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      tw = metrics.horizontalAdvance(m->string);
+#else
+      tw = metrics.width(m->string);
+#endif // QT_VERSION_CHECK
+
+      if (px >= 0 && px < m_geometry.width() - tw / 2) {
+        qreal y = m->x < getDataLength()
+            ? cast(getData()[m->x])
             : 0;
-        int ypx = this->value2px(y) +
+        int ypx = value2px(y) +
             (m->below ? 2 : - metrics.height() - 2);
 
-        ypx = qBound(0, ypx, this->geometry.height() - metrics.height());
+        ypx = qBound(0, ypx, m_geometry.height() - metrics.height());
 
         rect.setRect(
               px - tw / 2,
@@ -597,12 +801,12 @@ Waveform::overlayMarkers(QPainter &p)
 void
 Waveform::overlayVCursors(QPainter &p)
 {
-  if (this->vCursorList.size() > 0) {
+  if (m_vCursorList.size() > 0) {
     int width = p.device()->width();
     QFont font;
     QFontMetrics metrics(font);
     QPen pen;
-    int x = this->valueTextWidth;
+    int x = m_valueTextWidth;
 
     p.save();
 
@@ -611,16 +815,13 @@ Waveform::overlayVCursors(QPainter &p)
 
     p.setOpacity(1);
 
-    for (auto c = this->vCursorList.begin();
-         c != this->vCursorList.end();
+    for (auto c = m_vCursorList.begin();
+         c != m_vCursorList.end();
          ++c) {
       QPainterPath path;
-      int y = SCAST(int, this->value2px(this->cast(c->level)));
+      int y = SCAST(int, value2px(cast(c->level)));
 
-      path.moveTo(x + 10, y);
-      path.lineTo(x, y - 5);
-      path.lineTo(x, y + 5);
-      path.lineTo(x + 10, y);
+      paintTriangle(p, x, y, 0, c->color);
 
       p.setPen(Qt::NoPen);
       p.fillPath(path, QBrush(c->color));
@@ -639,23 +840,21 @@ Waveform::overlayVCursors(QPainter &p)
 void
 Waveform::overlayACursors(QPainter &p)
 {
-  if (this->aCursorList.size() > 0) {
+  if (m_aCursorList.size() > 0) {
     QFont font;
     QFontMetrics metrics(font);
-    int x = this->valueTextWidth;
+    int x = m_valueTextWidth;
     int width = p.device()->width();
 
     p.save();
 
     p.setOpacity(1);
 
-    for (auto a = this->aCursorList.begin();
-         a != this->aCursorList.end();
-         ++a) {
+    for (auto a = m_aCursorList.begin(); a != m_aCursorList.end(); ++a) {
       QPainterPath path;
       QPen pen;
-      int y1 = SCAST(int, this->value2px(+a->amplitude));
-      int y2 = SCAST(int, this->value2px(-a->amplitude));
+      int y1 = SCAST(int, value2px(+a->amplitude));
+      int y2 = SCAST(int, value2px(-a->amplitude));
 
       pen.setWidth(1);
       pen.setColor(a->color);
@@ -671,78 +870,98 @@ Waveform::overlayACursors(QPainter &p)
 }
 
 void
-Waveform::drawWave(void)
+Waveform::drawWave()
 {
-  waveform.fill(Qt::transparent);
-  QPainter p(&this->waveform);
+  m_waveform.fill(Qt::transparent);
+  QPainter p(&m_waveform);
 
-  this->overlayACursors(p);
-  this->view.drawWave(p);
-  this->overlayMarkers(p);
-  this->overlayVCursors(p);
+  overlayACursors(p);
+  m_view.drawWave(p);
+  overlayMarkers(p);
+  overlayVCursors(p);
+  overlayPoints(p);
   p.end();
 }
 
-void
-Waveform::drawVerticalAxes(void)
+static inline int
+estimateTextWidth(QFontMetrics &metrics, QString label)
 {
-  QFont font;
-  QPainter p(&this->axesPixmap);
-  QFontMetrics metrics(font);
-  QRect rect;
-  QPen pen(this->axes);
-  qreal deltaT = this->view.getDeltaT();
-  int axis;
-  int px;
-
-  pen.setStyle(Qt::DotLine);
-  p.setPen(pen);
-  p.setFont(font);
-
-  this->frequencyTextHeight = metrics.height();
-
-  if (this->hDivSamples > 0) {
-    qreal rem = this->oX -
-        this->hDivSamples * std::floor(this->oX / this->hDivSamples);
-
-    // Draw axes
-    axis = static_cast<int>(std::floor(this->getSampleStart() / this->hDivSamples));
-
-    while (axis * this->hDivSamples <= this->getSampleEnd() + rem) {
-      px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
-
-      if (px > 0)
-        p.drawLine(px, 0, px, this->geometry.height() - 1);
-      ++axis;
-    }
-
-    // Draw labels
-    p.setPen(this->text);
-    axis = static_cast<int>(std::floor(this->getSampleStart() / this->hDivSamples));
-    while (axis * this->hDivSamples <= this->getSampleEnd() + rem) {
-      px = static_cast<int>(this->samp2px(axis * this->hDivSamples - rem));
-
-      if (px > 0) {
-        QString label;
-        int tw;
-
-        label = SuWidgetsHelpers::formatQuantityFromDelta(
-              (this->oX + axis * this->hDivSamples - rem) * deltaT,
-              this->hDivSamples * deltaT,
-              this->horizontalUnits);
-
+  int tw;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
         tw = metrics.horizontalAdvance(label);
 #else
         tw = metrics.width(label);
 #endif // QT_VERSION_CHECK
+  return tw;
+}
 
-        rect.setRect(
-              px - tw / 2,
-              this->geometry.height() - this->frequencyTextHeight,
-              tw,
-              this->frequencyTextHeight);
-        p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, label);
+void
+Waveform::drawVerticalAxes()
+{
+  QFont font;
+  QPainter p(&m_axesPixmap);
+  QFontMetrics metrics(font);
+  QRect rect;
+  QPen pen(m_axes);
+  qreal deltaT = m_view.getDeltaT();
+  int axis;
+  int px;
+  bool unixTime = m_horizontalUnits == "unix";
+  int previousLabel = -1;
+
+  pen.setStyle(Qt::DotLine);
+  p.setPen(pen);
+  p.setFont(font);
+
+  m_frequencyTextHeight = metrics.height();
+
+  if (m_hDivSamples > 0) {
+    qreal rem = m_oX -
+        m_hDivSamples * std::floor(m_oX / m_hDivSamples);
+
+    // Draw axes
+    axis = static_cast<int>(std::floor(getSampleStart() / m_hDivSamples));
+
+    while (axis * m_hDivSamples <= getSampleEnd() + rem) {
+      px = static_cast<int>(samp2px(axis * m_hDivSamples - rem));
+
+      if (px > 0)
+        p.drawLine(px, 0, px, m_geometry.height() - 1);
+      ++axis;
+    }
+
+    // Draw labels
+    p.setPen(m_text);
+    axis = static_cast<int>(std::floor(getSampleStart() / m_hDivSamples));
+    while (axis * m_hDivSamples <= getSampleEnd() + rem) {
+      px = static_cast<int>(samp2px(axis * m_hDivSamples - rem));
+
+      if (px > 0) {
+        QString label;
+        int tw;
+
+        if (unixTime)
+          label = SuWidgetsHelpers::formatQuantity(
+                (m_oX + axis * m_hDivSamples - rem) * deltaT + m_view.samp2t(0),
+                0,
+                m_horizontalUnits);
+        else
+          label = SuWidgetsHelpers::formatQuantityFromDelta(
+                (m_oX + axis * m_hDivSamples - rem) * deltaT,
+                m_hDivSamples * deltaT,
+                m_horizontalUnits);
+
+        tw = estimateTextWidth(metrics, label);
+
+        if (previousLabel == -1 || previousLabel < px - tw / 2) {
+          rect.setRect(
+                px - tw / 2,
+                m_geometry.height() - m_frequencyTextHeight,
+                tw,
+                m_frequencyTextHeight);
+          p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, label);
+          previousLabel = px + tw / 2;
+        }
       }
       ++axis;
     }
@@ -750,53 +969,58 @@ Waveform::drawVerticalAxes(void)
   p.end();
 }
 
+int
+Waveform::calcWaveViewWidth() const
+{
+  int viewWidth = width() - m_valueTextWidth;
+  if (viewWidth < m_valueTextWidth)
+    viewWidth = m_valueTextWidth;
+
+  return viewWidth;
+}
+
 void
-Waveform::drawHorizontalAxes(void)
+Waveform::drawHorizontalAxes()
 {
   QFont font;
-  QPainter p(&this->axesPixmap);
+  QPainter p(&m_axesPixmap);
   QFontMetrics metrics(font);
   QRect rect;
-  QPen pen(this->axes);
+  QPen pen(m_axes);
   int axis;
   int px;
 
   p.setPen(pen);
   p.setFont(font);
 
-  this->valueTextWidth = 0;
-  if (this->vDivUnits > 0) {
-    axis = static_cast<int>(std::floor(this->getMin() / this->vDivUnits));
+  if (m_vDivUnits > 0) {
+    axis = static_cast<int>(std::floor(getMin() / m_vDivUnits));
 
-    while (axis * this->vDivUnits <= this->getMax()) {
+    while (axis * m_vDivUnits <= getMax()) {
       pen.setStyle(axis == 0 ? Qt::SolidLine : Qt::DotLine);
       p.setPen(pen);
-      px = static_cast<int>(this->value2px(axis * this->vDivUnits));
+      px = static_cast<int>(value2px(axis * m_vDivUnits));
 
       if (px > 0)
-        p.drawLine(0, px, this->geometry.width() - 1, px);
+        p.drawLine(0, px, m_geometry.width() - 1, px);
       ++axis;
     }
 
-    p.setPen(this->text);
-    axis = static_cast<int>(std::floor(this->getMin() / this->vDivUnits));
-    while (axis * this->vDivUnits <= this->getMax()) {
-      px = static_cast<int>(this->value2px(axis * this->vDivUnits));
+    p.setPen(m_text);
+    axis = static_cast<int>(std::floor(getMin() / m_vDivUnits));
+    while (axis * m_vDivUnits <= getMax()) {
+      px = static_cast<int>(value2px(axis * m_vDivUnits));
 
       if (px > 0) {
         QString label;
         int tw;
 
         label = SuWidgetsHelpers::formatQuantityFromDelta(
-              axis * this->vDivUnits,
-              this->vDivUnits,
-              this->verticalUnits);
+              axis * m_vDivUnits,
+              m_vDivUnits,
+              m_verticalUnits);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-        tw = metrics.horizontalAdvance(label);
-#else
-        tw = metrics.width(label);
-#endif // QT_VERSION_CHECK
+        tw = estimateTextWidth(metrics, label);
 
         rect.setRect(
               0,
@@ -804,12 +1028,7 @@ Waveform::drawHorizontalAxes(void)
               tw,
               metrics.height());
 
-        if (tw > this->valueTextWidth) {
-          this->valueTextWidth = tw;
-          this->view.setLeftMargin(tw);
-        }
-
-        p.fillRect(rect, this->background);
+        p.fillRect(rect, m_background);
         p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, label);
       }
       ++axis;
@@ -820,103 +1039,144 @@ Waveform::drawHorizontalAxes(void)
 }
 
 void
-Waveform::drawAxes(void)
+Waveform::drawAxes()
 {
-  this->axesPixmap.fill(Qt::transparent);
-  this->drawHorizontalAxes();
-  this->drawVerticalAxes();
+  m_axesPixmap.fill(Qt::transparent);
+  drawHorizontalAxes();
+  drawVerticalAxes();
 }
 
 void
 Waveform::overlaySelectionMarkes(QPainter &p)
 {
-  int xStart = SCAST(int, this->samp2px(this->hSelStart));
-  int xEnd   = SCAST(int, this->samp2px(this->hSelEnd));
+  int xStart = SCAST(int, samp2px(m_hSelStart));
+  int xEnd   = SCAST(int, samp2px(m_hSelEnd));
 
-  if (this->periodicSelection) {
-    qreal selLen   = this->hSelEnd - this->hSelStart;
-    qreal deltaDiv = selLen / static_cast<qreal>(this->divsPerSelection);
-    bool manyLines = deltaDiv <= this->getSamplesPerPixel();
+  if (m_periodicSelection) {
+    qreal selLen   = m_hSelEnd - m_hSelStart;
+    qreal deltaDiv = selLen / static_cast<qreal>(m_divsPerSelection);
+    bool manyLines = deltaDiv <= getSamplesPerPixel();
 
     if (manyLines) {
       QRect rect(
             xStart,
             0,
             xEnd - xStart,
-            this->geometry.height() - this->frequencyTextHeight);
+            m_geometry.height() - m_frequencyTextHeight);
 
-      if (rect.x() < this->valueTextWidth)
-        rect.setX(this->valueTextWidth);
+      if (rect.x() < m_valueTextWidth)
+        rect.setX(m_valueTextWidth);
 
-      if (rect.right() >= this->geometry.width())
-        rect.setRight(this->geometry.width() - 1);
+      if (rect.right() >= m_geometry.width())
+        rect.setRight(m_geometry.width() - 1);
 
+      p.save();
       p.setOpacity(.5);
-      p.fillRect(rect, this->subSelection);
+      p.fillRect(rect, m_subSelection);
+      p.restore();
     } else {
       QPen pen;
       pen.setStyle(Qt::DashLine);
-      pen.setColor(this->subSelection);
+      pen.setColor(m_subSelection);
 
       p.setOpacity(1);
 
-      for (int i = 0; i <= this->divsPerSelection; ++i) {
-        qreal divSample = i * deltaDiv + this->hSelStart;
-        int px = static_cast<int>(this->samp2px(divSample));
+      for (int i = 0; i <= m_divsPerSelection; ++i) {
+        qreal divSample = i * deltaDiv + m_hSelStart;
+        int px = static_cast<int>(samp2px(divSample));
 
         p.setPen(pen);
 
-        if (px > this->valueTextWidth && px < this->geometry.width())
+        if (px > m_valueTextWidth && px < m_geometry.width())
           p.drawLine(
                 px,
                 0,
                 px,
-                this->geometry.height() - this->frequencyTextHeight);
+                m_geometry.height() - m_frequencyTextHeight);
       }
     }
   } else {
     QPen pen;
+    QRect rect;
+    QFont font;
+    QFontMetrics metrics(font);
+    int tw;
+    qint64 px = xEnd;
+    int ypx = 0;
+    QString text =
+        "Δ" + m_horizontalAxis + " = " +
+        SuWidgetsHelpers::formatQuantity(
+          samp2t(m_hSelEnd) - samp2t(m_hSelStart),
+          4,
+          getHorizontalUnits());
 
     pen.setStyle(Qt::DashLine);
-    pen.setColor(this->text);
+    pen.setColor(m_text);
 
     p.setPen(pen);
-    p.drawLine(xStart, 0, xStart, this->geometry.height() - 1);
-    p.drawLine(xEnd,   0, xEnd, this->geometry.height() - 1);
+    p.drawLine(xStart, 0, xStart, m_geometry.height() - 1);
+    p.drawLine(xEnd,   0, xEnd, m_geometry.height() - 1);
+
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    tw = metrics.horizontalAdvance(text);
+#else
+    tw = metrics.width(text);
+#endif // QT_VERSION_CHECK
+
+    rect.setRect(
+          px + metrics.height() / 2,
+          ypx,
+          tw,
+          metrics.height());
+    p.setOpacity(1);
+    p.drawText(rect, Qt::AlignHCenter | Qt::AlignBottom, text);
+
   }
 }
 
 void
-Waveform::draw(void)
-{
-  if (!this->size().isValid())
+Waveform::draw()
+{ 
+  if (!size().isValid())
     return;
 
   // This is not valid either
-  if (this->size().width() * this->size().height() < 1)
+  if (size().width() * size().height() < 1)
     return;
 
-  QRect rect(0, 0, this->size().width(), this->size().height());
+  QRect rect(0, 0, size().width(), size().height());
 
-  if (this->geometry != this->size()) {
-    this->view.setGeometry(this->size().width(), this->size().height());
-
-    this->geometry = this->size();
-    if (!this->haveGeometry) {
-      this->haveGeometry = true;
-      this->zoomVerticalReset();
-      this->zoomHorizontalReset();
+  if (m_geometry != size()) {
+    if (m_valueTextWidth == 0) {
+      QFont font;
+      QFontMetrics metrics(font);
+      m_valueTextWidth = estimateTextWidth(metrics, "+00.00 dB");
     }
 
-    this->axesPixmap    = QPixmap(rect.size());
-    this->contentPixmap = QPixmap(rect.size());
-    this->waveform      = QImage(this->geometry, QImage::Format_ARGB32);
+    m_geometry = size();
+    if (m_view.width() != calcWaveViewWidth())
+      m_view.setGeometry(calcWaveViewWidth(), height());
 
-    this->recalculateDisplayData();
-    this->selUpdated = false;
-    this->axesDrawn  = false;
-    this->waveDrawn  = false;
-  } else if (!this->isComplete() && !this->enableFeedback) {
+    if (!m_haveGeometry) {
+      m_haveGeometry = true;
+      if (m_autoFitToEnvelope)
+        zoomVerticalReset();
+      zoomHorizontalReset();
+    }
+
+    m_axesPixmap    = QPixmap(rect.size());
+    m_contentPixmap = QPixmap(rect.size());
+    m_waveform      = QImage(
+          m_view.width(),
+          m_view.height(),
+          QImage::Format_ARGB32);
+
+    recalculateDisplayData();
+    m_selUpdated = false;
+    m_axesDrawn  = false;
+    m_waveDrawn  = false;
+  } else if (!isComplete() && !m_enableFeedback) {
     // If we were called because we need to redraw something, but we
     // explicitly disabled feedback and there is a previous waveform
     // image that we can reuse, we wait for later to redraw everything
@@ -927,52 +1187,52 @@ Waveform::draw(void)
   // Dirty means that something has changed and we must redraw the whole
   // content pixmap, layer by layer
   //
-  if (this->somethingDirty()) {
-    if (!this->axesDrawn) {
-      this->drawAxes();
-      this->axesDrawn = true;
-      this->waveDrawn = false;
+  if (somethingDirty()) {
+    if (!m_axesDrawn) {
+      drawAxes();
+      m_axesDrawn = true;
+      m_waveDrawn = false;
     }
 
-    if (!this->waveDrawn) {
-      this->drawWave();
-      this->waveDrawn = true;
+    if (!m_waveDrawn) {
+      drawWave();
+      m_waveDrawn = true;
     }
 
     // Clear current content pixmap
-    this->contentPixmap.fill(this->background);
-    QPainter p(&this->contentPixmap);
+    m_contentPixmap.fill(m_background);
+    QPainter p(&m_contentPixmap);
 
     // Stack layers in order. First, stack axes
-    p.drawPixmap(rect, this->axesPixmap);
+    p.drawPixmap(rect, m_axesPixmap);
 
     // Stack wave
-    p.drawImage(0, 0, this->waveform);
+    p.drawImage(m_valueTextWidth, 0, m_waveform);
 
     // Selection present, overlay
-    if (this->hSelection) {
-      this->overlaySelection(p);
-      this->overlaySelectionMarkes(p);
+    if (m_hSelection) {
+      overlaySelection(p);
+      overlaySelectionMarkes(p);
     }
 
-    this->selUpdated = true;
+    m_selUpdated = true;
     p.end();
   }
 }
 
 void
-Waveform::paint(void)
+Waveform::paint()
 {
   QPainter painter(this);
-  painter.drawPixmap(0, 0, this->contentPixmap);
+  painter.drawPixmap(0, 0, m_contentPixmap);
 
-  if (this->haveCursor) {
-    painter.setPen(this->axes);
+  if (m_haveCursor) {
+    painter.setPen(m_axes);
     painter.drawLine(
-          this->currMouseX,
+          m_currMouseX,
           0,
-          this->currMouseX,
-          this->geometry.height() - 1);
+          m_currMouseX,
+          m_geometry.height() - 1);
   }
 
   painter.end();
@@ -981,7 +1241,7 @@ Waveform::paint(void)
 void
 Waveform::reuseDisplayData(Waveform *other)
 {
-  this->view.borrowTree(other->view);
+  m_view.borrowTree(other->m_view);
 }
 
 void
@@ -990,137 +1250,189 @@ Waveform::setData(
     bool keepView,
     bool flush)
 {
-  bool   appending  = data != nullptr && data == this->data.loanedBuffer();
-  qint64 prevLength = SCAST(qint64, this->view.getLength());
+  bool   appending  = data != nullptr && data == m_data.loanedBuffer();
+  qint64 prevLength = SCAST(qint64, m_view.getLength());
   qint64 newLength  = data == nullptr ? 0 : static_cast<qint64>(data->size());
   qint64 extra      = newLength - prevLength;
 
-  this->askedToKeepView = keepView;
+  m_askedToKeepView = keepView;
 
   if (appending) {
     // The current wavebuffer holds a reference to the same data vector,
     // we only inform the view to recalculate the new samples
     if (flush) {
-      this->view.setBuffer(data);
+      m_view.setBuffer(data);
     } else if (extra > 0) {
-      this->view.refreshBuffer(data);
+      m_view.refreshBuffer(data);
     }
 
   } else {
     if (data != nullptr)
-      this->data = WaveBuffer(&this->view, data);
+      m_data = WaveBuffer(&m_view, data);
     else
-      this->data = WaveBuffer(&this->view);
+      m_data = WaveBuffer(&m_view);
+  }
+}
+
+void
+Waveform::setData(
+    const SUCOMPLEX *data,
+    size_t size,
+    bool keepView,
+    bool flush,
+    bool appending)
+{
+  qint64 prevLength = SCAST(qint64, m_view.getLength());
+  qint64 extra      = size - prevLength;
+
+  m_askedToKeepView = keepView;
+
+  if (appending) {
+    // The current wavebuffer holds a reference to the same data vector,
+    // we only inform the view to recalculate the new samples
+    if (flush) {
+      m_view.setBuffer(data, size);
+    } else if (extra > 0) {
+      m_view.refreshBuffer(data, size);
+    }
+
+  } else {
+    if (data != nullptr)
+      m_data = WaveBuffer(&m_view, data, size);
+    else
+      m_data = WaveBuffer(&m_view);
   }
 }
 
 void
 Waveform::setRealComponent(bool real)
 {
-  this->view.setRealComponent(real);
-  this->fitToEnvelope();
-  this->invalidate();
+  m_view.setRealComponent(real);
+  fitToEnvelope();
+  invalidate();
 }
 
 void
 Waveform::setShowEnvelope(bool show)
 {
-  this->view.setShowEnvelope(show);
-  this->waveDrawn = false;
-  this->axesDrawn = false;
-  this->invalidate();
+  m_view.setShowEnvelope(show);
+  m_waveDrawn = false;
+  m_axesDrawn = false;
+  invalidate();
 }
 
 void
 Waveform::setShowPhase(bool show)
 {
-  this->view.setShowPhase(show);
-  if (this->view.isEnvelopeVisible()) {
-    this->waveDrawn = false;
-    this->axesDrawn = false;
-    this->invalidate();
+  m_view.setShowPhase(show);
+  if (m_view.isEnvelopeVisible()) {
+    m_waveDrawn = false;
+    m_axesDrawn = false;
+    invalidate();
   }
 }
 
 void
 Waveform::setShowPhaseDiff(bool show)
 {
-  this->view.setShowPhaseDiff(show);
+  m_view.setShowPhaseDiff(show);
 
-  if (this->view.isEnvelopeVisible()) {
-    this->waveDrawn = false;
-    this->axesDrawn = false;
-    this->invalidate();
+  if (m_view.isEnvelopeVisible()) {
+    m_waveDrawn = false;
+    m_axesDrawn = false;
+    invalidate();
   }
 }
 
 void
 Waveform::setPhaseDiffOrigin(unsigned origin)
 {
-  this->view.setPhaseDiffOrigin(origin);
+  m_view.setPhaseDiffOrigin(origin);
 
-  if (this->view.isEnvelopeVisible()
-      && this->view.isPhaseEnabled()
-      && this->view.isPhaseDiffEnabled()) {
-    this->waveDrawn = false;
-    this->axesDrawn = false;
-    this->invalidate();
+  if (m_view.isEnvelopeVisible()
+      && m_view.isPhaseEnabled()
+      && m_view.isPhaseDiffEnabled()) {
+    m_waveDrawn = false;
+    m_axesDrawn = false;
+    invalidate();
   }
 }
 
 void
 Waveform::setPhaseDiffContrast(qreal contrast)
 {
-  this->view.setPhaseDiffContrast(contrast);
+  m_view.setPhaseDiffContrast(contrast);
 
-  if (this->view.isEnvelopeVisible()
-      && this->view.isPhaseEnabled()
-      && this->view.isPhaseDiffEnabled()) {
-    this->waveDrawn = false;
-    this->axesDrawn = false;
-    this->invalidate();
+  if (m_view.isEnvelopeVisible()
+      && m_view.isPhaseEnabled()
+      && m_view.isPhaseDiffEnabled()) {
+    m_waveDrawn = false;
+    m_axesDrawn = false;
+    invalidate();
   }
 }
 
 void
 Waveform::setShowWaveform(bool show)
 {
-  this->view.setShowWaveform(show);
+  m_view.setShowWaveform(show);
 
-  this->waveDrawn = false;
-  this->axesDrawn = false;
-  this->invalidate();
+  m_waveDrawn = false;
+  m_axesDrawn = false;
+  invalidate();
 }
 
 void
-Waveform::refreshData(void)
+Waveform::triggerMouseMoveHere()
 {
-  qint64 currSpan = this->view.getViewSampleInterval();
-  qint64 lastSample = this->getDataLength() - 1;
+  QPoint pos = QCursor::pos();
 
-  this->askedToKeepView = true;
-  this->data.rebuildViews();
+  QMouseEvent *event = new QMouseEvent(
+        QEvent::Type::MouseMove,
+        QPointF(mapFromGlobal(pos)),
+        QPointF(pos),
+        Qt::NoButton,
+        QApplication::mouseButtons(),
+        QApplication::keyboardModifiers());
 
-  if (this->autoScroll && this->getSampleEnd() <= lastSample)
-    this->view.setHorizontalZoom(lastSample - currSpan, lastSample);
+  mouseMoveEvent(event);
 
-  this->waveDrawn = false;
+  delete event;
+}
 
-  this->recalculateDisplayData();
+void
+Waveform::refreshData()
+{
+  qint64 currSpan = m_view.getViewSampleInterval();
+  qint64 lastSample = getDataLength() - 1;
 
-  if (this->autoFitToEnvelope)
-    this->fitToEnvelope();
+  m_askedToKeepView = true;
+  m_data.rebuildViews();
+
+  if (m_autoScroll && getSampleEnd() <= lastSample) {
+    m_view.setHorizontalZoom(lastSample - currSpan, lastSample);
+
+    if (m_hSelDragging)
+      triggerMouseMoveHere();
+  }
+
+  m_waveDrawn = false;
+
+  recalculateDisplayData();
+
+  if (m_autoFitToEnvelope)
+    fitToEnvelope();
   else
-    this->axesDrawn = false;
+    m_axesDrawn = false;
 }
 
 Waveform::Waveform(QWidget *parent) :
   ThrottleableWidget(parent),
-  data(&this->view)
+  m_data(&m_view)
 {
   std::vector<QColor> colorTable;
 
-  this->view.setSampleRate(1024000);
+  m_view.setSampleRate(1024000);
 
   colorTable.resize(256);
 
@@ -1145,56 +1457,60 @@ Waveform::Waveform(QWidget *parent) :
       colorTable[i].setRgb(255, 255*(i-250)/5, 255*(i-250)/5);
   }
 
-  this->background   = WAVEFORM_DEFAULT_BACKGROUND_COLOR;
-  this->foreground   = WAVEFORM_DEFAULT_FOREGROUND_COLOR;
-  this->axes         = WAVEFORM_DEFAULT_AXES_COLOR;
-  this->text         = WAVEFORM_DEFAULT_TEXT_COLOR;
-  this->selection    = WAVEFORM_DEFAULT_SELECTION_COLOR;
-  this->subSelection = WAVEFORM_DEFAULT_SUBSEL_COLOR;
-  this->envelope     = WAVEFORM_DEFAULT_ENVELOPE_COLOR;
+  m_background   = WAVEFORM_DEFAULT_BACKGROUND_COLOR;
+  m_foreground   = WAVEFORM_DEFAULT_FOREGROUND_COLOR;
+  m_axes         = WAVEFORM_DEFAULT_AXES_COLOR;
+  m_text         = WAVEFORM_DEFAULT_TEXT_COLOR;
+  m_selection    = WAVEFORM_DEFAULT_SELECTION_COLOR;
+  m_subSelection = WAVEFORM_DEFAULT_SUBSEL_COLOR;
+  m_envelope     = WAVEFORM_DEFAULT_ENVELOPE_COLOR;
 
-  this->view.setPalette(colorTable.data());
-  this->view.setForeground(this->foreground);
+  m_view.setPalette(colorTable.data());
+  m_view.setForeground(m_foreground);
 
   connect(
-        &this->view,
+        &m_view,
         SIGNAL(ready()),
         this,
-        SLOT(onWaveViewChanges(void)));
+        SLOT(onWaveViewChanges()));
 
   connect(
-        &this->view,
+        &m_view,
         SIGNAL(progress()),
         this,
-        SLOT(onWaveViewChanges(void)));
+        SLOT(onWaveViewChanges()));
 
-  this->setMouseTracking(true);
-  this->invalidate();
+  setMouseTracking(true);
+  invalidate();
+}
+
+Waveform::~Waveform()
+{
 }
 
 void
-Waveform::onWaveViewChanges(void)
+Waveform::onWaveViewChanges()
 {
-  if (!this->isComplete() && !this->enableFeedback)
+  if (!isComplete() && !m_enableFeedback)
     return;
 
-  this->waveDrawn = false;
-  this->axesDrawn = false;
+  m_waveDrawn = false;
+  m_axesDrawn = false;
 
-  if (!this->askedToKeepView) {
-    this->resetSelection();
+  if (!m_askedToKeepView) {
+    resetSelection();
 
-    if (this->autoFitToEnvelope)
-      this->fitToEnvelope();
+    if (m_autoFitToEnvelope)
+      fitToEnvelope();
     else
-      this->zoomVerticalReset();
+      zoomVerticalReset();
 
-    this->zoomHorizontalReset();
+    zoomHorizontalReset();
   } else {
-    this->axesDrawn = false;
-    this->selUpdated = false;
+    m_axesDrawn = false;
+    m_selUpdated = false;
   }
 
-  this->invalidate();
+  invalidate();
   emit waveViewChanged();
 }

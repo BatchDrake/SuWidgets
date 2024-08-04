@@ -558,7 +558,11 @@ Histogram::mouseMoveEvent(QMouseEvent *event)
   if (this->selecting) {
     float x;
     x = HORIZONTAL_SCALE_INV * (
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+          static_cast<float>(event->position().x())  / this->width - LEFT_MARGIN);
+#else
           static_cast<float>(event->x())  / this->width - LEFT_MARGIN);
+#endif
     this->sEnd = x;
     this->invalidateHard();
   }
@@ -569,7 +573,11 @@ Histogram::mousePressEvent(QMouseEvent *event)
 {  if (event->button() == Qt::MouseButton::LeftButton) {
     float x;
     x = HORIZONTAL_SCALE_INV * (
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+          static_cast<float>(event->position().x())  / this->width - LEFT_MARGIN);
+#else
           static_cast<float>(event->x())  / this->width - LEFT_MARGIN);
+#endif
     this->selecting = true;
     this->sStart = x;
     this->sEnd = x;
@@ -589,7 +597,11 @@ Histogram::mouseReleaseEvent(QMouseEvent *event)
     float add;
     int intervals = 1 << this->bits;
     x = HORIZONTAL_SCALE_INV * (
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+          static_cast<float>(event->position().x())  / this->width - LEFT_MARGIN);
+#else
           static_cast<float>(event->x())  / this->width - LEFT_MARGIN);
+#endif
     this->sEnd = x;
     this->selecting = false;
 

@@ -29,6 +29,10 @@
   "custom build on " __DATE__ " at " __TIME__ " (" __VERSION__ ")"
 #endif /* SUSCAN_BUILD_STRING */
 
+#ifdef _WIN32
+#  define localtime_r localtime_s
+#endif // _WIN32
+
 SuWidgetsHelpers::SuWidgetsHelpers()
 {
 
@@ -74,6 +78,67 @@ SuWidgetsHelpers::getWidgetTextWidth(const QWidget *widget, QString const &text)
   return metrics.width(text);
 #endif // QT_VERSION_CHECK
 }
+
+QString
+toSuperIndex(QString const &string)
+{
+  QString result = string;
+
+  return result
+        .replace(QString("0"), QString("⁰"))
+        .replace(QString("1"), QString("¹"))
+        .replace(QString("2"), QString("²"))
+        .replace(QString("3"), QString("³"))
+        .replace(QString("4"), QString("⁴"))
+        .replace(QString("5"), QString("⁵"))
+        .replace(QString("6"), QString("⁶"))
+        .replace(QString("7"), QString("⁷"))
+        .replace(QString("8"), QString("⁸"))
+        .replace(QString("9"), QString("⁹"))
+        .replace(QString("+"), QString("⁺"))
+        .replace(QString("-"), QString("⁻"));
+}
+
+QString
+SuWidgetsHelpers::formatPowerOf10(qreal value)
+{
+  qreal inAbs = fabs(value);
+  qreal exponent = floor(log10(inAbs));
+  bool  isInf = std::isinf(value);
+  bool  haveExponent = std::isfinite(exponent);
+  QString result = "NaN";
+
+  if (!isInf) {
+    qreal mag = 1, mantissa;
+    int iExponent;
+    if (haveExponent) {
+      iExponent = static_cast<int>(exponent);
+      if (iExponent >= 0 && iExponent < 3)
+        iExponent = 0;
+      haveExponent = iExponent != 0;
+    } else {
+      iExponent = 0;
+    }
+
+    mag = pow(10., iExponent);
+    mantissa = value / mag;
+
+    result = QString::number(mantissa);
+
+    if (haveExponent) {
+       if (result == "1")
+         result = "";
+       else
+         result += "×";
+       result += "10" + toSuperIndex(QString::number(exponent));
+    }
+  } else {
+    result = value < 0 ? "-∞" : "∞";
+  }
+
+  return result;
+}
+
 
 QString
 SuWidgetsHelpers::formatBinaryQuantity(qint64 quantity, QString units)
@@ -147,7 +212,7 @@ SuWidgetsHelpers::formatQuantity(
     if (u == "s") {
       qint64 seconds = static_cast<qint64>(std::floor(value));
       qreal  frac    = value - seconds;
-      qint64 minutes, hours;
+      qint64 minutes, hours, days;
       int    decimalPart = 0;
 
       if (precision > 0) {
@@ -161,11 +226,27 @@ SuWidgetsHelpers::formatQuantity(
 
       minutes = seconds / 60;
       hours   = minutes / 60;
+      days    = hours / 24;
 
       seconds %= 60;
       minutes %= 60;
+      hours   %= 24;
 
-      if (hours > 0) {
+      if (days > 0) {
+        asString += QString::asprintf(
+              "%lldd %lld:%02lld:%02lld",
+              days,
+              hours,
+              minutes,
+              seconds);
+        if (days >= 10) {
+          precision -= 8;
+          decimalPart /= 10000000;
+        } else {
+          precision -= 7;
+          decimalPart /= 1000000;
+        }
+      } else if (hours > 0) {
         asString += QString::asprintf(
               "%lld:%02lld:%02lld",
               hours,
@@ -207,6 +288,36 @@ SuWidgetsHelpers::formatQuantity(
       // No hh:mm:ss or mm::ss, add suffix to make things clear.
       if (minutes == 0 && hours == 0)
         asString += " s";
+    } else if (u == "unix") {
+      qint64 seconds = static_cast<qint64>(std::floor(value));
+      char buf[sizeof "XXXX/XX/XX XX:XX:XX"];
+      time_t unixTime;
+      struct tm tm;
+      qreal  frac    = value - seconds;
+      int    decimalPart = 0;
+
+      if (precision > 0) {
+        multiplier = std::pow(10., precision - 1);
+        decimalPart = static_cast<int>(std::round(multiplier * frac));
+        if (std::fabs(decimalPart - multiplier) < 1) {
+          decimalPart = 0;
+          ++seconds;
+        }
+      }
+
+      unixTime = static_cast<time_t>(seconds);
+      localtime_r(&unixTime, &tm);
+      strftime(buf, sizeof(buf), "%Y/%m/%d %H:%M:%S", &tm);
+      asString += buf;
+
+      if (precision > 0) {
+        asString +=
+            QStringLiteral(".%1").arg(
+              decimalPart,
+              precision,
+              10,
+              QLatin1Char('0'));
+      }
     } else if (u == "deg") {
       unsigned int deg, min, seconds;
 
@@ -360,6 +471,6 @@ SuWidgetsHelpers::calcLimits(
       maxImag = SU_C_IMAG(data[i]);
   }
 
-  *oMin = minReal + I * minImag;
-  *oMax = maxReal + I * maxImag;
+  *oMin = minReal + SU_I * minImag;
+  *oMax = maxReal + SU_I * maxImag;
 }

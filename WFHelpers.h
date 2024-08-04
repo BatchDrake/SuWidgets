@@ -21,13 +21,16 @@
 #define WFHELPERS_H
 
 #include <QList>
+#include <QHash>
+#include <QMultiMap>
 #include <QString>
 #include <QColor>
 #include <map>
+#include <QPainter>
 
 #define CUR_CUT_DELTA 5		//cursor capture delta in pixels
 
-#define FFT_MIN_DB     -120.f
+#define FFT_MIN_DB     -160.f
 #define FFT_MAX_DB      40.f
 
 // Colors of type QRgb in 0xAARRGGBB format (unsigned int)
@@ -76,7 +79,6 @@ class BookmarkSource {
     virtual QList<BookmarkInfo> getBookmarksInRange(qint64, qint64) = 0;
 };
 
-
 struct FrequencyBand {
   qint64 min;
   qint64 max;
@@ -89,6 +91,7 @@ struct FrequencyBand {
 struct TimeStamp {
   int counter;
   QString timeStampText;
+  QString utcTimeStampText;
   bool marker = false;
 };
 
@@ -122,6 +125,49 @@ public:
   FrequencyBandIterator find(qint64 freq) const;
 };
 
+struct NamedChannel {
+  QString name;
+  qint64  frequency;    // Center frequency
+  qint32  lowFreqCut;   // Low frequency cut (with respect to frequency)
+  qint32  highFreqCut;  // Upper frequency cut (with respect to frequency)
+
+  QColor  boxColor;
+  QColor  markerColor;
+  QColor  cutOffColor;
+
+  bool    bandLike = false;
+  int     nestLevel = 0;
+};
+
+typedef QMultiMap<qint64, NamedChannel *>::const_iterator NamedChannelSetIterator;
+
+class NamedChannelSet {
+  QList<NamedChannel *> m_allocation;
+  QMultiMap<qint64, NamedChannel *> m_sortedChannels;
+
+public:
+  NamedChannelSetIterator addChannel(
+      QString name,
+      qint64 frequency,
+      qint32 fMin,
+      qint32 fMax,
+      QColor boxColor,
+      QColor markerColor,
+      QColor cutOffColor);
+
+  bool isOutOfPlace(NamedChannelSetIterator) const;
+  NamedChannelSetIterator relocate(NamedChannelSetIterator);
+  void remove(NamedChannelSetIterator);
+
+  NamedChannelSetIterator cbegin() const;
+  NamedChannelSetIterator cend() const;
+
+  NamedChannelSetIterator find(qint64);
+
+  ~NamedChannelSet();
+};
+
+
 #ifndef _MSC_VER
 # include <sys/time.h>
 #else
@@ -149,6 +195,38 @@ static inline quint64 time_ms(void)
 
     return 1e3 * tval.tv_sec + 1e-3 * tval.tv_usec;
 }
+
+class WFHelpers {
+  public:
+    static void drawLineWithArrow(
+        QPainter &painter,
+        QPointF start,
+        QPointF end,
+        qreal arrowSize = 5);
+
+    static void drawChannelCutoff(
+        QPainter &painter,
+        int h,
+        int x_fMin,
+        int x_fMax,
+        int x_fCenter,
+        QColor markerColor,
+        QColor cutOffColor,
+        bool centralLine = true);
+
+    static void drawChannelBox(
+        QPainter &painter,
+        int h,
+        int x_fMin,
+        int x_fMax,
+        int x_fCenter,
+        QColor boxColor,
+        QColor markerColor,
+        QString text = "",
+        QColor textColor = QColor(),
+        int horizontalOffset = -1,
+        int verticalOffset = 0);
+};
 
 #endif // WFHELPERS_H
 

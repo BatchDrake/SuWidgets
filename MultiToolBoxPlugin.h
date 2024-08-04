@@ -43,6 +43,12 @@ public:
   void insertWidget(int index, QWidget *widget) override;
   void remove(int index) override;
   void setCurrentIndex(int index) override;
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  bool canAddWidget() const override;
+  bool canRemove(int) const override;
+#endif
+
   QWidget *widget(int index) const override;
 
 private:

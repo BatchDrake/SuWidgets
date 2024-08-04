@@ -20,7 +20,7 @@
 #include "WaveViewTree.h"
 #include "WaveWorker.h"
 #include <QDeadlineTimer>
-#include <util/compat-time.h>
+#include <sigutils/util/compat-time.h>
 
 #define WAVE_VIEW_TREE_WORKER_PIECE_LENGTH 4096
 #define WAVE_VIEW_TREE_FEEDBACK_MS          500
@@ -53,9 +53,9 @@ WaveWorker::buildNextView(
   start >>= WAVEFORM_BLOCK_BITS;
   start <<= WAVEFORM_BLOCK_BITS;
 
-  if (next == this->m_owner->end()) {
-    this->m_owner->append(WaveLimitVector());
-    next = this->m_owner->end() - 1;
+  if (next == m_owner->end()) {
+    m_owner->append(WaveLimitVector());
+    next = m_owner->end() - 1;
     p    = next - 1;
     next->resize(1);
   }
@@ -82,7 +82,7 @@ WaveWorker::buildNextView(
   }
 
   if (next->size() > 1)
-    this->buildNextView(
+    buildNextView(
         next,
         start >> WAVEFORM_BLOCK_BITS,
         end   >> WAVEFORM_BLOCK_BITS,
@@ -92,18 +92,18 @@ WaveWorker::buildNextView(
 void
 WaveWorker::build(SUSCOUNT start, SUSCOUNT end)
 {
-  WaveViewTree::iterator next = this->m_owner->begin();
+  WaveViewTree::iterator next = m_owner->begin();
   const SUCOMPLEX *data;
-  SUSCOUNT length = m_owner->length;
+  SUSCOUNT length = m_owner->m_length;
   SUSCOUNT nextLength;
   SUFLOAT wEnd = 1;
 
   start >>= WAVEFORM_BLOCK_BITS;
   start <<= WAVEFORM_BLOCK_BITS;
 
-  if (next == this->m_owner->end()) {
-    this->m_owner->append(WaveLimitVector());
-    next = this->m_owner->begin();
+  if (next == m_owner->end()) {
+    m_owner->append(WaveLimitVector());
+    next = m_owner->begin();
     next->resize(1);
   }
 
@@ -115,7 +115,7 @@ WaveWorker::build(SUSCOUNT start, SUSCOUNT end)
   for (SUSCOUNT i = start; i <= end; i += WAVEFORM_BLOCK_LENGTH) {
     WaveLimits thisLimit;
     quint64 left  = MIN(end + 1 - i, WAVEFORM_BLOCK_LENGTH);
-    data          = m_owner->data + i;
+    data          = m_owner->m_data + i;
 
     if (i + WAVEFORM_BLOCK_LENGTH > end)
       wEnd = SU_ASFLOAT(left) / WAVEFORM_BLOCK_LENGTH;
@@ -136,9 +136,9 @@ WaveWorker::build(SUSCOUNT start, SUSCOUNT end)
 void
 WaveWorker::cancel()
 {
-  QMutexLocker(&this->mutex);
+  QMutexLocker locker(&m_mutex);
 
-  this->cancelFlag = true;
+  m_cancelFlag = true;
 }
 
 void
@@ -151,28 +151,32 @@ WaveWorker::run(void)
 
   gettimeofday(&otv, nullptr);
 
-  while (i < m_owner->length && !cancelFlag) {
-    mutex.lock();
+  while (i < m_owner->m_length && !m_cancelFlag) {
+    m_mutex.lock();
 
     length = WAVE_VIEW_TREE_WORKER_PIECE_LENGTH;
-    if (i + length >= m_owner->length)
-      length = m_owner->length - i;
+    if (i + length >= m_owner->m_length)
+      length = m_owner->m_length - i;
 
     SuWidgetsHelpers::calcLimits(
-          &m_owner->oMin,
-          &m_owner->oMax,
-          m_owner->data + i,
+          &m_owner->m_oMin,
+          &m_owner->m_oMax,
+          m_owner->m_data + i,
           length,
           i > 0);
 
     SuWidgetsHelpers::kahanMeanAndRms(
-          &m_owner->mean,
-          &m_owner->rms,
-          m_owner->data + i,
+          &m_owner->m_mean,
+          &m_owner->m_rms,
+          m_owner->m_data + i,
           length,
-          &m_owner->state);
+          &m_owner->m_state);
 
-    build(i, i + length - 1);
+    try {
+      build(i, i + length - 1);
+    } catch (std::bad_alloc &) {
+      m_cancelFlag = true;
+    }
 
     gettimeofday(&tv, nullptr);
     timersub(&tv, &otv, &diff);
@@ -181,17 +185,17 @@ WaveWorker::run(void)
 
     if (time_ms > WAVE_VIEW_TREE_FEEDBACK_MS) {
       otv = tv;
-      emit progress(i, m_owner->length - 1);
+      emit progress(i, m_owner->m_length - 1);
     }
 
     i += length;
-    this->mutex.unlock();
+    m_mutex.unlock();
   }
 
-  this->running = false;
-  this->finishedCondition.wakeAll();
+  m_running = false;
+  m_finishedCondition.wakeAll();
 
-  if (cancelFlag)
+  if (m_cancelFlag)
     emit cancelled();
   else
     emit finished();
@@ -200,38 +204,40 @@ WaveWorker::run(void)
 void
 WaveWorker::wait()
 {
-  while (this->running) {
-    this->mutex.lock();
-    this->finishedCondition.wait(&this->mutex, 100);
-    this->mutex.unlock();
+  while (m_running) {
+    m_mutex.lock();
+    m_finishedCondition.wait(&m_mutex, 100);
+    m_mutex.unlock();
   }
 }
 
 ///////////////////////////////// WaveViewTree /////////////////////////////////
 WaveViewTree::WaveViewTree(QObject *parent) : QObject(parent)
 {
-  this->workerThread = new QThread(this);
+  m_workerThread = new QThread(this);
 
-  this->workerThread->start();
+  m_workerThread->start();
 }
 
 WaveViewTree::~WaveViewTree()
 {
-  if (this->currentWorker != nullptr)
-    this->currentWorker->cancel();
+  if (m_currentWorker != nullptr) {
+    m_currentWorker->cancel();
+    m_currentWorker->wait();
+  }
 
-  this->workerThread->quit();
-  this->workerThread->wait();
+  m_workerThread->quit();
+  m_workerThread->wait();
 }
 
 void
 WaveViewTree::safeCancel(void)
 {
-  if (this->currentWorker != nullptr) {
-    this->currentWorker->cancel();
-    this->currentWorker->wait();
-    this->currentWorker->deleteLater();
-    this->currentWorker = nullptr;
+  if (m_currentWorker != nullptr) {
+    m_currentWorker->cancel();
+    m_currentWorker->wait();
+    m_currentWorker->deleteLater();
+    m_currentWorker = nullptr;
   }
 }
 
@@ -257,14 +263,14 @@ WaveViewTree::calcLimitsBlock(
 
     for (SUSCOUNT j = 0; j < len; ++j) {
       if (data[j].max.real() > thisLimit.max.real())
-        thisLimit.max = data[j].max.real() + thisLimit.max.imag() * I;
+        thisLimit.max = data[j].max.real() + thisLimit.max.imag() * SU_I;
       if (data[j].max.imag() > thisLimit.max.imag())
-        thisLimit.max = thisLimit.max.real() + data[j].max.imag() * I;
+        thisLimit.max = thisLimit.max.real() + data[j].max.imag() * SU_I;
 
       if (data[j].min.real() < thisLimit.min.real())
-        thisLimit.min = data[j].min.real() + thisLimit.min.imag() * I;
+        thisLimit.min = data[j].min.real() + thisLimit.min.imag() * SU_I;
       if (data[j].min.imag() < thisLimit.min.imag())
-        thisLimit.min = thisLimit.min.real() + data[j].min.imag() * I;
+        thisLimit.min = thisLimit.min.real() + data[j].min.imag() * SU_I;
 
       if (thisLimit.envelope < data[j].envelope)
         thisLimit.envelope = data[j].envelope;
@@ -304,14 +310,14 @@ WaveViewTree::calcLimitsBuf(
 
     for (SUSCOUNT j = 0; j < len; ++j) {
       if (data[j].real() > thisLimit.max.real())
-        thisLimit.max = data[j].real() + thisLimit.max.imag() * I;
+        thisLimit.max = data[j].real() + thisLimit.max.imag() * SU_I;
       if (data[j].imag() > thisLimit.max.imag())
-        thisLimit.max = thisLimit.max.real() + data[j].imag() * I;
+        thisLimit.max = thisLimit.max.real() + data[j].imag() * SU_I;
 
       if (data[j].real() < thisLimit.min.real())
-        thisLimit.min = data[j].real() + thisLimit.min.imag() * I;
+        thisLimit.min = data[j].real() + thisLimit.min.imag() * SU_I;
       if (data[j].imag() < thisLimit.min.imag())
-        thisLimit.min = thisLimit.min.real() + data[j].imag() * I;
+        thisLimit.min = thisLimit.min.real() + data[j].imag() * SU_I;
 
       env2 = SU_C_REAL(data[j] * SU_C_CONJ(data[j]));
       if (thisLimit.envelope < env2)
@@ -378,7 +384,7 @@ WaveViewTree::computeLimitsFar(
       limits.mean = 0;
     }
 
-    if ((p + 1) != this->cend()) {
+    if ((p + 1) != cend()) {
       computeLimitsFar(p + 1, blockStart, blockEnd, limits);
       mean_c = limits.mean;
       limits.mean = 0;
@@ -412,7 +418,7 @@ WaveViewTree::computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
   SUCOMPLEX mean_c = 0;
   SUFLOAT   wInv = 0;
 
-  if (this->length == 0)
+  if (m_length == 0)
     return;
 
   if (start > end)
@@ -421,8 +427,8 @@ WaveViewTree::computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
   if (start < 0)
     start = 0;
 
-  if (end >= SCAST(qint64, this->length))
-    end = SCAST(qint64, this->length) - 1;
+  if (end >= SCAST(qint64, m_length))
+    end = SCAST(qint64, m_length) - 1;
 
   prefixSamples = SCAST(int, (blockStart << WAVEFORM_BLOCK_BITS) - start);
   suffixSamples = SCAST(int, end - (blockEnd << WAVEFORM_BLOCK_BITS) - 1);
@@ -432,7 +438,7 @@ WaveViewTree::computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
     if (prefixSamples > 0) {
       calcLimitsBuf(
             limits,
-            this->data + start,
+            m_data + start,
             SCAST(size_t, prefixSamples),
             start == 0);
       mean_p = limits.mean;
@@ -441,15 +447,15 @@ WaveViewTree::computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
     if (suffixSamples > 0) {
       calcLimitsBuf(
             limits,
-            this->data + end + 1 - suffixSamples,
+            m_data + end + 1 - suffixSamples,
             SCAST(size_t, suffixSamples),
             start == 0);
       mean_s = limits.mean;
       limits.mean = 0;
     }
 
-    if (this->cbegin() != this->cend()) {
-      computeLimitsFar(this->cbegin(), blockStart, blockEnd, limits);
+    if (cbegin() != cend()) {
+      computeLimitsFar(cbegin(), blockStart, blockEnd, limits);
       mean_c = limits.mean;
       limits.mean = 0;
     }
@@ -462,7 +468,7 @@ WaveViewTree::computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
   } else {
     calcLimitsBuf(
           limits,
-          this->data + start,
+          m_data + start,
           SCAST(size_t, end - start + 1),
           start == 0);
   }
@@ -472,13 +478,13 @@ WaveViewTree::computeLimits(qint64 start, qint64 end, WaveLimits &limits) const
 bool
 WaveViewTree::clear(void)
 {
-  this->safeCancel();
+  safeCancel();
 
   QList<WaveLimitVector>::clear();
-  this->state = SuWidgetsHelpers::KahanState();
-  this->data = nullptr;
-  this->length = 0;
-  this->complete = true;
+  m_state = SuWidgetsHelpers::KahanState();
+  m_data = nullptr;
+  m_length = 0;
+  m_complete = true;
 
   // This is a reprocessing too
   emit ready();
@@ -490,21 +496,21 @@ bool
 WaveViewTree::reprocess(const SUCOMPLEX *data, SUSCOUNT newLength)
 {
   WaveWorker *worker = nullptr;
-  SUSCOUNT lastLength = this->length;
+  SUSCOUNT lastLength = m_length;
   SUSCOUNT processLength = 0;
 
-  this->safeCancel();
+  safeCancel();
 
-  this->data   = data;
-  this->length = newLength;
+  m_data   = data;
+  m_length = newLength;
 
-  this->complete = false;
+  m_complete = false;
 
   if (lastLength != newLength) {
     if (newLength == 0) {
-      this->clear();
+      clear();
     } else if (newLength < lastLength) {
-      this->state = SuWidgetsHelpers::KahanState();
+      m_state = SuWidgetsHelpers::KahanState();
       worker = new WaveWorker(this, 0);
       processLength = newLength;
     } else {
@@ -515,8 +521,8 @@ WaveViewTree::reprocess(const SUCOMPLEX *data, SUSCOUNT newLength)
     if (worker != nullptr) {
       if (processLength >= WAVE_VIEW_TREE_MIN_PARALLEL_SIZE) {
         // Too many samples, process in parallel mode
-        this->currentWorker = worker;
-        this->currentWorker->moveToThread(this->workerThread);
+        m_currentWorker = worker;
+        m_currentWorker->moveToThread(m_workerThread);
 
         connect(this,   SIGNAL(triggerWorker()), worker, SLOT(run()));
         connect(worker, SIGNAL(cancelled()), this, SLOT(onWorkerCancelled(void)));
@@ -531,7 +537,7 @@ WaveViewTree::reprocess(const SUCOMPLEX *data, SUSCOUNT newLength)
       } else {
         // Only a few samples, process in serial mode
         worker->run();
-        this->complete = true;
+        m_complete = true;
         delete worker;
         emit ready();
       }
@@ -544,11 +550,11 @@ WaveViewTree::reprocess(const SUCOMPLEX *data, SUSCOUNT newLength)
 void
 WaveViewTree::onWorkerFinished(void)
 {
-  this->complete = true;
+  m_complete = true;
 
-  if (this->currentWorker != nullptr) {
-    this->currentWorker->deleteLater();
-    this->currentWorker = nullptr;
+  if (m_currentWorker != nullptr && !m_currentWorker->running()) {
+    m_currentWorker->deleteLater();
+    m_currentWorker = nullptr;
   }
 
   emit ready();
@@ -557,11 +563,11 @@ WaveViewTree::onWorkerFinished(void)
 void
 WaveViewTree::onWorkerCancelled(void)
 {
-  this->complete = false;
+  m_complete = false;
 
-  if (this->currentWorker != nullptr) {
-    this->currentWorker->deleteLater();
-    this->currentWorker = nullptr;
+  if (m_currentWorker != nullptr && m_currentWorker->isCancelled()) {
+    m_currentWorker->deleteLater();
+    m_currentWorker = nullptr;
   }
 
   emit ready();

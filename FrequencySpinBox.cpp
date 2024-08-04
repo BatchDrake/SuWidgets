@@ -20,19 +20,12 @@
 #include "FrequencySpinBox.h"
 #include "SuWidgetsHelpers.h"
 #include "ui_FrequencySpinBox.h"
-#include <QLineEdit>
 
 FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
   QWidget(parent),
   ui(new Ui::FrequencySpinBox)
 {
-  QLineEdit *lineEdit;
   ui->setupUi(this);
-
-  lineEdit = this->ui->frequencySpin->findChild<QLineEdit *>();
-  lineEdit->installEventFilter(this);
-
-  this->ui->frequencySpin->setKeyboardTracking(false);
 
   this->refreshUi();
 
@@ -54,6 +47,21 @@ QString
 FrequencySpinBox::freqSuffix(void) const
 {
   switch (this->UnitMultiplier) {
+    case MUL_FEMTO:
+      return "f" + this->fUnits;
+
+    case MUL_PICO:
+      return "p" + this->fUnits;
+
+    case MUL_NANO:
+      return "n" + this->fUnits;
+
+    case MUL_MICRO:
+      return "µ" + this->fUnits;
+
+    case MUL_MILLI:
+      return "m" + this->fUnits;
+
     case MUL_NONE:
       return this->fUnits;
 
@@ -77,6 +85,21 @@ double
 FrequencySpinBox::freqMultiplier(void) const
 {
   switch (this->UnitMultiplier) {
+    case MUL_FEMTO:
+      return 1e-15;
+
+    case MUL_PICO:
+      return 1e-12;
+
+    case MUL_NANO:
+      return 1e-9;
+
+    case MUL_MICRO:
+      return 1e-6;
+
+    case MUL_MILLI:
+      return 1e-3;
+
     case MUL_NONE:
       return 1;
 
@@ -113,38 +136,11 @@ FrequencySpinBox::connectAll(void)
 
   connect(
         this->ui->frequencySpin,
-        SIGNAL(valueChanged(double)),
+        SIGNAL(editingFinished(void)),
         this,
-        SLOT(onValueChanged(double)));
+        SLOT(onEditingFinished(void)));
 }
 
-bool
-FrequencySpinBox::eventFilter(QObject *object, QEvent *event)
-{
-  if (object != nullptr) {
-    switch (event->type()) {
-      case QEvent::Enter:
-        this->expectingFirstClick = true;
-        break;
-
-      case QEvent::Leave:
-        this->expectingFirstClick = false;
-        break;
-
-      case QEvent::MouseButtonRelease:
-        if (this->expectingFirstClick) {
-          this->ui->frequencySpin->selectAll();
-          this->expectingFirstClick = false;
-        }
-        break;
-
-      default:
-        ;
-    }
-  }
-
-  return QWidget::eventFilter(object, event);
-}
 
 void
 FrequencySpinBox::adjustUnitMultiplier(void)
@@ -159,8 +155,24 @@ FrequencySpinBox::adjustUnitMultiplier(void)
     this->setFrequencyUnitMultiplier(MUL_MEGA);
   else if (absValue >= 1e3)
     this->setFrequencyUnitMultiplier(MUL_KILO);
-  else
-    this->setFrequencyUnitMultiplier(MUL_NONE);
+  else {
+    if (this->allowSubMultiples) {
+      if (absValue >= 1)
+        this->setFrequencyUnitMultiplier(MUL_NONE);
+      else if (absValue >= 1e-3)
+        this->setFrequencyUnitMultiplier(MUL_MILLI);
+      else if (absValue >= 1e-6)
+        this->setFrequencyUnitMultiplier(MUL_MICRO);
+      else if (absValue >= 1e-9)
+        this->setFrequencyUnitMultiplier(MUL_NANO);
+      else if (absValue >= 1e-12)
+        this->setFrequencyUnitMultiplier(MUL_PICO);
+      else
+        this->setFrequencyUnitMultiplier(MUL_FEMTO);
+    } else {
+      this->setFrequencyUnitMultiplier(MUL_NONE);
+    }
+  }
 
   this->refreshUi();
 }
@@ -173,7 +185,10 @@ FrequencySpinBox::refreshUi(void)
     this->refreshing = true;
 
     this->ui->incFreqUnitsButton->setEnabled(this->UnitMultiplier != MUL_TERA);
-    this->ui->decFreqUnitsButton->setEnabled(this->UnitMultiplier != MUL_NONE);
+    this->ui->decFreqUnitsButton->setEnabled(
+          this->allowSubMultiples
+          ? this->UnitMultiplier != MUL_FEMTO
+          : this->UnitMultiplier != MUL_NONE);
 
     this->ui->frequencySpin->setSuffix(" " + this->freqSuffix());
     this->ui->frequencySpin->setDecimals(
@@ -192,20 +207,41 @@ FrequencySpinBox::refreshUi(void)
 void
 FrequencySpinBox::setValue(double val)
 {
-  if (fabs(val - this->currValue) >= 1.) {
+  double min = this->allowSubMultiples ? this->min : 1.;
+
+  if (fabs(val - this->currValue) >= min) {
+    double oldValue = this->currValue;
     this->currValue = val;
 
     if (this->autoUnitMultiplier)
       this->adjustUnitMultiplier();
 
     this->refreshUi();
+
+    if (this->currValue != oldValue)
+      emit valueChanged(this->currValue);
   }
 }
+
+void
+FrequencySpinBox::setSubMultiplesAllowed(bool allowed)
+{
+  this->allowSubMultiples = allowed;
+  this->refreshUi();
+}
+
+bool
+FrequencySpinBox::subMultiplesAllowed() const
+{
+  return this->allowSubMultiples;
+}
+
 
 double
 FrequencySpinBox::value(void) const
 {
-  return currValue;
+  // this->currValue may be outdated if editing was in progress
+  return this->ui->frequencySpin->value() * this->freqMultiplier();
 }
 
 void
@@ -287,7 +323,8 @@ FrequencySpinBox::incFrequencyUnitMultiplier(void)
 void
 FrequencySpinBox::decFrequencyUnitMultiplier(void)
 {
-  if (this->UnitMultiplier > MUL_NONE)
+  FrequencyUnitMultiplier min = this->allowSubMultiples ? MUL_FEMTO : MUL_NONE;
+  if (this->UnitMultiplier > min)
     this->setFrequencyUnitMultiplier(
           static_cast<FrequencyUnitMultiplier>(static_cast<int>(this->UnitMultiplier) - 1));
 }
@@ -327,10 +364,10 @@ FrequencySpinBox::setFocus(void)
 
 ///////////////////////////////// Slots ///////////////////////////////////////
 void
-FrequencySpinBox::onValueChanged(double freq)
+FrequencySpinBox::onEditingFinished(void)
 {
   if (!this->refreshing) {
-    this->currValue = freq * this->freqMultiplier();
+    this->currValue = this->ui->frequencySpin->value() * this->freqMultiplier();
     emit valueChanged(this->currValue);
   }
 }

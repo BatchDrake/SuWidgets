@@ -1,5 +1,11 @@
 <RCC>
     <qresource prefix="/">
         <file>constellation.png</file>
+        <file>led_off_green.svg</file>
+        <file>led_off_red.svg</file>
+        <file>led_off_yellow.svg</file>
+        <file>led_on_green.svg</file>
+        <file>led_on_red.svg</file>
+        <file>led_on_yellow.svg</file>
     </qresource>
 </RCC>

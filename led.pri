@@ -1,0 +1,4 @@
+WIDGET_HEADERS += LED.h
+
+HEADERS += LED.h
+SOURCES += LED.cpp

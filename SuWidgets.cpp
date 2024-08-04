@@ -20,6 +20,7 @@
 #include "TransitionPlugin.h"
 #include "HistogramPlugin.h"
 #include "LCDPlugin.h"
+#include "LEDPlugin.h"
 #include "WaveformPlugin.h"
 #include "SymViewPlugin.h"
 #include "WaterfallPlugin.h"
@@ -30,6 +31,10 @@
 #include "TVDisplayPlugin.h"
 #include "TimeSpinBoxPlugin.h"
 #include "MultiToolBoxPlugin.h"
+#include "SciSpinBoxPlugin.h"
+#include "ContextAwareSpinBoxPlugin.h"
+#include "PhaseViewPlugin.h"
+#include "PolarizationViewPlugin.h"
 #include "SuWidgets.h"
 
 SuWidgets::SuWidgets(QObject *parent)
@@ -39,6 +44,7 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new TransitionPlugin(this));
   m_widgets.append(new HistogramPlugin(this));
   m_widgets.append(new LCDPlugin(this));
+  m_widgets.append(new LEDPlugin(this));
   m_widgets.append(new WaveformPlugin(this));
   m_widgets.append(new SymViewPlugin(this));
   m_widgets.append(new WaterfallPlugin(this));
@@ -48,7 +54,11 @@ SuWidgets::SuWidgets(QObject *parent)
   m_widgets.append(new FrequencySpinBoxPlugin(this));
   m_widgets.append(new TVDisplayPlugin(this));
   m_widgets.append(new TimeSpinBoxPlugin(this));
+  m_widgets.append(new SciSpinBoxPlugin(this));
+  m_widgets.append(new ContextAwareSpinBoxPlugin(this));
   m_widgets.append(new MultiToolBoxPlugin(this));
+  m_widgets.append(new PhaseViewPlugin(this));
+  m_widgets.append(new PolarizationViewPlugin(this));
 }
 
 QList<QDesignerCustomWidgetInterface*> SuWidgets::customWidgets() const

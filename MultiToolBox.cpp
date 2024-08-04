@@ -116,7 +116,10 @@ MultiToolBox::addItem(MultiToolBoxItem *item)
 
   if (this->itemLayout == nullptr) {
     this->itemLayout = new QVBoxLayout(this->ui->scrollAreaWidgetContents);
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     this->itemLayout->setMargin(0);
+#endif
     this->itemLayout->setSpacing(1);
     this->itemLayout->setAlignment(Qt::AlignTop);
   }
@@ -310,6 +313,8 @@ MultiToolBox::eventFilter(QObject *obj, QEvent *event)
         this->showItem(index);
       else
         this->hideItem(index);
+
+      this->refreshVisibility();
     }
   }
 

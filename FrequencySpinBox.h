@@ -32,7 +32,12 @@ class FrequencySpinBox : public QWidget
 
 public:
   enum FrequencyUnitMultiplier {
-    MUL_NONE,
+    MUL_FEMTO = -5,
+    MUL_PICO  = -4,
+    MUL_NANO  = -3,
+    MUL_MICRO = -2,
+    MUL_MILLI = -1,
+    MUL_NONE  =  0,
     MUL_KILO,
     MUL_MEGA,
     MUL_GIGA,
@@ -50,6 +55,7 @@ private:
   bool refreshing = false;
   unsigned int uExtraDecimals = 0;
 
+  bool allowSubMultiples = false;
   void connectAll(void);
   void refreshUi(void);
   double freqMultiplier(void) const;
@@ -73,6 +79,9 @@ public:
   void setExtraDecimals(unsigned int);
   unsigned int extraDecimals(void) const;
 
+  void setSubMultiplesAllowed(bool);
+  bool subMultiplesAllowed() const;
+
   void setAutoUnitMultiplierEnabled(bool);
   bool autoUnitMultiplierEnabled(void) const;
 
@@ -89,13 +98,12 @@ public:
   void decFrequencyUnitMultiplier(void);
 
   void setFocus();
-  bool eventFilter(QObject *, QEvent *) override;
 
 signals:
   void valueChanged(double freq);
 
 public slots:
-  void onValueChanged(double freq);
+  void onEditingFinished(void);
   void onIncFreqUnitMultiplier(void);
   void onDecFreqUnitMultiplier(void);
 

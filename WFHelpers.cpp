@@ -18,6 +18,8 @@
 //
 
 #include "WFHelpers.h"
+#include <cmath>
+#include <cstdlib>
 
 #ifdef _MSC_VER
 #include <Windows.h>
@@ -44,6 +46,242 @@ gettimeofday(struct timeval * tp, struct timezone * tzp)
 }
 
 #endif // _MSC_VER
+
+#define isSamePixel(x1, x2) (abs(x1 - x2) <= 1)
+
+/////////////////////////////// WFHelpers //////////////////////////////////////
+void
+WFHelpers::drawChannelCutoff(
+    QPainter &painter,
+    int y,
+    int x_fMin,
+    int x_fMax,
+    int x_fCenter,
+    QColor markerColor,
+    QColor cutOffColor,
+    bool centralLine)
+{
+  int h = painter.device()->height();
+  QPen pen = QPen(cutOffColor);
+  pen.setStyle(Qt::DashLine);
+  pen.setWidth(1);
+
+  painter.save();
+  painter.setPen(pen);
+  painter.setOpacity(1);
+
+  if (centralLine && !isSamePixel(x_fCenter, x_fMin))
+    painter.drawLine(
+          x_fMin,
+          y,
+          x_fMin,
+          h - 1);
+
+  if (centralLine && !isSamePixel(x_fCenter, x_fMax))
+    painter.drawLine(
+          x_fMax,
+          y,
+          x_fMax,
+          h - 1);
+
+  if (centralLine) {
+    pen.setColor(markerColor);
+    painter.setPen(pen);
+
+    painter.drawLine(
+          x_fCenter,
+          y,
+          x_fCenter,
+          h - 1);
+  }
+
+  if (!isSamePixel(x_fMin, x_fMax)) {
+    pen.setColor(cutOffColor);
+    painter.setPen(pen);
+
+    painter.setOpacity(.5);
+    int x_extraLine = -1;
+    if (x_fMin == x_fCenter)
+      x_extraLine = 2 * x_fCenter - x_fMax;
+    else if (x_fMax == x_fCenter)
+      x_extraLine = 2 * x_fCenter - x_fMin;
+
+    painter.drawLine(x_extraLine, y, x_extraLine, h - 1);
+  }
+
+  painter.restore();
+}
+
+void
+WFHelpers::drawLineWithArrow(
+    QPainter &painter,
+    QPointF start,
+    QPointF end,
+    qreal arrowSize)
+{
+  QLineF line(end, start);
+  double angle = std::atan2(-line.dy(), line.dx());
+  QPointF arrowP1 =
+      line.p1() + QPointF(sin(angle + M_PI / 3) * arrowSize,
+      cos(angle + M_PI / 3) * arrowSize);
+  QPointF arrowP2 =
+      line.p1() + QPointF(sin(angle + M_PI - M_PI / 3) * arrowSize,
+      cos(angle + M_PI - M_PI / 3) * arrowSize);
+  QPolygonF arrowHead;
+  QPen pen = painter.pen();
+
+  pen.setStyle(Qt::SolidLine);
+  painter.save();
+
+  arrowHead.clear();
+  arrowHead << line.p1() << arrowP1 << arrowP2;
+  painter.drawLine(line);
+
+  painter.setPen(pen);
+  painter.setBrush(QBrush(pen.color()));
+
+  painter.drawPolygon(arrowHead);
+
+  painter.restore();
+}
+
+
+void
+WFHelpers::drawChannelBox(
+    QPainter &painter,
+    int h,
+    int x_fMin,
+    int x_fMax,
+    int x_fCenter,
+    QColor boxColor,
+    QColor markerColor,
+    QString text,
+    QColor textColor,
+    int horizontalOffset,
+    int verticalOffset)
+{
+  const int padding = 3;
+  QPen borderPen = QPen(boxColor, 1, Qt::DashLine);
+  int dw = x_fMax - x_fMin;
+  bool bandLike = horizontalOffset >= 0;
+  int y = verticalOffset;
+
+  // Paint box
+  painter.save();
+  painter.setOpacity(0.3);
+  painter.fillRect(x_fMin, y, dw, h, boxColor);
+
+  // Draw marker
+  if (!bandLike) {
+    painter.setPen(markerColor);
+    painter.setOpacity(1);
+    painter.drawLine(x_fCenter, y, x_fCenter, h);
+  }
+
+  // Draw border
+  painter.setOpacity(1);
+  painter.setPen(borderPen);
+
+  if (bandLike || !isSamePixel(x_fCenter, x_fMin))
+    painter.drawLine(x_fMin, y, x_fMin, h);
+
+  if (bandLike || !isSamePixel(x_fCenter, x_fMax))
+    painter.drawLine(x_fMax, y, x_fMax, h);
+
+  if (y > 0 && !bandLike)
+    painter.drawLine(x_fMin, y, x_fMax, y);
+
+  if (!isSamePixel(x_fMin, x_fMax)) {
+    painter.setOpacity(.5);
+    int x_extraLine = -1;
+    if (x_fMin == x_fCenter)
+      x_extraLine = 2 * x_fCenter - x_fMax;
+    else if (x_fMax == x_fCenter)
+      x_extraLine = 2 * x_fCenter - x_fMin;
+
+    painter.drawLine(x_extraLine, y, x_extraLine, h);
+  }
+
+  painter.restore();
+
+  // Draw text (if provided)
+  if (text.length() > 0) {
+    QFont font;
+    font.setBold(!bandLike);
+    QFontMetrics metrics(font);
+    int textHeight = metrics.height();
+    int textWidth;
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0l)
+    textWidth = metrics.horizontalAdvance(text) + 2 * padding;
+#else
+    textWidth = metrics.width(text) + 2 * padding;
+#endif // QT_VERSION_CHECK
+
+    painter.save();
+    painter.setFont(font);
+
+    painter.translate(0, y);
+    h -= y;
+    painter.setOpacity(1);
+
+    if (bandLike) {
+      int x_start_left  = x_fCenter - textWidth / 2 - textHeight / 2;
+      int x_start_right = x_fCenter + textWidth / 2;
+      int ydispl = textWidth > dw ? textHeight / 2 : 0;
+
+      painter.setPen(borderPen);
+
+      drawLineWithArrow(
+            painter,
+            QPointF(x_start_left, horizontalOffset + ydispl),
+            QPointF(x_fMin, horizontalOffset + ydispl));
+      drawLineWithArrow(
+            painter,
+            QPointF(x_start_right, horizontalOffset + ydispl),
+            QPointF(x_fMax, horizontalOffset + ydispl));
+
+      painter.setPen(textColor);
+      painter.drawText(
+            x_fCenter - textWidth / 2,
+            horizontalOffset + textHeight / 4,
+            text);
+    } else {
+      painter.fillRect(
+            x_fCenter - textHeight / 2,
+            (h - textWidth) / 2,
+            textHeight,
+            textWidth,
+            markerColor);
+      painter.setPen(markerColor);
+      painter.setBrush(QBrush(markerColor));
+      painter.drawChord(
+            x_fCenter - textHeight / 2,
+            (h - textWidth) / 2 - textHeight / 2,
+            textHeight,
+            textHeight,
+            0,
+            180 * 16);
+
+      painter.drawChord(
+            x_fCenter - textHeight / 2,
+            (h + textWidth) / 2 - textHeight / 2,
+            textHeight,
+            textHeight,
+            180 * 16,
+            180 * 16);
+
+
+      painter.setPen(textColor);
+
+      painter.translate(x_fCenter, (h + textWidth) / 2);
+      painter.rotate(-90);
+      painter.drawText(padding, textHeight / 3, text);
+    }
+
+    painter.restore();
+  }
+}
 
 ////////////////////////// BookmarkSource //////////////////////////////////////
 BookmarkSource::~BookmarkSource()
@@ -113,4 +351,91 @@ FrequencyAllocationTable::find(qint64 freq) const
       return previous;
 
   return lower;
+}
+
+//////////////////////////// NamedChannelSet ///////////////////////////////////
+NamedChannelSetIterator
+NamedChannelSet::addChannel(
+    QString name,
+    qint64 frequency,
+    qint32 fMin,
+    qint32 fMax,
+    QColor boxColor,
+    QColor markerColor,
+    QColor cutOffColor)
+{
+  NamedChannelSetIterator it = m_sortedChannels.cend();
+  NamedChannel *channel = new NamedChannel();
+
+  channel->name        = name;
+  channel->frequency   = frequency;
+  channel->lowFreqCut  = fMin;
+  channel->highFreqCut = fMax;
+  channel->boxColor    = boxColor;
+  channel->markerColor = markerColor;
+  channel->cutOffColor = cutOffColor;
+
+  m_allocation.append(channel);
+  it = m_sortedChannels.insert(frequency + fMin, channel);
+
+  return it;
+}
+
+bool
+NamedChannelSet::isOutOfPlace(NamedChannelSetIterator it) const
+{
+  auto channel = it.value();
+  auto key = channel->frequency + channel->lowFreqCut;
+
+  return it.key() != key;
+}
+
+NamedChannelSetIterator
+NamedChannelSet::relocate(NamedChannelSetIterator it)
+{
+  NamedChannel *channel = *it;
+
+  m_sortedChannels.remove(it.key(), it.value());
+
+  it = m_sortedChannels.insert(
+        channel->frequency + channel->lowFreqCut,
+        channel);
+
+  return it;
+}
+
+void
+NamedChannelSet::remove(NamedChannelSetIterator it)
+{
+  NamedChannel *channel = it.value();
+
+  if (m_allocation.removeOne(channel)) {
+    delete channel;
+
+    m_sortedChannels.remove(it.key(), it.value());
+  }
+}
+
+NamedChannelSetIterator
+NamedChannelSet::cbegin() const
+{
+  return m_sortedChannels.cbegin();
+}
+
+NamedChannelSetIterator
+NamedChannelSet::cend() const
+{
+  return m_sortedChannels.cend();
+}
+
+NamedChannelSetIterator
+NamedChannelSet::find(qint64 freq)
+{
+  return m_sortedChannels.upperBound(freq);
+}
+
+NamedChannelSet::~NamedChannelSet()
+{
+  for (auto p : m_allocation)
+    delete p;
 }
