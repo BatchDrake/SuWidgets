@@ -33,6 +33,21 @@
 #  define localtime_r localtime_s
 #endif // _WIN32
 
+
+SuWidgetsObjectBlocker::SuWidgetsObjectBlocker(QObject *obj)
+{
+  m_object = obj;
+
+  if (m_object != nullptr)
+    m_prevBlocked = m_object->blockSignals(true);
+}
+
+SuWidgetsObjectBlocker::~SuWidgetsObjectBlocker()
+{
+  if (m_object != nullptr)
+    m_object->blockSignals(m_prevBlocked);
+}
+
 SuWidgetsHelpers::SuWidgetsHelpers()
 {
 

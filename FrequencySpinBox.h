@@ -32,80 +32,85 @@ class FrequencySpinBox : public QWidget
 
 public:
   enum FrequencyUnitMultiplier {
-    MUL_FEMTO = -5,
-    MUL_PICO  = -4,
-    MUL_NANO  = -3,
-    MUL_MICRO = -2,
-    MUL_MILLI = -1,
-    MUL_NONE  =  0,
-    MUL_KILO,
-    MUL_MEGA,
-    MUL_GIGA,
-    MUL_TERA
+    Femto = -5,
+    Pico  = -4,
+    Nano  = -3,
+    Micro = -2,
+    Milli = -1,
+    None  =  0,
+    Kilo,
+    Mega,
+    Giga,
+    Tera
   };
 
 private:
-  FrequencyUnitMultiplier UnitMultiplier = MUL_NONE;
-  QString fUnits = "Hz";
-  bool autoUnitMultiplier = true;
-  double currValue = 0;
-  double max = 18e9;
-  double min = 0;
-  bool expectingFirstClick = false;
-  bool refreshing = false;
-  unsigned int uExtraDecimals = 0;
+  FrequencyUnitMultiplier m_unitMultiplier = None;
+  QString                 m_fUnits = "Hz";
+  bool                    m_autoUnitMultiplier = true;
+  qreal                   m_currValue = 0;
+  qreal                   m_max = 18e9;
+  qreal                   m_min = 0;
+  bool                    m_expectingFirstClick = false;
+  unsigned int            m_uExtraDecimals = 0;
 
-  bool allowSubMultiples = false;
-  void connectAll(void);
-  void refreshUi(void);
-  double freqMultiplier(void) const;
-  QString freqSuffix(void) const;
+  bool                    m_allowSubMultiples = false;
+
+  void connectAll();
+
+  void refreshUi();
+  qreal freqMultiplier() const;
+  QString freqSuffix() const;
+
+  void refreshUiEx(bool setValue);
+  void setFrequencyUnitMultiplierOnEdit(FrequencyUnitMultiplier);
 
 public:
   explicit FrequencySpinBox(QWidget *parent = nullptr);
   ~FrequencySpinBox();
 
-  void adjustUnitMultiplier(void);
+  virtual bool eventFilter(QObject *obj, QEvent *event) override;
+  void adjustUnitMultiplier();
 
-  void setValue(double);
-  double value(void) const;
+  void setValue(qreal);
+  qreal value() const;
 
-  void setMaximum(double);
-  double maximum(void) const;
+  void setMaximum(qreal);
+  qreal maximum() const;
 
-  void setMinimum(double);
-  double minimum(void) const;
+  void setMinimum(qreal);
+  qreal minimum() const;
 
   void setExtraDecimals(unsigned int);
-  unsigned int extraDecimals(void) const;
+  unsigned int extraDecimals() const;
 
   void setSubMultiplesAllowed(bool);
   bool subMultiplesAllowed() const;
 
   void setAutoUnitMultiplierEnabled(bool);
-  bool autoUnitMultiplierEnabled(void) const;
+  bool autoUnitMultiplierEnabled() const;
 
   void setFrequencyUnitMultiplier(FrequencyUnitMultiplier UnitMultiplier);
-  FrequencyUnitMultiplier frequencyUnitMultiplier(void) const;
+  FrequencyUnitMultiplier frequencyUnitMultiplier() const;
 
   void setUnits(QString const units);
-  QString units(void) const;
+  QString units() const;
 
   void setEditable(bool);
-  bool editable(void) const;
+  bool editable() const;
 
-  void incFrequencyUnitMultiplier(void);
-  void decFrequencyUnitMultiplier(void);
+  void incFrequencyUnitMultiplier();
+  void decFrequencyUnitMultiplier();
 
   void setFocus();
 
 signals:
-  void valueChanged(double freq);
+  void valueChanged(qreal freq);
 
 public slots:
-  void onEditingFinished(void);
-  void onIncFreqUnitMultiplier(void);
-  void onDecFreqUnitMultiplier(void);
+  void onEditingFinished();
+  void onIncFreqUnitMultiplier();
+  void onDecFreqUnitMultiplier();
 
 private:
   Ui::FrequencySpinBox *ui;

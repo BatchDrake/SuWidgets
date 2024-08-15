@@ -38,21 +38,37 @@ class QLayout;
 #define RCAST(type, value) reinterpret_cast<type>(value)
 
 #define BLOCKSIG_BEGIN(object)                   \
-  do {                                           \
-    QObject *obj = object;                       \
-    bool blocked = (object)->blockSignals(true)
+{                                                \
+  SuWidgetsObjectBlocker \
+    JOIN(signalBlockerAtLine, __LINE__)(object)
 
 #define BLOCKSIG_END()                           \
-    obj->blockSignals(blocked);                  \
-  } while (false)
+}
+
+//
+// This do { ... } while is not superfluous. It is required in order to
+// ensure that BLOCKSIG is syntatically equivalent to a single statement,
+// and not to a block one. We require this for constructions like:
+//
+// if (something)
+//   BLOCKSIG(obj, action());
+// else
+//   doSomethingElse();
+//
 
 #define BLOCKSIG(object, op)                     \
-  do {                                           \
-    bool blocked = (object)->blockSignals(true); \
-    (object)->op;                                \
-    (object)->blockSignals(blocked);             \
-  } while (false)
+  do { BLOCKSIG_BEGIN(object);                   \
+  (object)->op;                                  \
+  BLOCKSIG_END() } while (false)
 
+class SuWidgetsObjectBlocker {
+  QObject *m_object = nullptr;
+  bool     m_prevBlocked = false;
+
+public:
+  SuWidgetsObjectBlocker(QObject *);
+  ~SuWidgetsObjectBlocker();
+};
 
 class SuWidgetsHelpers {
 

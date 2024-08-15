@@ -20,6 +20,7 @@
 #include "FrequencySpinBox.h"
 #include "SuWidgetsHelpers.h"
 #include "ui_FrequencySpinBox.h"
+#include <QKeyEvent>
 
 FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
   QWidget(parent),
@@ -27,15 +28,17 @@ FrequencySpinBox::FrequencySpinBox(QWidget *parent) :
 {
   ui->setupUi(this);
 
-  this->refreshUi();
+  refreshUi();
 
-  this->connectAll();
+  connectAll();
 
   int width = SuWidgetsHelpers::getWidgetTextWidth(
-        this->ui->decFreqUnitsButton, "<");
+        ui->decFreqUnitsButton, "<");
 
-  this->ui->incFreqUnitsButton->setMaximumWidth(4 * width);
-  this->ui->decFreqUnitsButton->setMaximumWidth(4 * width);
+  ui->incFreqUnitsButton->setMaximumWidth(4 * width);
+  ui->decFreqUnitsButton->setMaximumWidth(4 * width);
+
+  ui->frequencySpin->installEventFilter(this);
 }
 
 FrequencySpinBox::~FrequencySpinBox()
@@ -44,75 +47,75 @@ FrequencySpinBox::~FrequencySpinBox()
 }
 
 QString
-FrequencySpinBox::freqSuffix(void) const
+FrequencySpinBox::freqSuffix() const
 {
-  switch (this->UnitMultiplier) {
-    case MUL_FEMTO:
-      return "f" + this->fUnits;
+  switch (m_unitMultiplier) {
+    case Femto:
+      return "f" + m_fUnits;
 
-    case MUL_PICO:
-      return "p" + this->fUnits;
+    case Pico:
+      return "p" + m_fUnits;
 
-    case MUL_NANO:
-      return "n" + this->fUnits;
+    case Nano:
+      return "n" + m_fUnits;
 
-    case MUL_MICRO:
-      return "µ" + this->fUnits;
+    case Micro:
+      return "µ" + m_fUnits;
 
-    case MUL_MILLI:
-      return "m" + this->fUnits;
+    case Milli:
+      return "m" + m_fUnits;
 
-    case MUL_NONE:
-      return this->fUnits;
+    case None:
+      return m_fUnits;
 
-    case MUL_KILO:
-      return "k" + this->fUnits;
+    case Kilo:
+      return "k" + m_fUnits;
 
-    case MUL_MEGA:
-      return "M" + this->fUnits;
+    case Mega:
+      return "M" + m_fUnits;
 
-    case MUL_GIGA:
-      return "G" + this->fUnits;
+    case Giga:
+      return "G" + m_fUnits;
 
-    case MUL_TERA:
-      return "T" + this->fUnits;
+    case Tera:
+      return "T" + m_fUnits;
   }
 
   return "??";
 }
 
-double
-FrequencySpinBox::freqMultiplier(void) const
+qreal
+FrequencySpinBox::freqMultiplier() const
 {
-  switch (this->UnitMultiplier) {
-    case MUL_FEMTO:
+  switch (m_unitMultiplier) {
+    case Femto:
       return 1e-15;
 
-    case MUL_PICO:
+    case Pico:
       return 1e-12;
 
-    case MUL_NANO:
+    case Nano:
       return 1e-9;
 
-    case MUL_MICRO:
+    case Micro:
       return 1e-6;
 
-    case MUL_MILLI:
+    case Milli:
       return 1e-3;
 
-    case MUL_NONE:
+    case None:
       return 1;
 
-    case MUL_KILO:
+    case Kilo:
       return 1e3;
 
-    case MUL_MEGA:
+    case Mega:
       return 1e6;
 
-    case MUL_GIGA:
+    case Giga:
       return 1e9;
 
-    case MUL_TERA:
+    case Tera:
       return 1e12;
   }
 
@@ -120,267 +123,340 @@ FrequencySpinBox::freqMultiplier(void) const
 }
 
 void
-FrequencySpinBox::connectAll(void)
+FrequencySpinBox::connectAll()
 {
   connect(
-        this->ui->incFreqUnitsButton,
-        SIGNAL(clicked(void)),
+        ui->incFreqUnitsButton,
+        SIGNAL(clicked()),
         this,
-        SLOT(onIncFreqUnitMultiplier(void)));
+        SLOT(onIncFreqUnitMultiplier()));
 
   connect(
-        this->ui->decFreqUnitsButton,
-        SIGNAL(clicked(void)),
+        ui->decFreqUnitsButton,
+        SIGNAL(clicked()),
         this,
-        SLOT(onDecFreqUnitMultiplier(void)));
+        SLOT(onDecFreqUnitMultiplier()));
 
   connect(
-        this->ui->frequencySpin,
-        SIGNAL(editingFinished(void)),
+        ui->frequencySpin,
+        SIGNAL(editingFinished()),
         this,
-        SLOT(onEditingFinished(void)));
+        SLOT(onEditingFinished()));
 }
 
 
 void
-FrequencySpinBox::adjustUnitMultiplier(void)
+FrequencySpinBox::adjustUnitMultiplier()
 {
-  qreal absValue = std::fabs(this->currValue);
+  qreal absValue = std::fabs(m_currValue);
 
   if (absValue >= 1e12)
-    this->setFrequencyUnitMultiplier(MUL_TERA);
+    setFrequencyUnitMultiplier(Tera);
   else if (absValue >= 1e9)
-    this->setFrequencyUnitMultiplier(MUL_GIGA);
+    setFrequencyUnitMultiplier(Giga);
   else if (absValue >= 1e6)
-    this->setFrequencyUnitMultiplier(MUL_MEGA);
+    setFrequencyUnitMultiplier(Mega);
   else if (absValue >= 1e3)
-    this->setFrequencyUnitMultiplier(MUL_KILO);
+    setFrequencyUnitMultiplier(Kilo);
   else {
-    if (this->allowSubMultiples) {
+    if (m_allowSubMultiples) {
       if (absValue >= 1)
-        this->setFrequencyUnitMultiplier(MUL_NONE);
+        setFrequencyUnitMultiplier(None);
       else if (absValue >= 1e-3)
-        this->setFrequencyUnitMultiplier(MUL_MILLI);
+        setFrequencyUnitMultiplier(Milli);
       else if (absValue >= 1e-6)
-        this->setFrequencyUnitMultiplier(MUL_MICRO);
+        setFrequencyUnitMultiplier(Micro);
       else if (absValue >= 1e-9)
-        this->setFrequencyUnitMultiplier(MUL_NANO);
+        setFrequencyUnitMultiplier(Nano);
       else if (absValue >= 1e-12)
-        this->setFrequencyUnitMultiplier(MUL_PICO);
+        setFrequencyUnitMultiplier(Pico);
       else
-        this->setFrequencyUnitMultiplier(MUL_FEMTO);
+        setFrequencyUnitMultiplier(Femto);
     } else {
-      this->setFrequencyUnitMultiplier(MUL_NONE);
+      setFrequencyUnitMultiplier(None);
     }
   }
 
-  this->refreshUi();
+  refreshUi();
 }
 
-void
-FrequencySpinBox::refreshUi(void)
+bool
+FrequencySpinBox::eventFilter(QObject *obj, QEvent *objEvent)
 {
-  if (!this->refreshing) {
-    double mul = 1 / this->freqMultiplier();
-    this->refreshing = true;
+  bool captured = false;
 
-    this->ui->incFreqUnitsButton->setEnabled(this->UnitMultiplier != MUL_TERA);
-    this->ui->decFreqUnitsButton->setEnabled(
-          this->allowSubMultiples
-          ? this->UnitMultiplier != MUL_FEMTO
-          : this->UnitMultiplier != MUL_NONE);
+  if (obj == ui->frequencySpin && objEvent->type() == QEvent::KeyPress) {
+    QKeyEvent *ev = static_cast<QKeyEvent *>(objEvent);
 
-    this->ui->frequencySpin->setSuffix(" " + this->freqSuffix());
-    this->ui->frequencySpin->setDecimals(
-          static_cast<int>(this->UnitMultiplier) * 3
-          + static_cast<int>(this->uExtraDecimals));
+    captured = true;
 
-    this->ui->frequencySpin->setMaximum(this->max * mul);
-    this->ui->frequencySpin->setMinimum(this->min * mul);
+    switch (ev->key()) {
+      case Qt::Key_T:
+        setFrequencyUnitMultiplierOnEdit(Tera);
+        break;
 
-    this->ui->frequencySpin->setValue(this->currValue * mul);
+      case Qt::Key_G:
+        setFrequencyUnitMultiplierOnEdit(Giga);
+        break;
 
-    this->refreshing = false;
+      case Qt::Key_M:
+        setFrequencyUnitMultiplierOnEdit(
+              m_allowSubMultiples && ev->text() == "m"
+              ? Milli
+              : Mega);
+        break;
+
+      case Qt::Key_K:
+        setFrequencyUnitMultiplierOnEdit(Kilo);
+        break;
+
+      case Qt::Key_Space:
+        setFrequencyUnitMultiplierOnEdit(None);
+        break;
+
+      case Qt::Key_U:
+        setFrequencyUnitMultiplierOnEdit(Micro);
+        break;
+
+      case Qt::Key_N:
+        setFrequencyUnitMultiplierOnEdit(Nano);
+        break;
+
+      case Qt::Key_P:
+        setFrequencyUnitMultiplierOnEdit(Pico);
+        break;
+
+      case Qt::Key_F:
+        setFrequencyUnitMultiplierOnEdit(Femto);
+        break;
+
+      default:
+        captured = false;
+    }
   }
+
+  return captured;
 }
 
 void
-FrequencySpinBox::setValue(double val)
+FrequencySpinBox::refreshUiEx(bool setValue)
 {
-  double min = this->allowSubMultiples ? this->min : 1.;
+  qreal mul = 1 / freqMultiplier();
 
-  if (fabs(val - this->currValue) >= min) {
-    double oldValue = this->currValue;
-    this->currValue = val;
+  ui->incFreqUnitsButton->setEnabled(m_unitMultiplier != Tera);
+  ui->decFreqUnitsButton->setEnabled(
+        m_allowSubMultiples
+        ? m_unitMultiplier != Femto
+        : m_unitMultiplier != None);
 
-    if (this->autoUnitMultiplier)
-      this->adjustUnitMultiplier();
+  BLOCKSIG_BEGIN(ui->frequencySpin);
+  ui->frequencySpin->setSuffix(" " + freqSuffix());
+  ui->frequencySpin->setDecimals(
+        static_cast<int>(m_unitMultiplier) * 3
+        + static_cast<int>(m_uExtraDecimals));
 
-    this->refreshUi();
+  ui->frequencySpin->setMaximum(m_max * mul);
+  ui->frequencySpin->setMinimum(m_min * mul);
 
-    if (this->currValue != oldValue)
-      emit valueChanged(this->currValue);
+  if (setValue)
+    ui->frequencySpin->setValue(m_currValue * mul);
+  BLOCKSIG_END();
+}
+
+void
+FrequencySpinBox::refreshUi()
+{
+  refreshUiEx(true);
+}
+
+void
+FrequencySpinBox::setValue(qreal val)
+{
+  qreal min = m_allowSubMultiples ? m_min : 1.;
+
+  if (fabs(val - m_currValue) >= min) {
+    qreal oldValue = m_currValue;
+    m_currValue = val;
+
+    if (m_autoUnitMultiplier)
+      adjustUnitMultiplier();
+
+    refreshUi();
+
+    if (m_currValue != oldValue)
+      emit valueChanged(m_currValue);
   }
 }
 
 void
 FrequencySpinBox::setSubMultiplesAllowed(bool allowed)
 {
-  this->allowSubMultiples = allowed;
-  this->refreshUi();
+  m_allowSubMultiples = allowed;
+  refreshUi();
 }
 
 bool
 FrequencySpinBox::subMultiplesAllowed() const
 {
-  return this->allowSubMultiples;
+  return m_allowSubMultiples;
 }
 
 
-double
-FrequencySpinBox::value(void) const
+qreal
+FrequencySpinBox::value() const
 {
-  // this->currValue may be outdated if editing was in progress
-  return this->ui->frequencySpin->value() * this->freqMultiplier();
-}
-
-void
-FrequencySpinBox::setMaximum(double max)
-{
-  this->max = max;
-  this->refreshUi();
-}
-
-double
-FrequencySpinBox::maximum(void) const
-{
-  return this->max;
+  // currValue may be outdated if editing was in progress
+  return ui->frequencySpin->value() * freqMultiplier();
 }
 
 void
-FrequencySpinBox::setMinimum(double min)
+FrequencySpinBox::setMaximum(qreal max)
 {
-  this->min = min;
-  this->refreshUi();
+  m_max = max;
+  refreshUi();
 }
 
-double
-FrequencySpinBox::minimum(void) const
+qreal
+FrequencySpinBox::maximum() const
 {
-  return this->min;
+  return m_max;
+}
+
+void
+FrequencySpinBox::setMinimum(qreal min)
+{
+  m_min = min;
+  refreshUi();
+}
+
+qreal
+FrequencySpinBox::minimum() const
+{
+  return m_min;
 }
 
 void
 FrequencySpinBox::setExtraDecimals(unsigned int extra)
 {
-  this->uExtraDecimals = extra;
-  this->refreshUi();
+  m_uExtraDecimals = extra;
+  refreshUi();
 }
 
 unsigned int
-FrequencySpinBox::extraDecimals(void) const
+FrequencySpinBox::extraDecimals() const
 {
-  return this->uExtraDecimals;
+  return m_uExtraDecimals;
 }
 
 void
 FrequencySpinBox::setAutoUnitMultiplierEnabled(bool enabled)
 {
-  this->autoUnitMultiplier = enabled;
+  m_autoUnitMultiplier = enabled;
 
   if (enabled)
-    this->adjustUnitMultiplier();
+    adjustUnitMultiplier();
 }
 
 bool
-FrequencySpinBox::autoUnitMultiplierEnabled(void) const
+FrequencySpinBox::autoUnitMultiplierEnabled() const
 {
-  return this->autoUnitMultiplier;
+  return m_autoUnitMultiplier;
 }
 
 void
 FrequencySpinBox::setFrequencyUnitMultiplier(FrequencyUnitMultiplier UnitMultiplier)
 {
-  this->UnitMultiplier = UnitMultiplier;
-  this->refreshUi();
+  m_unitMultiplier = UnitMultiplier;
+  refreshUi();
 }
+
+void
+FrequencySpinBox::setFrequencyUnitMultiplierOnEdit(FrequencyUnitMultiplier mul)
+{
+  if (m_unitMultiplier != mul) {
+    m_unitMultiplier = mul;
+    refreshUiEx(false);
+  }
+}
+
 
 FrequencySpinBox::FrequencyUnitMultiplier
-FrequencySpinBox::frequencyUnitMultiplier(void) const
+FrequencySpinBox::frequencyUnitMultiplier() const
 {
-  return this->UnitMultiplier;
+  return m_unitMultiplier;
 }
 
 void
-FrequencySpinBox::incFrequencyUnitMultiplier(void)
+FrequencySpinBox::incFrequencyUnitMultiplier()
 {
-  if (this->UnitMultiplier < MUL_TERA)
-    this->setFrequencyUnitMultiplier(
-          static_cast<FrequencyUnitMultiplier>(static_cast<int>(this->UnitMultiplier) + 1));
+  if (m_unitMultiplier < Tera)
+    setFrequencyUnitMultiplier(
+          static_cast<FrequencyUnitMultiplier>(static_cast<int>(m_unitMultiplier) + 1));
 
 }
 
 void
-FrequencySpinBox::decFrequencyUnitMultiplier(void)
+FrequencySpinBox::decFrequencyUnitMultiplier()
 {
-  FrequencyUnitMultiplier min = this->allowSubMultiples ? MUL_FEMTO : MUL_NONE;
-  if (this->UnitMultiplier > min)
-    this->setFrequencyUnitMultiplier(
-          static_cast<FrequencyUnitMultiplier>(static_cast<int>(this->UnitMultiplier) - 1));
+  FrequencyUnitMultiplier min = m_allowSubMultiples ? Femto : None;
+  if (m_unitMultiplier > min)
+    setFrequencyUnitMultiplier(
+          static_cast<FrequencyUnitMultiplier>(static_cast<int>(m_unitMultiplier) - 1));
 }
 
 void
 FrequencySpinBox::setUnits(QString const units)
 {
-  this->fUnits = units;
-  this->refreshUi();
+  m_fUnits = units;
+  refreshUi();
 }
 
 QString
-FrequencySpinBox::units(void) const
+FrequencySpinBox::units() const
 {
-  return this->fUnits;
+  return m_fUnits;
 
 }
 
 void
 FrequencySpinBox::setEditable(bool editable)
 {
-  this->ui->frequencySpin->setReadOnly(!editable);
+  ui->frequencySpin->setReadOnly(!editable);
 }
 
 bool
-FrequencySpinBox::editable(void) const
+FrequencySpinBox::editable() const
 {
-  return !this->ui->frequencySpin->isReadOnly();
+  return !ui->frequencySpin->isReadOnly();
 }
 
 void
-FrequencySpinBox::setFocus(void)
+FrequencySpinBox::setFocus()
 {
-  this->ui->frequencySpin->setFocus();
-  this->ui->frequencySpin->selectAll();
+  ui->frequencySpin->setFocus();
+  ui->frequencySpin->selectAll();
 }
 
 ///////////////////////////////// Slots ///////////////////////////////////////
 void
-FrequencySpinBox::onEditingFinished(void)
+FrequencySpinBox::onEditingFinished()
 {
-  if (!this->refreshing) {
-    this->currValue = this->ui->frequencySpin->value() * this->freqMultiplier();
-    emit valueChanged(this->currValue);
-  }
+  qreal prevValue = m_currValue;
+  m_currValue = ui->frequencySpin->value() * freqMultiplier();
+
+  if (fabs(prevValue - m_currValue) > 1e-15)
+    emit valueChanged(m_currValue);
 }
 
 void
-FrequencySpinBox::onIncFreqUnitMultiplier(void)
+FrequencySpinBox::onIncFreqUnitMultiplier()
 {
-  this->incFrequencyUnitMultiplier();
+  incFrequencyUnitMultiplier();
 }
 
 void
-FrequencySpinBox::onDecFreqUnitMultiplier(void)
+FrequencySpinBox::onDecFreqUnitMultiplier()
 {
-  this->decFrequencyUnitMultiplier();
+  decFrequencyUnitMultiplier();
 }
 
