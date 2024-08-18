@@ -559,7 +559,7 @@ void AbstractWaterfall::setWaterfallSpan(quint64 span_ms)
 }
 
 /** Get waterfall time resolution in milleconds / line. */
-double AbstractWaterfall::getWfTimeRes(void)
+double AbstractWaterfall::getWfTimeRes()
 {
   if (msec_per_wfline)
     return msec_per_wfline;
@@ -1646,7 +1646,7 @@ void AbstractWaterfall::updateOverlay()
 }
 
 /** Reset horizontal zoom to 100% and centered around 0. */
-void AbstractWaterfall::resetHorizontalZoom(void)
+void AbstractWaterfall::resetHorizontalZoom()
 {
   setFftCenterFreq(0);
   setSpanFreq(static_cast<qint64>(m_SampleFreq));
@@ -1655,7 +1655,7 @@ void AbstractWaterfall::resetHorizontalZoom(void)
 }
 
 /** Center FFT plot around 0 (corresponds to center freq). */
-void AbstractWaterfall::moveToCenterFreq(void)
+void AbstractWaterfall::moveToCenterFreq()
 {
   setFftCenterFreq(0);
   updateOverlay();
@@ -1663,7 +1663,7 @@ void AbstractWaterfall::moveToCenterFreq(void)
 }
 
 /** Center FFT plot around the demodulator frequency. */
-void AbstractWaterfall::moveToDemodFreq(void)
+void AbstractWaterfall::moveToDemodFreq()
 {
   setFftCenterFreq(m_DemodCenterFreq-m_CenterFreq);
   updateOverlay();

@@ -124,7 +124,7 @@ class AbstractWaterfall : public QOpenGLWidget
 
     virtual void setMaxBlending(bool val)
     {
-      (void)val; // suppress unused variable warning
+      (void) val; // suppress unused variable warning
     }
 
     void setCenterFreq(qint64 f);
@@ -132,7 +132,7 @@ class AbstractWaterfall : public QOpenGLWidget
 
     void setDemodCenterFreq(qint64 f) { m_DemodCenterFreq = f; }
 
-    bool slow(void) const
+    bool slow() const
     {
       if (m_fftDataSize == 0)
         return true;
@@ -149,7 +149,7 @@ class AbstractWaterfall : public QOpenGLWidget
       m_DemodCenterFreq = m_CenterFreq + freq_hz;
       drawOverlay();
     }
-    qint64 getFilterOffset(void)
+    qint64 getFilterOffset()
     {
       return m_DemodCenterFreq - m_CenterFreq;
     }
@@ -191,7 +191,7 @@ class AbstractWaterfall : public QOpenGLWidget
         qint64 FHiCmax,
         bool symetric);
 
-    qint64 getCenterFreq(void) const
+    qint64 getCenterFreq() const
     {
       return m_CenterFreq;
     }
@@ -211,7 +211,7 @@ class AbstractWaterfall : public QOpenGLWidget
       m_unitName = name;
     }
 
-    QString getUnitName(void) const
+    QString getUnitName() const
     {
       return m_unitName;
     }
@@ -226,17 +226,17 @@ class AbstractWaterfall : public QOpenGLWidget
       drawOverlay();
     }
 
-    quint64 getSpanFreq(void) const
+    quint64 getSpanFreq() const
     {
       return static_cast<quint64>(this->m_Span);
     }
 
-    float getZoomLevel(void) const
+    float getZoomLevel() const
     {
       return (float)m_SampleFreq / m_Span;
     }
 
-    qint64 getFftCenterFreq(void) const
+    qint64 getFftCenterFreq() const
     {
       return this->m_FftCenter;
     }
@@ -256,7 +256,7 @@ class AbstractWaterfall : public QOpenGLWidget
       }
     }
 
-    double getSampleRate(void)
+    double getSampleRate()
     {
       return m_SampleFreq;
     }
@@ -272,7 +272,7 @@ class AbstractWaterfall : public QOpenGLWidget
 
     int     getNearestPeak(QPoint pt);
     void    setWaterfallSpan(quint64 span_ms);
-    double  getWfTimeRes(void);
+    double  getWfTimeRes();
     void    setFftRate(int rate_hz);
     void    setFrequencyLimits(qint64 min, qint64 max);
     void    setFrequencyLimitsEnabled(bool);
@@ -308,9 +308,9 @@ class AbstractWaterfall : public QOpenGLWidget
 
   public slots:
     // zoom functions
-    void resetHorizontalZoom(void);
-    void moveToCenterFreq(void);
-    void moveToDemodFreq(void);
+    void resetHorizontalZoom();
+    void moveToCenterFreq();
+    void moveToDemodFreq();
     void zoomOnXAxis(float level);
 
     // other FFT slots
@@ -430,7 +430,7 @@ class AbstractWaterfall : public QOpenGLWidget
     qint64              m_partialFreqStart;
     qint64              m_partialFreqEnd;
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     Qt::MouseButton m_freqDragBtn = Qt::MiddleButton;
 #else
     Qt::MouseButton m_freqDragBtn = Qt::MidButton;
