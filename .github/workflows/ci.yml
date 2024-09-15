@@ -20,8 +20,11 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
+    - name: Update apt sources
+      run: sudo apt-get update
+
     - name: Install Qt
-      uses: jurplel/install-qt-action@v2
+      run: sudo apt-get install qtbase5-dev qttools5-dev qttools5-dev-tools
 
     - name: Install sndfile
       run: sudo apt-get install libsndfile1-dev
@@ -52,8 +55,6 @@ jobs:
     - name: Checkout (SuWidgets)
       uses: actions/checkout@v2
       with:
-        repository: BatchDrake/SuWidgets
-        ref: refs/heads/develop
         path: SuWidgets
 
     - name: QMake (SuWidgets)
@@ -65,6 +66,25 @@ jobs:
 
     - name: Build (SuWidgets)
       run: make -j 2 -C SuWidgets
+
+    - name: Get short hash
+      id: vars
+      run: cd SuWidgets && echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Make Debian packages
+      run: cd SuWidgets && ./makedeb.sh 0.3.0-${{steps.vars.outputs.sha_short}}
+
+    - name: Upload lib deb artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: libsuwidgets_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+        path: ${{github.workspace}}/SuWidgets/libsuwidgets_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+
+    - name: Upload lib dev deb artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: libsuwidgets-dev_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
+        path: ${{github.workspace}}/SuWidgets/libsuwidgets-dev_0.3.0-${{steps.vars.outputs.sha_short}}_amd64.deb
 
   build-macos:
     runs-on: macos-latest
