@@ -23,7 +23,7 @@
 #include <SuWidgetsHelpers.h>
 
 void
-LCD::recalculateDisplayData(void)
+LCD::recalculateDisplayData()
 {
   int width, height;
   unsigned int i, j, k;
@@ -57,29 +57,29 @@ LCD::recalculateDisplayData(void)
 
   brush.setStyle(Qt::SolidPattern);
 
-  width  = this->geometry.width();
-  height = this->geometry.height();
+  width  = m_geometry.width();
+  height = m_geometry.height();
 
   // Cache data
-  this->width = width;
-  this->height = height;
+  m_width = width;
+  m_height = height;
 
   // Segment width is calculated based on display height and margin configuration
-  this->segBoxLength    = .5 * this->height * this->zoom;
-  this->segBoxThickness = this->segBoxLength * this->thickness;
+  m_segBoxLength    = .5 * m_height  * m_zoom;
+  m_segBoxThickness = m_segBoxLength * m_thickness;
 
-  this->segLength    = this->segBoxLength    * this->segScale;
-  this->segThickness = this->segBoxThickness * this->segScale;
+  m_segLength    = m_segBoxLength    * m_segScale;
+  m_segThickness = m_segBoxThickness * m_segScale;
 
-  this->margin = .5 * (this->height - 2 * this->segBoxLength - this->segBoxThickness);
+  m_margin = .5 * (m_height - 2 * m_segBoxLength - m_segBoxThickness);
 
-  this->glyphWidth = static_cast<int>(this->segBoxLength + 2 * this->segBoxThickness);
+  m_glyphWidth = static_cast<int>(m_segBoxLength + 2 * m_segBoxThickness);
 
   // Compute segment polygons
-  qreal halfLen = .5 * this->segLength;
-  qreal lilBit  = .5 * this->segThickness;
-  qreal halfBoxLen = .5 * this->segBoxLength;
-  qreal lilBoxBit  = this->segBoxThickness;
+  qreal halfLen = .5 * m_segLength;
+  qreal lilBit  = .5 * m_segThickness;
+  qreal halfBoxLen = .5 * m_segBoxLength;
+  qreal lilBoxBit  = m_segBoxThickness;
 
   QTransform t;
 
@@ -92,20 +92,20 @@ LCD::recalculateDisplayData(void)
 
   // Compute glyphs
   for (k = 0; k < 2; ++k) {
-    brush.setColor(k == 0 ? this->foreground : this->background);
+    brush.setColor(k == 0 ? m_foreground : m_background);
 
     for (i = 0; i < 12; ++i) {
-      this->glyphs[k][i] = QPixmap(this->glyphWidth, this->glyphWidth * 2);
+      m_glyphs[k][i] = QPixmap(m_glyphWidth, m_glyphWidth * 2);
 
-      QPainter painter(&this->glyphs[k][i]);
+      QPainter painter(&m_glyphs[k][i]);
 
       painter.setRenderHint(QPainter::Antialiasing);
       painter.fillRect(
             0,
             0,
-            this->glyphWidth,
-            this->glyphWidth * 2,
-            k == 0 ? this->background : this->foreground);
+            m_glyphWidth,
+            m_glyphWidth * 2,
+            k == 0 ? m_background : m_foreground);
 
       for (j = 0; j < 7; ++j) {
         if ((digit_masks[i] & (1 << j)) != 0) {
@@ -113,13 +113,13 @@ LCD::recalculateDisplayData(void)
 
           if (offsets[j].horiz) {
             t.translate(
-                  this->segBoxLength * offsets[j].x + lilBoxBit + halfBoxLen,
-                  this->segBoxLength * offsets[j].y + lilBoxBit + .5 * halfBoxLen);
+                  m_segBoxLength * offsets[j].x + lilBoxBit + halfBoxLen,
+                  m_segBoxLength * offsets[j].y + lilBoxBit + .5 * halfBoxLen);
             t.rotate(90);
           } else {
             t.translate(
-                  this->segBoxLength * offsets[j].x + lilBoxBit,
-                  this->segBoxLength * offsets[j].y + lilBoxBit + 1.5 * halfBoxLen);
+                  m_segBoxLength * offsets[j].x + lilBoxBit,
+                  m_segBoxLength * offsets[j].y + lilBoxBit + 1.5 * halfBoxLen);
           }
 
           QPolygonF curSeg = t.map(seg);
@@ -137,31 +137,31 @@ LCD::drawSeparator(QPainter &painter, qreal x, int index)
 {
   painter.setBrush(
         index == 0
-        ? this->foreground
-        : this->background);
+        ? m_foreground
+        : m_background);
 
   QPainterPath path;
   path.addEllipse(
-        x + this->segBoxLength + this->segBoxThickness,
-        this->margin + 2 * this->segBoxLength + 1.5 * this->segBoxThickness,
-        this->segThickness,
-        this->segThickness);
+        x + m_segBoxLength + m_segBoxThickness,
+        m_margin + 2 * m_segBoxLength + 1.5 * m_segBoxThickness,
+        m_segThickness,
+        m_segThickness);
   painter.fillPath(
         path,
         index == 0
-          ? this->foreground
-          : this->background);
+          ? m_foreground
+          : m_background);
 }
 
 void
 LCD::drawLockAt(QPainter &painter, int x, bool locked)
 {
-  const qreal shackleRadius = this->glyphWidth / 5.;
-  const qreal shackleThickness = this->glyphWidth / 10.;
+  const qreal shackleRadius = m_glyphWidth / 5.;
+  const qreal shackleThickness = m_glyphWidth / 10.;
   const qreal bodyWidth = 2 * shackleRadius * 1.7;
   const qreal bodyHeight = bodyWidth * .8;
-  const qreal shackleSep = .5 * this->glyphWidth - shackleRadius;
-  const qreal bodySep    = .5 * (this->glyphWidth - bodyWidth);
+  const qreal shackleSep = .5 * m_glyphWidth - shackleRadius;
+  const qreal bodySep    = .5 * (m_glyphWidth - bodyWidth);
   QPen pen;
   QRectF shackleRect(
         x + shackleSep,
@@ -181,7 +181,7 @@ LCD::drawLockAt(QPainter &painter, int x, bool locked)
   else
     painter.setOpacity(.5);
 
-  pen.setColor(this->foreground);
+  pen.setColor(m_foreground);
   pen.setWidthF(shackleThickness);
 
   painter.setRenderHint(QPainter::Antialiasing);
@@ -189,31 +189,31 @@ LCD::drawLockAt(QPainter &painter, int x, bool locked)
   painter.setPen(pen);
   painter.drawArc(shackleRect, 0, locked ? 180 * 16 : 150 * 16);
 
-  painter.fillRect(bodyRect, this->foreground);
+  painter.fillRect(bodyRect, m_foreground);
   painter.restore();
 
-  this->lockRect = QRectF(
+  m_lockRect = QRectF(
         0,
         shackleRect.y(),
-        this->glyphWidth,
+        m_glyphWidth,
         bodyHeight + shackleRadius);
 
-  this->haveLockRect = true;
+  m_haveLockRect = true;
 }
 
 void
-LCD::drawContent(void)
+LCD::drawContent()
 {
-  QPainter painter(&this->contentPixmap);
-  painter.fillRect(0, 0, this->width, this->height, this->background);
-  qint64 value = this->value;
+  QPainter painter(&m_contentPixmap);
+  painter.fillRect(0, 0, m_width, m_height, m_background);
+  qint64 value = m_value;
   qint64 copy;
   bool negative = false;
   int index;
   qreal x;
   qreal maxX;
 
-  this->digits = 0;
+  m_digits = 0;
 
   if (value < 0) {
     value = -value;
@@ -223,39 +223,37 @@ LCD::drawContent(void)
   copy = value;
   while (copy != 0) {
     copy /= 10;
-    ++this->digits;
+    ++m_digits;
   }
 
-  x = this->width;
+  x = m_width;
 
-  if (this->digits == 0)
-    this->digits = 1;
+  if (m_digits < SCAST(int, m_minDigits))
+    m_digits = m_minDigits;
 
-  for (int i = 0; i < this->digits; ++i) {
-    x -= this->glyphWidth;
-    index = this->selected == i && this->revvideo && this->hasFocus()
+  for (int i = 0; i < m_digits; ++i) {
+    x -= m_glyphWidth;
+    index = m_selected == i && m_revvideo && hasFocus()
         ? 1
         : 0;
 
     painter.drawPixmap(
           static_cast<int>(x),
-          static_cast<int>(this->margin),
-          this->glyphs[index][value % 10]);
+          static_cast<int>(m_margin),
+          m_glyphs[index][value % 10]);
 
     // Draw thousands separator
-    if (i % 3 == 0)
-      this->drawSeparator(painter, x, index);
+    if (m_showDecimalSeparator && i % 3 == 0)
+      drawSeparator(painter, x, index);
 
     value /= 10;
   }
 
   maxX = x;
 
-  if (this->hoverDigit >= 0
-      && this->hoverDigit >= this->digits
-      && this->digits > 0) {
-    int count = this->hoverDigit - this->digits + 1;
-    x = this->width - this->glyphWidth * (this->hoverDigit + 1);
+  if (m_hoverDigit >= 0 && m_hoverDigit >= m_digits && m_digits > 0) {
+    int count = m_hoverDigit - m_digits + 1;
+    x = m_width - m_glyphWidth * (m_hoverDigit + 1);
     if (x < maxX)
       maxX = x;
 
@@ -263,72 +261,75 @@ LCD::drawContent(void)
 
     for (int i = 0; i < count; ++i) {
       painter.drawPixmap(
-            static_cast<int>(x + i * this->glyphWidth),
-            static_cast<int>(this->margin),
-            this->glyphs[0][0]);
+            static_cast<int>(x + i * m_glyphWidth),
+            static_cast<int>(m_margin),
+            m_glyphs[0][0]);
 
-      if ((this->hoverDigit - i) % 3 == 0)
-        this->drawSeparator(painter, x + i * this->glyphWidth, 0);
+      if (m_showDecimalSeparator && (m_hoverDigit - i) % 3 == 0)
+        drawSeparator(painter, x + i * m_glyphWidth, 0);
     }
 
     painter.setOpacity(1);
   }
 
-  if (this->hasFocus() && this->selected >= this->digits) {
-    x = this->width - this->glyphWidth * (this->selected + 1);
+  if (hasFocus() && m_selected >= m_digits) {
+    x = m_width - m_glyphWidth * (m_selected + 1);
     if (x < maxX)
       maxX = x;
 
-    index = this->revvideo ? 1 : 0;
+    index = m_revvideo ? 1 : 0;
 
     painter.drawPixmap(
           static_cast<int>(x),
-          static_cast<int>(this->margin),
-          this->glyphs[index][11]);
+          static_cast<int>(m_margin),
+          m_glyphs[index][11]);
 
   }
 
   /* If negative, draw minus sign */
   if (negative) {
-    maxX -= this->glyphWidth;
+    maxX -= m_glyphWidth;
     painter.drawPixmap(
           static_cast<int>(maxX),
-          static_cast<int>(this->margin),
-          this->glyphs[0][10]);
+          static_cast<int>(m_margin),
+          m_glyphs[0][10]);
   }
 
-  this->drawLockAt(painter, 0, this->locked);
+  if (m_lockStateEditable)
+    drawLockAt(painter, 0, m_locked);
+  else
+    m_haveLockRect = false;
 }
 
 void
-LCD::draw(void)
+LCD::draw()
 {
-  if (this->dirty && this->haveGeometry) {
-    if (this->geometryChanged) {
-      this->recalculateDisplayData();
-      this->geometryChanged = false;
+  if (m_dirty && m_haveGeometry) {
+    if (m_geometryChanged) {
+      recalculateDisplayData();
+      m_geometryChanged = false;
     }
 
-    this->drawContent();
-    this->update();
+    drawContent();
+    update();
 
-    this->dirty = false;
+    m_dirty = false;
   }
 }
 
 void
 LCD::resizeEvent(QResizeEvent *)
 {
-  if (!this->size().isValid())
+  if (!size().isValid())
     return;
 
-  if (this->geometry != this->size()) {
-    this->geometry = this->size();
-    this->contentPixmap = QPixmap(this->geometry.width(), this->geometry.height());
-    this->geometryChanged = true;
-    this->dirty = true;
-    this->haveGeometry = true;
-    this->draw();
+  if (m_geometry != size()) {
+    m_geometry = size();
+    m_contentPixmap = QPixmap(m_geometry.width(), m_geometry.height());
+    m_geometryChanged = true;
+    m_dirty = true;
+    m_haveGeometry = true;
+    draw();
   }
 }
 
@@ -337,40 +338,40 @@ LCD::paintEvent(QPaintEvent *)
 {
   QPainter painter(this);
 
-  painter.drawPixmap(0, 0, this->contentPixmap);
+  painter.drawPixmap(0, 0, m_contentPixmap);
 }
 
 void
 LCD::mousePressEvent(QMouseEvent *ev)
 {
-  if (this->haveLockRect)
+  if (m_haveLockRect)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    if (this->lockRect.contains(ev->position()))
+    if (m_lockRect.contains(ev->position()))
 #else
-    if (this->lockRect.contains(ev->x(), ev->y()))
+    if (m_lockRect.contains(ev->x(), ev->y()))
 #endif
-      this->setLocked(!this->isLocked());
+      setLocked(!isLocked());
 
-  if (this->glyphWidth > 0)
+  if (m_glyphWidth > 0)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    this->selectDigit((this->width - ev->position().x()) / this->glyphWidth);
+    selectDigit((m_width - ev->position().x()) / m_glyphWidth);
 #else
-    this->selectDigit((this->width - ev->x()) / this->glyphWidth);
+    selectDigit((m_width - ev->x()) / m_glyphWidth);
 #endif
 }
 
 void
 LCD::scrollDigit(int digit, int delta)
 {
-  qint64 value = this->value;
+  qint64 value = m_value;
   bool negative = value < 0;
   qint64 mult = 1;
 
   if (digit < LCD_MAX_DIGITS) {
-    this->selectDigit(digit);
+    selectDigit(digit);
 
-    if (this->selected >= 0 && !this->locked) {
-      for (int i = 0; i < this->selected; ++i)
+    if (m_selected >= 0 && !m_locked) {
+      for (int i = 0; i < m_selected; ++i)
         mult *= 10;
 
       if (negative) {
@@ -383,7 +384,7 @@ LCD::scrollDigit(int digit, int delta)
       if (negative)
         value = -value;
 
-      this->setValue(value);
+      setValue(value);
     }
   }
 }
@@ -391,7 +392,7 @@ LCD::scrollDigit(int digit, int delta)
 void
 LCD::wheelEvent(QWheelEvent *ev)
 {
-  if (this->glyphWidth > 0) {
+  if (m_glyphWidth > 0) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     int x = SCAST(int, ev->position().x());
 #else
@@ -399,14 +400,14 @@ LCD::wheelEvent(QWheelEvent *ev)
 #endif // QT_VERSION
 
     // accumulate small wheel events up to a step
-    cumWheelDelta += ev->angleDelta().y();
-    int numSteps = cumWheelDelta / (8*15);
+    m_cumWheelDelta += ev->angleDelta().y();
+    int numSteps = m_cumWheelDelta / (8*15);
     if (abs(numSteps) == 0)
         return;
-    cumWheelDelta = 0;
+    m_cumWheelDelta = 0;
 
-    int digit = (this->width - x) / this->glyphWidth;
-    this->scrollDigit(digit, numSteps > 0 ? 1 : -1);
+    int digit = (m_width - x) / m_glyphWidth;
+    scrollDigit(digit, numSteps > 0 ? 1 : -1);
     ev->accept();
   }
 }
@@ -418,8 +419,8 @@ LCD::mouseMoveEvent(QMouseEvent *event)
 
   int digit = -1;
 
-  if (this->haveLockRect) {
-    qreal lockSpaceX = this->lockRect.x() + this->lockRect.width();
+  if (m_haveLockRect) {
+    qreal lockSpaceX = m_lockRect.x() + m_lockRect.width();
     rect = QRectF(
           lockSpaceX,
           0,
@@ -429,25 +430,25 @@ LCD::mouseMoveEvent(QMouseEvent *event)
 
   if (rect.contains(event->pos()))
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    digit = (this->width - event->position().x()) / this->glyphWidth;
+    digit = (m_width - event->position().x()) / m_glyphWidth;
 #else
-    digit = (this->width - event->x()) / this->glyphWidth;
+    digit = (m_width - event->x()) / m_glyphWidth;
 #endif
 
-  if (digit != this->hoverDigit) {
-    this->hoverDigit = digit;
-    this->dirty = true;
-    this->draw();
+  if (digit != m_hoverDigit) {
+    m_hoverDigit = digit;
+    m_dirty = true;
+    draw();
   }
 }
 
 void
 LCD::leaveEvent(QEvent *)
 {
-  if (this->hoverDigit != -1) {
-    this->hoverDigit = -1;
-    this->dirty = true;
-    this->draw();
+  if (m_hoverDigit != -1) {
+    m_hoverDigit = -1;
+    m_dirty = true;
+    draw();
   }
 }
 
@@ -459,19 +460,19 @@ LCD::keyPressEvent(QKeyEvent *event)
 
   switch (event->key()) {
     case Qt::Key_Right:
-      this->selectDigit(this->selected - 1);
+      selectDigit(m_selected - 1);
       break;
 
     case Qt::Key_Left:
-      this->selectDigit(this->selected + 1);
+      selectDigit(m_selected + 1);
       break;
 
     case Qt::Key_Up:
-      this->scrollDigit(this->selected, +1);
+      scrollDigit(m_selected, +1);
       break;
 
     case Qt::Key_Down:
-      this->scrollDigit(this->selected, -1);
+      scrollDigit(m_selected, -1);
       break;
 
     case Qt::Key_0:
@@ -484,14 +485,14 @@ LCD::keyPressEvent(QKeyEvent *event)
     case Qt::Key_7:
     case Qt::Key_8:
     case Qt::Key_9:
-      if (this->selected != -1 && !this->locked) {
-        qint64 value = this->value;
+      if (m_selected != -1 && !m_locked) {
+        qint64 value = m_value;
         bool negative = value < 0;
 
         if (negative)
           value = -value;
 
-        for (int i = 0; i < this->selected; ++i)
+        for (int i = 0; i < m_selected; ++i)
           mult *= 10;
 
         // Put zero in this position
@@ -501,24 +502,24 @@ LCD::keyPressEvent(QKeyEvent *event)
         if (negative)
           value = -value;
 
-        this->setValue(value);
+        setValue(value);
 
-        this->selectDigit(this->selected - 1);
+        selectDigit(m_selected - 1);
       }
       break;
 
     case Qt::Key_Plus:
-      if (!this->locked)
-        this->setValue(std::abs(this->value));
+      if (!m_locked)
+        setValue(std::abs(m_value));
       break;
 
     case Qt::Key_Minus:
-      if (!this->locked)
-        this->setValue(-this->value);
+      if (!m_locked)
+        setValue(-m_value);
       break;
 
     case Qt::Key_L:
-      this->setLocked(!this->isLocked());
+      setLocked(!isLocked());
       break;
 
     default:
@@ -526,30 +527,30 @@ LCD::keyPressEvent(QKeyEvent *event)
   }
 
   if (changes) {
-    this->revvideo = true;
-    this->dirty = true;
-    this->draw();
+    m_revvideo = true;
+    m_dirty = true;
+    draw();
   }
 }
 
 void
-LCD::onTimerTimeout(void)
+LCD::onTimerTimeout()
 {
-  this->revvideo = !this->revvideo;
-  this->dirty = true;
-  this->draw();
+  m_revvideo = !m_revvideo;
+  m_dirty = true;
+  draw();
 }
 
 LCD::LCD(QWidget *parent) :
   QFrame(parent)
 {
-  this->contentPixmap = QPixmap(0, 0);
-  this->setFocusPolicy(Qt::StrongFocus);
-  this->background = LCD_DEFAULT_BACKGROUND_COLOR;
-  this->foreground = LCD_DEFAULT_FOREGROUND_COLOR;
-  this->setMouseTracking(true);
+  m_contentPixmap = QPixmap(0, 0);
+  setFocusPolicy(Qt::StrongFocus);
+  m_background = LCD_DEFAULT_BACKGROUND_COLOR;
+  m_foreground = LCD_DEFAULT_FOREGROUND_COLOR;
+  setMouseTracking(true);
 
-  this->timer = new QTimer(this);
-  connect(this->timer, SIGNAL(timeout()), this, SLOT(onTimerTimeout()));
-  this->timer->start(LCD_BLINKING_INTERVAL);
+  m_timer = new QTimer(this);
+  connect(m_timer, SIGNAL(timeout()), this, SLOT(onTimerTimeout()));
+  m_timer->start(LCD_BLINKING_INTERVAL);
 }

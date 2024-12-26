@@ -98,54 +98,77 @@ class LCD : public QFrame
       WRITE setMax
       NOTIFY maxChanged)
 
-  // Data properties
-  qint64 value = 0;
-  qint64 max = LCD_MAX_DEFAULT;
-  qint64 min = LCD_MIN_DEFAULT;
+  Q_PROPERTY(
+      unsigned minDigits
+      READ getMinDigits
+      WRITE setMinDigits
+      NOTIFY minDigitsChanged)
 
-  QColor background;
-  QColor foreground;
-  qreal  zoom = 0.707;
-  qreal  thickness = LCD_DEFAULT_THICKNESS;
-  qreal  segScale  = LCD_DEFAULT_SEG_SCALE;
+  Q_PROPERTY(
+      bool lockStateEditable
+      READ getLockStateEditable
+      WRITE setLockStateEditable
+      NOTIFY lockStateEditableChanged)
+
+  Q_PROPERTY(
+      bool showDecimalSeparator
+      READ getShowDecimalSeparator
+      WRITE setShowDecimalSeparator
+      NOTIFY showDecimalSeparatorChanged)
+
+  // Data properties
+  qint64 m_value = 0;
+  qint64 m_max = LCD_MAX_DEFAULT;
+  qint64 m_min = LCD_MIN_DEFAULT;
+
+  QColor m_background;
+  QColor m_foreground;
+  qreal  m_zoom = 0.707;
+  qreal  m_thickness = LCD_DEFAULT_THICKNESS;
+  qreal  m_segScale  = LCD_DEFAULT_SEG_SCALE;
+
+  unsigned m_minDigits = 1;
+  bool     m_lockStateEditable = true;
+  bool     m_showDecimalSeparator = true;
 
   // Content pixmap and drawing area
-  QPixmap contentPixmap;
-  QPixmap glyphs[2][12];
-  QSize   geometry;
-  bool    dirty = false;
-  bool    geometryChanged = false;
-  bool    haveGeometry = false;
-  bool    locked = false;
+  QPixmap m_contentPixmap;
+  QPixmap m_glyphs[2][12];
+  QSize   m_geometry;
+  bool    m_dirty = false;
+  bool    m_geometryChanged = false;
+  bool    m_haveGeometry = false;
+  bool    m_locked = false;
 
   // Cached data
-  int width;
-  int height;
-  int glyphWidth;
-  int glyphHeight;
-  int cumWheelDelta = 0;
-  qreal segBoxThickness;
-  qreal segBoxLength;
-  qreal segThickness;
-  qreal segLength;
-  qreal margin;
-  QRectF lockRect;
-  bool haveLockRect = false;
+  int m_width;
+  int m_height;
+  int m_glyphWidth;
+  int m_glyphHeight;
+  int m_cumWheelDelta = 0;
+
+  qreal m_segBoxThickness;
+  qreal m_segBoxLength;
+  qreal m_segThickness;
+  qreal m_segLength;
+  qreal m_margin;
+  QRectF m_lockRect;
+  bool m_haveLockRect = false;
 
   // Blinking timer
-  QTimer *timer = nullptr;
-  bool revvideo = false;
-  bool pad3[7];
-  int selected = -1;
-  int digits = 1;
-  int hoverDigit = -1;
+  QTimer *m_timer = nullptr;
+  bool m_revvideo = false;
+  bool m_pad3[7];
+  int m_selected = -1;
+  int m_digits = 1;
+  int m_hoverDigit = -1;
 
   // Private methods
   void drawSegAt(int x, int y, bool flip);
   void drawLockAt(QPainter &, int x, bool locked);
-  void recalculateDisplayData(void);
-  void drawContent(void);
-  void draw(void);
+  void recalculateDisplayData();
+  void drawContent();
+  void draw();
   void drawSeparator(QPainter &, qreal x, int index);
   void scrollDigit(int digit, int delta);
 
@@ -156,15 +179,15 @@ public:
 
   bool
   setValueSilent(qint64 value) {
-    if (value > this->max)
-      value = this->max;
-    else if (value < this->min)
-      value = this->min;
+    if (value > m_max)
+      value = m_max;
+    else if (value < m_min)
+      value = m_min;
 
-    if (this->value != value) {
-      this->value = value;
-      this->dirty = true;
-      this->draw();
+    if (m_value != value) {
+      m_value = value;
+      m_dirty = true;
+      draw();
       return true;
     }
 
@@ -173,51 +196,67 @@ public:
 
   void
   setValue(qint64 value) {
-    if (this->setValueSilent(value))
+    if (setValueSilent(value))
       emit valueChanged();
   }
 
 
   qint64
-  getValue(void) const {
-    return this->value;
+  getValue() const {
+    return m_value;
   }
 
   void
-  getValue(qint64 &m_value) const {
-    m_value = this->value;
+  getValue(qint64 &value) const {
+    value = m_value;
   }
 
   bool
-  isLocked(void) const {
-    return this->locked;
+  isLocked() const {
+    return m_locked;
   }
 
   void
   setLocked(bool locked) {
-    if (this->locked != locked) {
-      this->locked = locked;
-      this->dirty  = true;
-      this->draw();
+    if (m_locked != locked) {
+      m_locked = locked;
+      m_dirty  = true;
+      draw();
       emit lockStateChanged();
     }
   }
 
   bool
+  getShowDecimalSeparator() const {
+    return m_showDecimalSeparator;
+  }
+
+  void
+  setShowDecimalSeparator(bool show) {
+    if (m_showDecimalSeparator != show) {
+      m_showDecimalSeparator = show;
+      m_dirty  = true;
+      draw();
+      emit showDecimalSeparatorChanged();
+    }
+  }
+
+
+  bool
   setMaxSilent(qint64 max) {
-    auto value = this->value;
-    if (max < this->min)
-      max = this->min;
+    auto value = m_value;
+    if (max < m_min)
+      max = m_min;
 
-    if (value > this->max)
-      value = this->max;
+    if (value > m_max)
+      value = m_max;
 
-    this->max = max;
+    m_max = max;
 
-    if (this->value != value) {
-      this->value = value;
-      this->dirty = true;
-      this->draw();
+    if (m_value != value) {
+      m_value = value;
+      m_dirty = true;
+      draw();
       return true;
     }
 
@@ -226,35 +265,35 @@ public:
 
   void
   setMax(qint64 max) {
-    if (this->setMaxSilent(max))
+    if (setMaxSilent(max))
       emit valueChanged();
   }
 
   qint64
-  getMax(void) const {
-    return this->max;
+  getMax() const {
+    return m_max;
   }
 
   void
-  getMax(qint64 &m_max) const {
-    m_max = this->max;
+  getMax(qint64 &max) const {
+    max = m_max;
   }
 
   bool
   setMinSilent(qint64 min) {
-    auto value = this->value;
-    if (min > this->max)
-      min = this->max;
+    auto value = m_value;
+    if (min > m_max)
+      min = m_max;
 
-    if (value < this->min)
-      value = this->min;
+    if (value < m_min)
+      value = m_min;
 
-    this->min = min;
+    m_min = min;
 
-    if (this->value != value) {
-      this->value = value;
-      this->dirty = true;
-      this->draw();
+    if (m_value != value) {
+      m_value = value;
+      m_dirty = true;
+      draw();
       return true;
     }
 
@@ -263,124 +302,165 @@ public:
 
   void
   setMin(qint64 min) {
-    if (this->setMinSilent(min))
+    if (setMinSilent(min))
       emit valueChanged();
   }
 
   qint64
-  getMin(void) const {
-    return this->min;
+  getMin() const {
+    return m_min;
   }
 
   void
-  getMin(qint64 &m_min) const {
-    m_min = this->min;
+  getMin(qint64 &min) const {
+    min = m_min;
+  }
+
+  void
+  setMinDigits(unsigned minDigits) {
+    if (minDigits < 1)
+      minDigits = 1;
+
+    if (m_minDigits != minDigits) {
+      m_minDigits = minDigits;
+      draw();
+      emit minDigitsChanged();
+    }
+  }
+
+  unsigned
+  getMinDigits() const {
+    return m_minDigits;
+  }
+
+  void
+  getMinDigits(unsigned &minDigits) const {
+    minDigits = m_minDigits;
+  }
+
+  void
+  setLockStateEditable(bool editable) {
+    if (m_lockStateEditable != editable) {
+      m_lockStateEditable = editable;
+      draw();
+      emit lockStateEditableChanged();
+    }
+  }
+
+  bool
+  getLockStateEditable() const {
+    return m_lockStateEditable;
+  }
+
+  void
+  getLockStateEditable(bool &editable) const {
+    editable = m_lockStateEditable;
   }
 
   void
   setZoom(qreal zoom) {
-    if (fabs(this->zoom - zoom) >= 1e-8) {
-      this->zoom = zoom;
-      this->dirty = true;
-      this->geometryChanged = true;
-      this->draw();
+    if (fabs(m_zoom - zoom) >= 1e-8) {
+      m_zoom = zoom;
+      m_dirty = true;
+      m_geometryChanged = true;
+      draw();
       emit zoomChanged();
     }
   }
 
   qreal
-  getZoom(void) const {
-    return this->zoom;
+  getZoom() const {
+    return m_zoom;
   }
 
   void
-  getZoom(qreal &m_zoom) const {
-    m_zoom = this->zoom;
+  getZoom(qreal &zoom) const {
+    zoom = m_zoom;
   }
 
   void
   setThickness(qreal thickness) {
-    if (fabs(this->thickness - thickness) >= 1e-8) {
-      this->thickness = thickness;
-      this->dirty = true;
-      this->geometryChanged = true;
-      this->draw();
+    if (fabs(m_thickness - thickness) >= 1e-8) {
+      m_thickness = thickness;
+      m_dirty = true;
+      m_geometryChanged = true;
+      draw();
       emit thicknessChanged();
     }
   }
 
   qreal
-  getThickness(void) const {
-    return this->thickness;
+  getThickness() const {
+    return m_thickness;
   }
 
   void
-  getThickness(qreal &m_thickness) const {
-    m_thickness = this->thickness;
+  getThickness(qreal &thickness) const {
+    thickness = m_thickness;
   }
 
   void
   setSegScale(qreal segScale) {
-    if (fabs(this->segScale - segScale) >= 1e-8) {
-      this->segScale = segScale;
-      this->dirty = true;
-      this->geometryChanged = true;
-      this->draw();
+    if (fabs(m_segScale - segScale) >= 1e-8) {
+      m_segScale = segScale;
+      m_dirty = true;
+      m_geometryChanged = true;
+      draw();
       emit segScaleChanged();
     }
   }
 
   qreal
-  getSegScale(void) const {
-    return this->segScale;
+  getSegScale() const {
+    return m_segScale;
   }
 
   void
   getSegScale(qreal &segScale) const {
-    segScale = this->segScale;
+    segScale = m_segScale;
   }
 
   void
   setBackgroundColor(const QColor &c)
   {
-    this->background = c;
-    this->dirty = true;
-    this->geometryChanged = true;
-    this->draw();
+    m_background = c;
+    m_dirty = true;
+    m_geometryChanged = true;
+    draw();
     emit backgroundColorChanged();
   }
 
   const QColor &
-  getBackgroundColor(void) const
+  getBackgroundColor() const
   {
-    return this->background;
+    return m_background;
   }
 
   void
   setForegroundColor(const QColor &c)
   {
-    this->foreground = c;
-    this->dirty = true;
-    this->geometryChanged = true;
-    this->draw();
+    m_foreground = c;
+    m_dirty = true;
+    m_geometryChanged = true;
+    draw();
     emit foregroundColorChanged();
   }
 
   const QColor &
-  getForegroundColor(void) const
+  getForegroundColor() const
   {
-    return this->foreground;
+    return m_foreground;
   }
 
   void
   selectDigit(int digit)
   {
     if (digit < 0)
-      this->selected = -1;
+      m_selected = -1;
     else if (digit >= LCD_MAX_DIGITS)
-      this->selected = LCD_MAX_DIGITS - 1;
+      m_selected = LCD_MAX_DIGITS - 1;
     else
-      this->selected = digit;
+      m_selected = digit;
   }
 
   void resizeEvent(QResizeEvent *);
@@ -403,6 +483,9 @@ signals:
   void maxChanged();
   void minChanged();
   void lockStateChanged();
+  void minDigitsChanged();
+  void lockStateEditableChanged();
+  void showDecimalSeparatorChanged();
 
 public slots:
   void onTimerTimeout();
