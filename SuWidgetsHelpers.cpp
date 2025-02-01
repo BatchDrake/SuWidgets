@@ -29,7 +29,7 @@
   "custom build on " __DATE__ " at " __TIME__ " (" __VERSION__ ")"
 #endif /* SUSCAN_BUILD_STRING */
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #   define localtime_r(T,Tm) (localtime_s(Tm,T) ? NULL : Tm)
 #endif
 
