@@ -7,6 +7,7 @@ darwin: QMAKE_SONAME_PREFIX = @rpath
 darwin: QMAKE_LFLAGS += -Wl,-export_dynamic
 
 QT += widgets opengl
+win32:QT += gui
 
 isEmpty(PREFIX) {
   SUWIDGETS_INSTALL_LIBS=$$[QT_INSTALL_LIBS]

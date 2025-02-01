@@ -29,6 +29,11 @@
  * authors and should not be interpreted as representing official policies, either expressed
  * or implied, of Moe Wheatley.
  */
+
+#ifdef _WIN32
+#  include <QOpenGLFunctions>
+#endif // _WIN32
+
 #include <cmath>
 #include <QColor>
 #include <QDateTime>
