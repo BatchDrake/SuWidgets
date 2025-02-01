@@ -74,8 +74,8 @@ class WaveBuffer {
   std::vector<SUCOMPLEX> m_ownBuffer; // Only if !m_loan
   const std::vector<SUCOMPLEX> *m_buffer = nullptr; // Only if !m_ro
 
-  const SUCOMPLEX *m_ro_data;
-  size_t           m_ro_size;
+  const SUCOMPLEX *m_ro_data = nullptr;
+  size_t           m_ro_size = 0;
 
   bool m_loan = false; // m_ownBuffer must be ignored
   bool m_ro   = false; // m_buffer must be ignored. Implies m_loan

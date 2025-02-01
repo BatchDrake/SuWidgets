@@ -29,9 +29,9 @@
   "custom build on " __DATE__ " at " __TIME__ " (" __VERSION__ ")"
 #endif /* SUSCAN_BUILD_STRING */
 
-#ifdef _WIN32
-#  define localtime_r localtime_s
-#endif // _WIN32
+#if defined(_MSC_VER)
+#   define localtime_r(T,Tm) (localtime_s(Tm,T) ? NULL : Tm)
+#endif
 
 
 SuWidgetsObjectBlocker::SuWidgetsObjectBlocker(QObject *obj)
