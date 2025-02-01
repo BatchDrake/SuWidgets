@@ -1930,11 +1930,8 @@ void AbstractWaterfall::drawBookmarks(
 
   for (int i = 0; i < bookmarks.size(); i++) {
     x = xFromFreq(bookmarks[i].frequency);
-#if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
-    int nameWidth = ctx.metrics->width(bookmarks[i].name);
-#else
+
     int nameWidth = ctx.metrics->boundingRect(bookmarks[i].name).width();
-#endif
 
     int level = 0;
     int yMin = static_cast<int>(m_FATs.size()) * ctx.metrics->height();
