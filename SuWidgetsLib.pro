@@ -8,6 +8,7 @@ darwin: QMAKE_LFLAGS += -Wl,-export_dynamic
 
 QT += widgets opengl
 win32:QT += gui
+win32:LIBS += -lopengl32
 
 isEmpty(PREFIX) {
   SUWIDGETS_INSTALL_LIBS=$$[QT_INSTALL_LIBS]
