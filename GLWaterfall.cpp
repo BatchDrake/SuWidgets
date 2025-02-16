@@ -30,10 +30,6 @@
  * or implied, of Moe Wheatley.
  */
 
-#ifdef _WIN32
-#  include <QOpenGLFunctions>
-#endif // _WIN32
-
 #include <cmath>
 #include <QColor>
 #include <QDateTime>
@@ -270,6 +266,7 @@ GLWaterfallOpenGLContext::~GLWaterfallOpenGLContext()
   delete m_fragmentShader;
   delete m_waterfall;
   delete m_palette;
+  delete m_functions;
 }
 
 void
@@ -290,8 +287,11 @@ GLWaterfallOpenGLContext::initialize()
           255));
   }
 
+  if (m_functions == nullptr)
+    m_functions = new QOpenGLFunctions(QOpenGLContext::currentContext());
+
   // Retrieve limits
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
+  m_functions->glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
   m_maxRowSize = GLLine::resolutionFor(texSize);
 
   if (m_rowCount > m_maxRowSize)
@@ -300,15 +300,18 @@ GLWaterfallOpenGLContext::initialize()
   if (m_rowSize > m_maxRowSize)
     m_rowSize = m_maxRowSize;
 
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_MULTISAMPLE);
+  m_functions->glEnable(GL_DEPTH_TEST);
 
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-  glEnable(GL_POINT_SMOOTH);
-  glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#ifdef QT_OPENGL_3
+  m_functions->glEnable(GL_MULTISAMPLE);
+  m_functions->glEnable(GL_LINE_SMOOTH);
+  m_functions->glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+  m_functions->glEnable(GL_POINT_SMOOTH);
+  m_functions->glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+#endif // QT_OPENGL_3
+
+  m_functions->glEnable(GL_BLEND);
+  m_functions->glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   m_vao.create();
 
@@ -368,7 +371,7 @@ GLWaterfallOpenGLContext::resetWaterfall()
 
   // Clear waterfall
   for (int i = 0; i < m_rowCount; ++i)
-    glTexSubImage2D(
+    m_functions->glTexSubImage2D(
         GL_TEXTURE_2D,
         0,
         0,
@@ -385,7 +388,7 @@ GLWaterfallOpenGLContext::resetWaterfall()
 void
 GLWaterfallOpenGLContext::flushPalette()
 {
-  glTexSubImage2D(
+  m_functions->glTexSubImage2D(
       GL_TEXTURE_2D,
       0,
       0,
@@ -422,7 +425,7 @@ GLWaterfallOpenGLContext::flushOneLine()
   int row = m_rowCount - (m_row % m_rowCount) - 1;
 
   if (m_rowSize == line.resolution()) {
-    glTexSubImage2D(
+    m_functions->glTexSubImage2D(
         GL_TEXTURE_2D,
         0,
         0,
@@ -468,7 +471,7 @@ GLWaterfallOpenGLContext::flushLinesBulk()
   }
 
   if (count > 0) {
-    glTexSubImage2D(
+    m_functions->glTexSubImage2D(
         GL_TEXTURE_2D,
         0,
         0,
@@ -617,16 +620,17 @@ GLWaterfallOpenGLContext::render(
   if (width != m_width || fabsf(zoom - m_zoom) > 1e-6f)
     recalcGeometric(width, height, zoom);
 
+
+#ifdef QT_OPENGL_3
   glPushAttrib(GL_ALL_ATTRIB_BITS); // IMPORTANT TO PREVENT CONFLICTS WITH QPAINTER
+#endif // QT_OPENGL_3
 
   m_program.bind(); // Must be the first
 
-  glViewport(x, height - m_rowCount - y, width, m_rowCount);
+  m_functions->glViewport(x, height - m_rowCount - y, width, m_rowCount);
 
-  glLoadIdentity();
-
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glDisable(GL_CULL_FACE);
+  m_functions->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_functions->glDisable(GL_CULL_FACE);
 
   ortho.translate(2 * left, 0);
   ortho.scale(zoom, 1);
@@ -674,7 +678,7 @@ GLWaterfallOpenGLContext::render(
   m_program.setUniformValue("m_texture", 0);
   m_program.setUniformValue("m_palette", 1);
 
-  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+  m_functions->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
 
   m_vao.release();
   m_program.disableAttributeArray("vertexcoords");
@@ -687,7 +691,9 @@ GLWaterfallOpenGLContext::render(
   m_vbo.release();
   m_ibo.release();
 
+#ifdef QT_OPENGL_3
   glPopAttrib();
+#endif // QT_OPENGL_3
 }
 
 ///////////////////////////// GLWaterfall ////////////////////////////////////////

@@ -33,6 +33,7 @@
 #define GL_WATERFALL_H
 
 #include "AbstractWaterfall.h"
+#include <QOpenGLFunctions>
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #  include <QOpenGLVertexArrayObject>
@@ -149,6 +150,7 @@ class GLLine : public std::vector<float>
 typedef std::list<GLLine> GLLineHistory;
 
 struct GLWaterfallOpenGLContext {
+  QOpenGLFunctions        *m_functions = nullptr;
   QOpenGLVertexArrayObject m_vao;
   QOpenGLBuffer            m_vbo;
   QOpenGLBuffer            m_ibo;
