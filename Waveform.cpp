@@ -806,7 +806,7 @@ Waveform::overlayVCursors(QPainter &p)
     QFont font;
     QFontMetrics metrics(font);
     QPen pen;
-    int x = m_valueTextWidth;
+    int x = 5;
 
     p.save();
 
@@ -843,7 +843,7 @@ Waveform::overlayACursors(QPainter &p)
   if (m_aCursorList.size() > 0) {
     QFont font;
     QFontMetrics metrics(font);
-    int x = m_valueTextWidth;
+    int x = 5;
     int width = p.device()->width();
 
     p.save();
