@@ -142,6 +142,12 @@ TimeSpinBox::setSampleMax(qreal value)
 }
 
 void
+TimeSpinBox::setDecimals(int prec)
+{
+  ui->valueSpin->setDecimals(prec);
+}
+
+void
 TimeSpinBox::setTimeMin(qreal value)
 {
   this->minTime = value;

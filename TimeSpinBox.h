@@ -74,6 +74,8 @@ public:
   void setSampleMin(qreal);
   void setSampleMax(qreal);
 
+  void setDecimals(int);
+
   void setTimeMin(qreal);
   void setTimeMax(qreal);
 
