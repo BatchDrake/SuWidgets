@@ -39,37 +39,37 @@ class TimeSpinBox : public QWidget
 {
   Q_OBJECT
 
-  TimeSpinBoxUnit defaultUnit;
-  QVector<TimeSpinBoxUnit> units;
+  TimeSpinBoxUnit          m_defaultUnit;
+  QVector<TimeSpinBoxUnit> m_units;
 
-  qreal currSampleRate = 1;
-  qreal minTime = 0;
-  qreal maxTime = 60;
-  qreal time = 0;
+  qreal m_currSampleRate = 1;
+  qreal m_minTime        = 0;
+  qreal m_maxTime        = 60;
+  qreal m_time           = 0;
 
-  void adjustLimits(void);
+  void adjustLimits();
 
-  const TimeSpinBoxUnit *getCurrentSpinBoxUnit(void) const;
+  const TimeSpinBoxUnit *getCurrentSpinBoxUnit() const;
 
-  void connectAll(void);
+  void connectAll();
 
 public:
   explicit TimeSpinBox(QWidget *parent = nullptr);
   ~TimeSpinBox();
 
-  void addBasicTimeUnits(void);
+  void addBasicTimeUnits();
 
-  qreal samplesValue(void) const;
+  qreal samplesValue() const;
   void setSamplesValue(qreal);
 
-  qreal timeValue(void) const;
+  qreal timeValue() const;
   void setTimeValue(qreal);
 
-  qreal sampleMin(void) const;
-  qreal sampleMax(void) const;
+  qreal sampleMin() const;
+  qreal sampleMax() const;
 
-  qreal timeMin(void) const;
-  qreal timeMax(void) const;
+  qreal timeMin() const;
+  qreal timeMax() const;
 
   void setSampleMin(qreal);
   void setSampleMax(qreal);
@@ -79,27 +79,27 @@ public:
   void setTimeMin(qreal);
   void setTimeMax(qreal);
 
-  void clearUnits(void);
+  void clearUnits();
   void addUnit(QString, bool, qreal);
 
   void setBestUnits(bool timeRelative);
 
-  QString getCurrentUnitName(void) const;
-  bool    isCurrentUnitTimeRelative(void) const;
-  qreal   getCurrentUnitMultiplier(void) const;
+  QString getCurrentUnitName() const;
+  bool    isCurrentUnitTimeRelative() const;
+  qreal   getCurrentUnitMultiplier() const;
 
   void  setSampleRate(qreal);
-  qreal sampleRate(void) const;
+  qreal sampleRate() const;
 
 signals:
   void changed(qreal time, qreal samples);
 
 public slots:
-  void onChangeUnits(void);
-  void onValueChanged(void);
+  void onChangeUnits();
+  void onValueChanged();
 
 private:
-  Ui::TimeSpinBox *ui;
+  Ui::TimeSpinBox *m_ui;
 
 };
 

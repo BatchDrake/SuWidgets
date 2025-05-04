@@ -21,6 +21,7 @@
 #include <cmath>
 #include "ContextAwareSpinBox.h"
 #include <QProxyStyle>
+#include <QKeyEvent>
 
 class BlockCursorStyle : public QProxyStyle
 {
@@ -72,6 +73,25 @@ void
 ContextAwareSpinBox::focusOutEvent(QFocusEvent *event)
 {
   QDoubleSpinBox::focusOutEvent(event);
+}
+
+void
+ContextAwareSpinBox::keyPressEvent(QKeyEvent *event)
+{
+  auto prevVal = value();
+
+  QDoubleSpinBox::keyPressEvent(event);
+
+  // Anti-stall mechanism, compensates for a bug observed in SigDigger's
+  // line period spin when increasing and decreasing decimals with
+  // the keyboard arrows
+  if (event->key() == Qt::Key_Up || event->key() == Qt::Key_Down) {
+    if (prevVal == value()) {
+      clearFocus();
+      setFocus();
+      QDoubleSpinBox::keyPressEvent(event);
+    }
+  }
 }
 
 ContextAwareSpinBox::ContextAwareSpinBox(QWidget *parent) : QDoubleSpinBox(parent)

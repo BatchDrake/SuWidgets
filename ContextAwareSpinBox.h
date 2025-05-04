@@ -42,7 +42,7 @@ public:
   virtual qreal currentStep() const;
   virtual void focusInEvent(QFocusEvent *) override;
   virtual void focusOutEvent(QFocusEvent *) override;
-
+  virtual void keyPressEvent(QKeyEvent *) override;
   void setSingleStep(double val);
   void setMinimumStep();
   void setBlockEnabled(bool);

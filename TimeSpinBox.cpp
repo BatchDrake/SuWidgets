@@ -33,243 +33,243 @@ TimeSpinBoxUnit::TimeSpinBoxUnit(
 
 TimeSpinBoxUnit::TimeSpinBoxUnit()
 {
-  this->name = "(no units)";
-  this->timeRelative = false;
-  this->multiplier = 1;
+  name = "(no units)";
+  timeRelative = false;
+  multiplier = 1;
 }
 
 TimeSpinBox::TimeSpinBox(QWidget *parent) :
   QWidget(parent),
-  ui(new Ui::TimeSpinBox)
+  m_ui(new Ui::TimeSpinBox)
 {
-  ui->setupUi(this);
+  m_ui->setupUi(this);
 
-  this->clearUnits();
-  this->addBasicTimeUnits();
+  clearUnits();
+  addBasicTimeUnits();
 
-  ui->valueSpin->setKeyboardTracking(false);
+  m_ui->valueSpin->setKeyboardTracking(false);
 
-  this->connectAll();
+  connectAll();
 }
 
 TimeSpinBox::~TimeSpinBox()
 {
-  delete ui;
+  delete m_ui;
 }
 
 void
-TimeSpinBox::connectAll(void)
+TimeSpinBox::connectAll()
 {
   connect(
-        this->ui->unitCombo,
+        m_ui->unitCombo,
         SIGNAL(activated(int)),
         this,
         SLOT(onChangeUnits()));
 
   connect(
-        this->ui->valueSpin,
+        m_ui->valueSpin,
         SIGNAL(valueChanged(qreal)),
         this,
         SLOT(onValueChanged()));
 }
 
 void
-TimeSpinBox::addBasicTimeUnits(void)
+TimeSpinBox::addBasicTimeUnits()
 {
-  this->addUnit("s", true, 1);
-  this->addUnit("ms", true, 1e-3);
-  this->addUnit("µs", true, 1e-6);
-  this->addUnit("ns", true, 1e-9);
+  addUnit("s", true, 1);
+  addUnit("ms", true, 1e-3);
+  addUnit("µs", true, 1e-6);
+  addUnit("ns", true, 1e-9);
 }
 
 void
-TimeSpinBox::adjustLimits(void)
+TimeSpinBox::adjustLimits()
 {
-  const TimeSpinBoxUnit *units = this->getCurrentSpinBoxUnit();
+  const TimeSpinBoxUnit *units = getCurrentSpinBoxUnit();
   qreal min, max;
-  qreal currentTimeVal = this->timeValue();
+  qreal currentTimeVal = timeValue();
 
-  min = minTime / units->multiplier;
-  max = maxTime / units->multiplier;
+  min = m_minTime / units->multiplier;
+  max = m_maxTime / units->multiplier;
 
   if (!units->timeRelative) {
-    min *= this->currSampleRate;
-    max *= this->currSampleRate;
+    min *= m_currSampleRate;
+    max *= m_currSampleRate;
   }
 
-  this->ui->valueSpin->setMinimum(min);
-  this->ui->valueSpin->setMaximum(max);
+  m_ui->valueSpin->setMinimum(min);
+  m_ui->valueSpin->setMaximum(max);
 
-  this->setTimeValue(currentTimeVal);
+  setTimeValue(currentTimeVal);
 }
 
 qreal
-TimeSpinBox::sampleMin(void) const
+TimeSpinBox::sampleMin() const
 {
-  return this->minTime / this->currSampleRate;
+  return m_minTime / m_currSampleRate;
 }
 
 qreal
-TimeSpinBox::sampleMax(void) const
+TimeSpinBox::sampleMax() const
 {
-return this->maxTime / this->currSampleRate;
+return m_maxTime / m_currSampleRate;
 }
 
 qreal
-TimeSpinBox::timeMin(void) const
+TimeSpinBox::timeMin() const
 {
-  return this->minTime;
+  return m_minTime;
 }
 
 qreal
-TimeSpinBox::timeMax(void) const
+TimeSpinBox::timeMax() const
 {
-  return this->maxTime;
+  return m_maxTime;
 }
 
 void
 TimeSpinBox::setSampleMin(qreal value)
 {
-  this->minTime = value / this->currSampleRate;
-  this->adjustLimits();
+  m_minTime = value / m_currSampleRate;
+  adjustLimits();
 }
 
 void
 TimeSpinBox::setSampleMax(qreal value)
 {
-  this->maxTime = value / this->currSampleRate;
-  this->adjustLimits();
+  m_maxTime = value / m_currSampleRate;
+  adjustLimits();
 }
 
 void
 TimeSpinBox::setDecimals(int prec)
 {
-  ui->valueSpin->setDecimals(prec);
+  m_ui->valueSpin->setDecimals(prec);
 }
 
 void
 TimeSpinBox::setTimeMin(qreal value)
 {
-  this->minTime = value;
-  this->adjustLimits();
+  m_minTime = value;
+  adjustLimits();
 }
 
 void
 TimeSpinBox::setTimeMax(qreal value)
 {
-  this->maxTime = value;
-  this->adjustLimits();
+  m_maxTime = value;
+  adjustLimits();
 }
 
 const TimeSpinBoxUnit *
-TimeSpinBox::getCurrentSpinBoxUnit(void) const
+TimeSpinBox::getCurrentSpinBoxUnit() const
 {
-  int currentIndex = this->ui->unitCombo->currentIndex();
+  int currentIndex = m_ui->unitCombo->currentIndex();
 
-  if (currentIndex < 0 || currentIndex >= this->units.size())
-    return &this->defaultUnit;
+  if (currentIndex < 0 || currentIndex >= m_units.size())
+    return &m_defaultUnit;
 
-  return &this->units[currentIndex];
+  return &m_units[currentIndex];
 }
 
 qreal
-TimeSpinBox::samplesValue(void) const
+TimeSpinBox::samplesValue() const
 {
-  return this->time * this->currSampleRate;
+  return m_time * m_currSampleRate;
 }
 
 void
 TimeSpinBox::setSamplesValue(qreal value)
 {
-  const TimeSpinBoxUnit *units = this->getCurrentSpinBoxUnit();
+  const TimeSpinBoxUnit *units = getCurrentSpinBoxUnit();
 
-  this->time = value / this->currSampleRate;
+  m_time = value / m_currSampleRate;
 
   if (units->timeRelative)
-    value /= this->currSampleRate;
+    value /= m_currSampleRate;
 
-  this->ui->valueSpin->setValue(value / units->multiplier);
+  m_ui->valueSpin->setValue(value / units->multiplier);
 }
 
 qreal
-TimeSpinBox::timeValue(void) const
+TimeSpinBox::timeValue() const
 {
-  return this->time;
+  return m_time;
 }
 
 void
 TimeSpinBox::setTimeValue(qreal value)
 {
-  const TimeSpinBoxUnit *units = this->getCurrentSpinBoxUnit();
+  const TimeSpinBoxUnit *units = getCurrentSpinBoxUnit();
 
-  this->time = value;
+  m_time = value;
 
   if (!units->timeRelative)
-    value *= this->currSampleRate;
+    value *= m_currSampleRate;
 
-  this->ui->valueSpin->setValue(value / units->multiplier);
+  m_ui->valueSpin->setValue(value / units->multiplier);
 }
 
 void
-TimeSpinBox::clearUnits(void)
+TimeSpinBox::clearUnits()
 {
-  this->units.clear();
-  this->ui->unitCombo->clear();
+  m_units.clear();
+  m_ui->unitCombo->clear();
 }
 
 void
 TimeSpinBox::addUnit(QString name, bool timeRelative, qreal multiplier)
 {
-  this->units.push_back(TimeSpinBoxUnit(name, timeRelative, multiplier));
-  this->ui->unitCombo->addItem(name);
+  m_units.push_back(TimeSpinBoxUnit(name, timeRelative, multiplier));
+  m_ui->unitCombo->addItem(name);
 }
 
 QString
-TimeSpinBox::getCurrentUnitName(void) const
+TimeSpinBox::getCurrentUnitName() const
 {
-  return this->getCurrentSpinBoxUnit()->name;
+  return getCurrentSpinBoxUnit()->name;
 }
 
 bool
-TimeSpinBox::isCurrentUnitTimeRelative(void) const
+TimeSpinBox::isCurrentUnitTimeRelative() const
 {
-  return this->getCurrentSpinBoxUnit()->timeRelative;
+  return getCurrentSpinBoxUnit()->timeRelative;
 }
 
 qreal
-TimeSpinBox::getCurrentUnitMultiplier(void) const
+TimeSpinBox::getCurrentUnitMultiplier() const
 {
-  return this->getCurrentSpinBoxUnit()->multiplier;
+  return getCurrentSpinBoxUnit()->multiplier;
 }
 
 void
 TimeSpinBox::setSampleRate(qreal sampleRate)
 {
   if (sampleRate > 0) {
-    this->currSampleRate = sampleRate;
-    this->adjustLimits();
+    m_currSampleRate = sampleRate;
+    adjustLimits();
   }
 }
 
 qreal
-TimeSpinBox::sampleRate(void) const
+TimeSpinBox::sampleRate() const
 {
-  return this->currSampleRate;
+  return m_currSampleRate;
 }
 
 void
 TimeSpinBox::setBestUnits(bool timeRelative)
 {
   qreal absValue = std::abs(
-        timeRelative ? this->timeValue() : this->samplesValue());
+        timeRelative ? timeValue() : samplesValue());
 
   if (absValue > 0) {
     int bestUnitNdx = -1;
     qreal bestDigitCount = 0;
-    qreal oldTimeValue = this->timeValue();
-    for (int i = 0; i < this->units.size(); ++i) {
-      if (this->units[i].timeRelative == timeRelative) {
-        qreal digitCount = std::log10(absValue / this->units[i].multiplier);
+    qreal oldTimeValue = timeValue();
+    for (int i = 0; i < m_units.size(); ++i) {
+      if (m_units[i].timeRelative == timeRelative) {
+        qreal digitCount = std::log10(absValue / m_units[i].multiplier);
 
         if (digitCount >= 0) {
           if (bestUnitNdx == -1 || digitCount < bestDigitCount) {
@@ -281,39 +281,39 @@ TimeSpinBox::setBestUnits(bool timeRelative)
     }
 
     if (bestUnitNdx != -1) {
-      this->ui->unitCombo->setCurrentIndex(bestUnitNdx);
-      this->adjustLimits();
-      this->setTimeValue(oldTimeValue);
+      m_ui->unitCombo->setCurrentIndex(bestUnitNdx);
+      adjustLimits();
+      setTimeValue(oldTimeValue);
     }
   }
 }
 
 /////////////////////////////////// Slots //////////////////////////////////////
 void
-TimeSpinBox::onChangeUnits(void)
+TimeSpinBox::onChangeUnits()
 {
-  qreal oldTimeValue = this->timeValue();
-  this->adjustLimits();
-  this->setTimeValue(oldTimeValue);
+  qreal oldTimeValue = timeValue();
+  adjustLimits();
+  setTimeValue(oldTimeValue);
 }
 
 void
-TimeSpinBox::onValueChanged(void)
+TimeSpinBox::onValueChanged()
 {
-  const TimeSpinBoxUnit *units = this->getCurrentSpinBoxUnit();
-  qreal value = this->ui->valueSpin->value();
-  qreal current = this->time / units->multiplier;
+  const TimeSpinBoxUnit *units = getCurrentSpinBoxUnit();
+  qreal value = m_ui->valueSpin->value();
+  qreal current = m_time / units->multiplier;
 
   if (!units->timeRelative)
-    current /= this->currSampleRate;
+    current /= m_currSampleRate;
 
   if (std::abs(value - current) >= 1e-2) {
     if (!units->timeRelative)
-      value /= this->currSampleRate;
+      value /= m_currSampleRate;
 
-    this->time = value * units->multiplier;
+    m_time = value * units->multiplier;
 
-    emit changed(this->timeValue(), this->samplesValue());
+    emit changed(timeValue(), samplesValue());
   }
 }
 
