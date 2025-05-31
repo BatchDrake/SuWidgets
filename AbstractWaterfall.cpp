@@ -1049,29 +1049,13 @@ void AbstractWaterfall::setNewFftData(
     QDateTime const &t,
     bool looped)
 {
+  bool shouldAddTimestamp = false;
+
   /** FIXME **/
   if (!m_Running)
     m_Running = true;
 
   quint64 tnow_ms = SCAST(quint64, t.toMSecsSinceEpoch());
-
-  if (looped) {
-    TimeStamp ts;
-
-    ts.counter = m_TimeStampCounter;
-    ts.timeStampText =
-      m_lastFft.toLocalTime().toString("hh:mm:ss.zzz")
-      + " - "
-      + t.toLocalTime().toString("hh:mm:ss.zzz");
-    ts.utcTimeStampText =
-      m_lastFft.toUTC().toString("hh:mm:ss.zzzZ")
-      + " - "
-      + t.toUTC().toString("hh:mm:ss.zzzZ");
-    ts.marker = true;
-
-    m_TimeStamps.push_front(ts);
-    m_TimeStampCounter = 0;
-  }
 
   m_fftData = fftData;
   m_fftDataSize = size;
@@ -1080,17 +1064,6 @@ void AbstractWaterfall::setNewFftData(
   if (m_tentativeCenterFreq != 0) {
     m_tentativeCenterFreq = 0;
     m_DrawOverlay = true;
-  }
-
-  if (m_TimeStampCounter >= m_TimeStampSpacing) {
-    TimeStamp ts;
-
-    ts.counter = m_TimeStampCounter;
-    ts.timeStampText = t.toLocalTime().toString("hh:mm:ss.zzz");
-    ts.utcTimeStampText = t.toUTC().toString("hh:mm:ss.zzzZ");
-
-    m_TimeStamps.push_front(ts);
-    m_TimeStampCounter = 0;
   }
 
   if (wfData != nullptr && size > 0) {
@@ -1107,14 +1080,35 @@ void AbstractWaterfall::setNewFftData(
         }
         this->averageFftData();
         this->addNewWfLine(m_accum.data(), size, line_count);
+        shouldAddTimestamp = true;
         this->resetFftAccumulator();
         m_TimeStampCounter += line_count;
       }
     } else {
       tlast_wf_ms = tnow_ms;
       this->addNewWfLine(wfData, size, 1);
+      shouldAddTimestamp = true;
       ++m_TimeStampCounter;
     }
+  }
+
+  shouldAddTimestamp = shouldAddTimestamp && m_TimeStampCounter >= m_TimeStampSpacing;
+
+  if (shouldAddTimestamp || looped) {
+    TimeStamp ts;
+
+    ts.counter          = m_TimeStampCounter;
+    ts.timeStampText    = t.toLocalTime().toString("hh:mm:ss.zzz");
+    ts.utcTimeStampText = t.toUTC().toString("hh:mm:ss.zzzZ");
+
+    if (looped) {
+      ts.timeStampText    = m_lastFft.toLocalTime().toString("hh:mm:ss.zzz") + " - " + ts.timeStampText;
+      ts.utcTimeStampText = m_lastFft.toUTC().toString("hh:mm:ss.zzzZ") + " - " + ts.utcTimeStampText;
+      ts.marker           = true;
+    }
+
+    m_TimeStamps.push_front(ts);
+    m_TimeStampCounter = 0;
   }
 
   draw();
