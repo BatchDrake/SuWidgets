@@ -1,5 +1,5 @@
 //
-//    MultiToolBox.h: Description
+//    MultiToolBox.h: Toolbox that enables multiple opened sections
 //    Copyright (C) 2021 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

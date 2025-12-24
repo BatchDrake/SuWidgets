@@ -1,6 +1,6 @@
 //
-//    SuWidgetsHelpers.h: Common helper functions and methods
-//    Copyright (C) 2020 Gonzalo José Carracedo Carballal
+//    SuWidgetsHelpers.h
+//    Copyright (C) 2025 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as
@@ -16,6 +16,7 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
+
 #ifndef SUWIDGETSHELPERS_H
 #define SUWIDGETSHELPERS_H
 
@@ -85,6 +86,7 @@ class SuWidgetsHelpers {
       SUSCOUNT count = 0;
     };
 
+    static QList<QString> &licensing();
     static QString formatPowerOf10(qreal value);
     static QString formatBinaryQuantity(qint64 value, QString units = "B");
     static int getWidgetTextWidth(const QWidget *widget, QString const &text);

@@ -1,5 +1,5 @@
 //
-//    SciSpinBoxPlugin: Construct SciSpinBoxs
+//    SciSpinBoxPlugin.h: Construct SciSpinBoxes
 //    Copyright (C) 2018 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

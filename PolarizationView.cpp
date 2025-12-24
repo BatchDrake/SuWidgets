@@ -1,5 +1,5 @@
 //
-//    PolarizationView.cpp: description
+//    PolarizationView.cpp: Polarization widget
 //    Copyright (C) 2024 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

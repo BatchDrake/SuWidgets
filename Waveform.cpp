@@ -1,5 +1,5 @@
 //
-//    Waveform.h: Time view widget
+//    Waveform.cpp: Time view widget
 //    Copyright (C) 2020 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

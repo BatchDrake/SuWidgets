@@ -1,6 +1,6 @@
 //
-//    SuWidgetsHelpers.cpp: Common helper functions
-//    Copyright (C) 2020 Gonzalo José Carracedo Carballal
+//    SuWidgetsHelpers.cpp
+//    Copyright (C) 2025 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as
@@ -24,6 +24,10 @@
 #include <iostream>
 #include <QLayout>
 
+#include "LICENSE.Apache2.h"
+#include "LICENSE.BSD2.h"
+#include "LICENSE.LGPL3.h"
+
 #ifndef SUWIDGETS_PKGVERSION
 #  define SUWIDGETS_PKGVERSION \
   "custom build on " __DATE__ " at " __TIME__ " (" __VERSION__ ")"
@@ -33,6 +37,7 @@
 #   define localtime_r(T,Tm) (localtime_s(Tm,T) ? NULL : Tm)
 #endif
 
+static QList<QString> g_license;
 
 SuWidgetsObjectBlocker::SuWidgetsObjectBlocker(QObject *obj)
 {
@@ -52,6 +57,19 @@ SuWidgetsHelpers::SuWidgetsHelpers()
 {
 
 }
+
+QList<QString> &
+SuWidgetsHelpers::licensing()
+{
+  if (g_license.isEmpty()) {
+    g_license.push_back(bin2c_LICENSE_data);
+    g_license.push_back(bin2c_LICENSE_Apache2_data);
+    g_license.push_back(bin2c_LICENSE_BSD2_data);
+  }
+
+  return g_license;
+}
+
 
 QString
 SuWidgetsHelpers::version(void)

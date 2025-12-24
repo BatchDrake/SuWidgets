@@ -1,6 +1,6 @@
 //
-//    filename: description
-//    Copyright (C) 2018 Gonzalo José Carracedo Carballal
+//    TVDisplayPlugin.cpp
+//    Copyright (C) 2025 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as
@@ -16,6 +16,7 @@
 //    License along with this program.  If not, see
 //    <http://www.gnu.org/licenses/>
 //
+
 #include "TVDisplay.h"
 #include "TVDisplayPlugin.h"
 

@@ -1,5 +1,5 @@
 //
-//    SciSpinBox.cpp: description
+//    SciSpinBox.cpp
 //    Copyright (C) 2023 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

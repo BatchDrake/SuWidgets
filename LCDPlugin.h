@@ -1,5 +1,5 @@
 //
-//    filename: description
+//    LCDPlugin.h: Liquid Crystal Display (7-segment display)
 //    Copyright (C) 2018 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

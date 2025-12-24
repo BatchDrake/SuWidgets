@@ -1,5 +1,5 @@
 //
-//    ContextAwareSpinBoxPlugin.h: description
+//    ContextAwareSpinBoxPlugin.h: Context-Aware Spin Box
 //    Copyright (C) 2023 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

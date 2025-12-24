@@ -1,5 +1,5 @@
 //
-//    PolarizationView.h: description
+//    PolarizationView.h: Polarization widget
 //    Copyright (C) 2024 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

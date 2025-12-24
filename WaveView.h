@@ -1,5 +1,5 @@
 //
-//    WaveView.cpp: Draw rescaled views of the same waveform
+//    WaveView.h: Draw rescaled views of the same waveform
 //    Copyright (C) 2022 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

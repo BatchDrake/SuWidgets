@@ -1,5 +1,5 @@
 //
-//    filename: description
+//    FrequencySpinBox.cpp: Frequency spinbox widget
 //    Copyright (C) 2018 Gonzalo José Carracedo Carballal
 //
 //    This program is free software: you can redistribute it and/or modify

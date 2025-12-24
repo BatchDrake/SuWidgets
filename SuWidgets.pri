@@ -31,7 +31,10 @@ include(abstractwaterfall.pri)
 HEADERS += ThrottleableWidget.h \
     Version.h \
     SuWidgetsHelpers.h \
-    WFHelpers.h
+    WFHelpers.h \
+    LICENSE.LGPL3.h \
+    LICENSE.Apache2.h \
+    LICENSE.BSD2.h
 
 SOURCES += ThrottleableWidget.cpp \
     SuWidgetsHelpers.cpp \
